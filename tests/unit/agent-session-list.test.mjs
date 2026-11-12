@@ -9,15 +9,14 @@ import {
   uniqueSessions,
 } from "../../src/features/agent-status/sessionList.ts";
 import { resolveIslandPage } from "../../src/windows/island/features.ts";
-import { shownEffort } from "../../src/features/agent-status/effortLabels.ts";
 
 const session = (overrides = {}) => ({
-  provider: "claudeCode",
+  provider: "cindy",
   sessionId: "s1",
   cwd: "E:\\Projects\\fly-island",
   title: "设置界面完善思路",
   model: "Opus 5.5",
-  effort: "medium",
+  effort: null,
   phase: "running",
   lastMessage: "先看一下现有代码。",
   updatedAt: 1_800_000_000_000,
@@ -81,9 +80,9 @@ test("the Agent page fits the session rows set in Settings", async () => {
   // The tallest choice still fits the native window (656px).
   assert.ok(getAgentPageExpandedHeight(MAX_AGENT_VISIBLE_ROWS) <= 656);
   // Cards (62px, 6px apart) and compact rows (34px, 4px apart) size the page by their own rows.
-  assert.equal(getAgentPageExpandedHeight(4, 0, "cards") - getAgentPageExpandedHeight(3, 0, "cards"), 68);
-  assert.equal(getAgentPageExpandedHeight(4, 0, "compact") - getAgentPageExpandedHeight(3, 0, "compact"), 38);
-  assert.equal(getAgentPageExpandedHeight(1, 0, "cards"), getAgentPageExpandedHeight(0, 0, "cards") + 62 + 6 - 6 + 6);
+  assert.equal(getAgentPageExpandedHeight(4, "cards") - getAgentPageExpandedHeight(3, "cards"), 68);
+  assert.equal(getAgentPageExpandedHeight(4, "compact") - getAgentPageExpandedHeight(3, "compact"), 38);
+  assert.equal(getAgentPageExpandedHeight(1, "cards"), getAgentPageExpandedHeight(0, "cards") + 62 + 6 - 6 + 6);
   // Flat rows are the view; the view, archive motion and card effects are no longer settings,
   // so whatever an older version saved loads as the default.
   assert.equal(DEFAULT_SETTINGS.agentSessionView, "list");
@@ -91,62 +90,47 @@ test("the Agent page fits the session rows set in Settings", async () => {
   assert.equal(DEFAULT_SETTINGS.agentSessionSort, "status");
   assert.equal(normalizeSettings({ agentSessionSort: "firstSeen" }).agentSessionSort, "firstSeen");
   assert.equal(normalizeSettings({ agentSessionGroup: "project" }).agentSessionGroup, "project");
-  assert.equal(normalizeSettings({ agentSessionGroup: "tree" }).agentSessionGroup, "computer");
+  // One computer now, so grouping by computer is gone: an older value loads as no headings.
+  assert.equal(DEFAULT_SETTINGS.agentSessionGroup, "none");
+  assert.equal(normalizeSettings({ agentSessionGroup: "computer" }).agentSessionGroup, "none");
   assert.equal(normalizeSettings({ agentArchiveMotion: "dissolve" }).agentArchiveMotion, "slide");
   assert.equal(normalizeSettings({ agentCardEffects: "sparkle" }).agentCardEffects, "off");
   assert.equal(normalizeSettings({ agentVisibleRows: 5 }).agentVisibleRows, DEFAULT_SETTINGS.agentVisibleRows);
   assert.equal(DEFAULT_SETTINGS.agentVisibleRows, 2);
   // Rows, running time and hiding quit sessions are no longer settings: always the default.
   assert.equal(normalizeSettings({ agentShowElapsed: true }).agentShowElapsed, false);
-  assert.equal(normalizeSettings({ agentHideClosed: false }).agentHideClosed, true);
   assert.equal(DEFAULT_SETTINGS.agentSessionHours, 2);
 });
 
-test("plugins rename an agent's effort for display only", () => {
-  const labels = { claudeCode: { medium: "xhigh", high: "max" } };
-  assert.equal(shownEffort("claudeCode", "medium", labels), "xhigh");
-  assert.equal(shownEffort("claudeCode", "High", labels), "max");
-  assert.equal(shownEffort("claudeCode", "low", labels), "low");
-  assert.equal(shownEffort("codex", "medium", labels), "medium");
-  assert.equal(shownEffort("claudeCode", null, labels), null);
-  assert.equal(modelLabel("Opus 5.5", shownEffort("claudeCode", "medium", labels)), "Opus 5.5 · Xhigh");
-});
-
-test("sessions arrange by light or time, under computer, project or no headings", async () => {
+test("sessions arrange by light or time, under project headings or none", async () => {
   const { arrangeSessions } = await import("../../src/features/agent-status/sessionList.ts");
-  const s = (id, updatedAt, phase = "completed", extra = {}) => ({ provider: "claudeCode", sessionId: id, phase, updatedAt, cwd: null, ...extra });
-  const ids = (groups) => groups.map((group) => [group.host, group.project, group.sessions.map((session) => session.sessionId)]);
+  const s = (id, updatedAt, phase = "completed", extra = {}) => ({ provider: "cindy", sessionId: id, phase, updatedAt, cwd: null, ...extra });
+  const ids = (groups) => groups.map((group) => [group.project, group.sessions.map((session) => session.sessionId)]);
   const sessions = [
     s("done", 50),
-    s("asks", 10, "completed", { replyAsks: true }),
-    s("waits", 20, "waiting", { remoteHost: "zcm6", cwd: "/home/u/fly-island" }),
+    s("asks", 10, "completed"),
+    s("waits", 20, "waiting", { cwd: "/home/u/fly-island" }),
     s("runs", 40, "running", { cwd: "E:/fly-island-lanes/3" }),
-    s("old", 30, "running", { remoteHost: "nc-e" }),
+    s("old", 30, "running"),
   ];
-  assert.deepEqual(ids(arrangeSessions(sessions, "status", "computer")), [
-    [null, null, ["asks", "runs", "done"]],
-    ["zcm6", null, ["waits"]],
-    ["nc-e", null, ["old"]],
-  ]);
-  assert.deepEqual(ids(arrangeSessions(sessions, "recent", "none")), [[null, null, ["done", "runs", "old", "waits", "asks"]]]);
+  assert.deepEqual(ids(arrangeSessions(sessions, "status", "none")), [[null, ["waits", "runs", "old", "done", "asks"]]]);
+  assert.deepEqual(ids(arrangeSessions(sessions, "recent", "none")), [[null, ["done", "runs", "old", "waits", "asks"]]]);
+  // A lane folder belongs to its project, so it groups under fly-island too.
   assert.deepEqual(ids(arrangeSessions(sessions, "status", "project")), [
-    ["zcm6", "fly-island", ["waits"]],
-    [null, null, ["asks", "done"]],
-    [null, "fly-island", ["runs"]],
-    ["nc-e", null, ["old"]],
+    ["fly-island", ["waits", "runs"]],
+    [null, ["old", "done", "asks"]],
   ]);
-  assert.deepEqual(ids(arrangeSessions([s("x", 1, "running", { remoteHost: "zcm6" })], "status", "computer")), [["zcm6", null, ["x"]]]);
-  assert.deepEqual(arrangeSessions([], "status", "computer"), []);
+  assert.deepEqual(arrangeSessions([], "status", "none"), []);
   // First seen keeps the order a session had when the island first listed it, however it writes after.
   const first = [s("a", 100), s("b", 200)];
-  assert.deepEqual(ids(arrangeSessions(first, "firstSeen", "none"))[0][2], ["b", "a"]);
-  assert.deepEqual(ids(arrangeSessions([s("a", 900), s("b", 200), s("c", 300)], "firstSeen", "none"))[0][2], ["c", "b", "a"]);
+  assert.deepEqual(ids(arrangeSessions(first, "firstSeen", "none"))[0][1], ["b", "a"]);
+  assert.deepEqual(ids(arrangeSessions([s("a", 900), s("b", 200), s("c", 300)], "firstSeen", "none"))[0][1], ["c", "b", "a"]);
 });
 
-test("a session listed twice (a Codex thread over several rollout pages) keeps only its newest entry", () => {
-  const older = session({ provider: "codex", sessionId: "t1", lastMessage: "第一页", updatedAt: 1_000 });
-  const newer = session({ provider: "codex", sessionId: "t1", lastMessage: "最新一页", updatedAt: 2_000 });
-  const other = session({ sessionId: "t1" });
+test("a session listed twice keeps only its newest entry", () => {
+  const older = session({ sessionId: "t1", lastMessage: "旧的一页", updatedAt: 1_000 });
+  const newer = session({ sessionId: "t1", lastMessage: "最新一页", updatedAt: 2_000 });
+  const other = session({ sessionId: "t2" });
   assert.deepEqual(uniqueSessions([older, other, newer]), [other, newer]);
   const distinct = [newer, other];
   assert.equal(uniqueSessions(distinct), distinct);

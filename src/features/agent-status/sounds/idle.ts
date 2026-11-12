@@ -46,8 +46,3 @@ export function takeIdleSessions(
   }
   return due;
 }
-
-/** Whether a session just began compacting its context (Claude Code's PreCompact hook). */
-export function compactStarted(wasCompacting: boolean | undefined, session: Pick<AgentSessionSummary, "compacting">): boolean {
-  return wasCompacting === false && session.compacting === true;
-}

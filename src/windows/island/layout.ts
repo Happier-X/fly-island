@@ -107,16 +107,10 @@ const AGENT_ROWS: Record<AgentSessionView, { height: number; gap: number }> = {
   cards: { height: 62, gap: 6 },
   compact: { height: 34, gap: 4 },
 };
-// The usage row above the list (both agents' quota rings): 22 plus 6 below it (AgentQuotaRings.css).
-const AGENT_USAGE_HEIGHT = 28;
-
-/**
- * Expanded height that fits exactly `rows` Agent sessions, shown as `view`, below `usageLines`
- * usage lines (true: one).
- */
-export function getAgentPageExpandedHeight(rows: number, usageLines: number | boolean = 0, view: AgentSessionView = "list") {
+/** Expanded height that fits exactly `rows` Agent sessions, shown as `view`. */
+export function getAgentPageExpandedHeight(rows: number, view: AgentSessionView = "list") {
   const { height, gap } = AGENT_ROWS[view];
-  return AGENT_PAGE_CHROME_HEIGHT + Number(usageLines) * AGENT_USAGE_HEIGHT + rows * (height + gap) - gap;
+  return AGENT_PAGE_CHROME_HEIGHT + rows * (height + gap) - gap;
 }
 
 /** Expanded height around an alert's one-session card, whose row measured `rowHeight`. */

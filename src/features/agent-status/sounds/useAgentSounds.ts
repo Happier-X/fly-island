@@ -1,20 +1,19 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { agentSessionsInFront, type AgentSessionSummary } from "../api";
+import { agentWindowInFront, type AgentSessionSummary } from "../api";
 import { sessionKey } from "../unseen";
 import { announceTiming, emptyAnnounced, isUsersTurn, settledFinishes, settledWaits } from "../announce";
 import { soundFor, type AgentSoundEvent } from "./events";
-import { compactStarted, emptyIdleSessions, takeIdleSessions } from "./idle";
+import { emptyIdleSessions, takeIdleSessions } from "./idle";
 import { playAgentSound } from "./player";
 import type { AgentSoundSettings } from "./storage";
 import { useAgentSoundSettings } from "./useAgentSoundSettings";
 
 /** The most important sound wins when several sessions change at once. */
-const PRIORITY: AgentSoundEvent[] = ["error", "approval", "question", "complete", "compact", "idle", "start", "ack"];
+const PRIORITY: AgentSoundEvent[] = ["error", "question", "complete", "idle", "start", "ack"];
 
 /** How often finished, unread sessions are checked for the idle sound. */
 const IDLE_CHECK_MS = 30_000;
 
-type Seen = { phase: AgentSessionSummary["phase"]; compacting: boolean };
 type Change = { event: AgentSoundEvent; session: AgentSessionSummary };
 
 /**
@@ -27,7 +26,7 @@ type Change = { event: AgentSoundEvent; session: AgentSessionSummary };
  */
 export function useAgentSounds(sessions: AgentSessionSummary[], canPlay: boolean, unseen: ReadonlySet<string> = new Set()) {
   const [settings] = useAgentSoundSettings();
-  const seenRef = useRef<Map<string, Seen> | null>(null);
+  const seenRef = useRef<Map<string, AgentSessionSummary["phase"]> | null>(null);
   const idleRef = useRef(emptyIdleSessions());
   const announcedRef = useRef(emptyAnnounced());
   const timersRef = useRef(new Set<number>());
@@ -38,14 +37,12 @@ export function useAgentSounds(sessions: AgentSessionSummary[], canPlay: boolean
 
   useEffect(() => {
     const previous = seenRef.current;
-    seenRef.current = new Map(sessions.map((session) => [sessionKey(session), { phase: session.phase, compacting: session.compacting === true }]));
+    seenRef.current = new Map(sessions.map((session) => [sessionKey(session), session.phase]));
     // The first look only takes note of where every session stands.
     if (!previous) return;
     const changes = sessions.flatMap((session): Change[] => {
-      const before = previous.get(sessionKey(session));
-      const event = soundFor(before?.phase, session.phase, session);
-      if (event) return [{ event, session }];
-      return compactStarted(before?.compacting, session) ? [{ event: "compact", session }] : [];
+      const event = soundFor(previous.get(sessionKey(session)), session.phase);
+      return event ? [{ event, session }] : [];
     });
     const later = (ms: number, play: () => void) => {
       const timer = window.setTimeout(() => {
@@ -54,9 +51,9 @@ export function useAgentSounds(sessions: AgentSessionSummary[], canPlay: boolean
       }, ms);
       timersRef.current.add(timer);
     };
-    // A turn that ended done or with "your turn"; a wait mid-turn on an approval or a question.
-    const finished = changes.filter((change) => (change.event === "complete" || change.event === "question") && change.session.phase === "completed");
-    const waits = changes.filter((change) => (change.event === "approval" || change.event === "question") && change.session.phase === "waiting");
+    // A turn that ended done; a wait mid-turn on a question.
+    const finished = changes.filter((change) => change.event === "complete" && change.session.phase === "completed");
+    const waits = changes.filter((change) => change.event === "question" && change.session.phase === "waiting");
     const now = changes.filter((change) => !finished.includes(change) && !waits.includes(change));
     // A failed turn sounds at once, but only when it was the user's own task.
     playOne(now.filter((change) => change.event !== "error" || isUsersTurn(change.session)), latest.current);
@@ -68,7 +65,7 @@ export function useAgentSounds(sessions: AgentSessionSummary[], canPlay: boolean
     }
     if (waits.length > 0) {
       later(announceTiming.waitMs, () => {
-        const settled = settledWaits(waits.map((change) => change.session), latest.current.sessions, announcedRef.current, Date.now());
+        const settled = settledWaits(waits.map((change) => change.session), latest.current.sessions, announcedRef.current);
         playOne(waits.filter((change) => settled.includes(change.session)), latest.current);
       });
     }
@@ -90,26 +87,26 @@ export function useAgentSounds(sessions: AgentSessionSummary[], canPlay: boolean
   }, []);
 }
 
-/** Plays the most important of `changes` that the settings allow, leaving out sessions in front. */
+/** Plays the most important of `changes` that the settings allow, staying quiet while Cindy is in front. */
 function playOne(candidates: Change[], { settings, canPlay }: { settings: AgentSoundSettings; canPlay: boolean }) {
   if (!canPlay || !settings.enabled) return;
   const changes = candidates.filter((change) => settings.events[change.event]);
   if (changes.length === 0) return;
   const pick = (from: Change[]) => PRIORITY.map((event) => from.find((change) => change.event === event)).find(Boolean);
-  // Sounds about the user's own typing (start, a new prompt) are wanted while the terminal is in front.
-  const needsCheck = changes.filter((change) => change.event !== "start" && change.event !== "ack");
-  if (!settings.quietWhenInFront || needsCheck.length === 0) {
+  // Sounds about the user's own typing (start, a new prompt) are wanted while Cindy is in front.
+  const typing = (change: Change) => change.event === "start" || change.event === "ack";
+  if (!settings.quietWhenInFront || changes.every(typing)) {
     const chosen = pick(changes);
     if (chosen) playAgentSound(chosen.event, settings);
     return;
   }
-  void agentSessionsInFront(needsCheck.map((change) => change.session))
+  void agentWindowInFront()
     .catch((error: unknown) => {
-      console.error("Failed to check which agent windows are in front", error);
-      return [] as string[];
+      console.error("Failed to check whether Cindy is in front", error);
+      return false;
     })
     .then((inFront) => {
-      const chosen = pick(changes.filter((change) => !inFront.includes(change.session.sessionId)));
+      const chosen = pick(inFront ? changes.filter(typing) : changes);
       if (chosen) playAgentSound(chosen.event, settings);
     });
 }

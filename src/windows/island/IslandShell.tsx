@@ -1,7 +1,6 @@
 import { getEffectiveAppearanceMode } from "../../features/appearance/settings";
 import { useState, type ReactNode } from "react";
 import type { AgentSession } from "../../features/agent-status/session";
-import type { QuotaAlert } from "../../features/agent-status/quotaAlerts";
 import type { AgentVisualState } from "../../features/agent-status/status";
 import type { AppearanceMode, CollapsedItem, CollapsedSlot, PageDot } from "../../features/appearance/types";
 import type { MediaState } from "../../features/media/api";
@@ -61,8 +60,6 @@ type IslandShellProps = {
   features: IslandFeatures;
   /** Files on the shelf for the collapsed bar, or null when it does not show them. */
   shelfCount: number | null;
-  /** Claude's or Codex's usage reaching the alert level, or resetting. */
-  quotaAlert?: QuotaAlert | null;
   onOpenPage: (page: IslandPage) => void;
   onWindowDragStart: () => void;
   onCollapse: () => void;
@@ -111,7 +108,6 @@ export function IslandShell({
   agentStatusLabel,
   features,
   shelfCount,
-  quotaAlert = null,
   onOpenPage,
   onWindowDragStart,
   onCollapse,
@@ -215,7 +211,6 @@ export function IslandShell({
           mediaState={mediaState}
           showMusic={features.music}
           shelfCount={shelfCount}
-          quotaAlert={quotaAlert}
           agentVisualState={agentVisualState}
           onOpenPage={onOpenPage}
           onOpenMessages={onOpenMessages}

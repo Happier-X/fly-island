@@ -25,13 +25,12 @@ function turnOf(session: AgentSessionSummary) {
 }
 
 /**
- * Whether the session waits on the user: stuck mid-turn on an approval or a question, a finished
- * turn that asked something, or a failed one. These are what the island keeps asking about until
- * the user has looked (roadmap B15).
+ * Whether the session waits on the user: stuck mid-turn on a question or a plan to confirm, or a
+ * failed one. These are what the island keeps asking about until the user has looked.
  */
 export function asksUser(session: AgentSessionSummary) {
   const light = sessionLight(session);
-  return light === "needs" || light === "yourTurn" || light === "failed";
+  return light === "needs" || light === "failed";
 }
 
 /**

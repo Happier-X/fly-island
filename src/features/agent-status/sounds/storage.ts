@@ -24,9 +24,8 @@ export const DEFAULT_AGENT_SOUND_SETTINGS: AgentSoundSettings = {
   pack: BUILTIN_PACK,
   // Starting a session and sending a prompt happen at the keyboard; a sound there is opt-in.
   // A finished session left unread is highlighted on the Agent page already; its sound is opt-in too.
-  // Only a task's end (done or failed) and a wait on the user sound: compacting and quota changes
-  // are steps along the way, and the quota alert still pops up on the island.
-  events: { start: false, complete: true, error: true, approval: true, question: true, ack: false, compact: false, idle: false, quotaLow: false, quotaReset: false },
+  // Only a task's end (done or failed) and a question waiting on the user sound.
+  events: { start: false, complete: true, error: true, question: true, ack: false, idle: false },
   quietWhenInFront: true,
   quietHours: { enabled: false, start: "22:00", end: "08:00" },
 };

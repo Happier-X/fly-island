@@ -71,15 +71,15 @@ export const TOUR_SHELF: FileShelfItem[] = [
 
 export const TOUR_SESSIONS: AgentSessionSummary[] = [
   {
-    provider: "claudeCode", sessionId: "a", cwd: "E:\\Projects\\fly-island", title: "灵动岛外形重做",
-    model: "Opus 5.5", effort: "medium", phase: "running", updatedAt: now - 20_000, turnStartedAt: now - 200_000,
-    permissionMode: "default", subagents: 0, host: { name: "Windows Terminal", exe: null, kind: "terminal" },
+    provider: "cindy", sessionId: "a", cwd: "E:\\Projects\\fly-island", title: "灵动岛外形重做",
+    model: "Opus 5.5", effort: null, phase: "running", updatedAt: now - 20_000, turnStartedAt: now - 200_000,
+    permissionMode: "default", contextTokens: 42_000, contextWindow: 200_000,
     lastMessage: "正在跑回归页，稍后汇报结果。",
   },
   {
-    provider: "codex", sessionId: "b", cwd: "E:\\Projects\\MioPicFlow", title: "恢复 Windows 发布机环境",
-    model: "gpt-6-astra", effort: "high", phase: "waiting", updatedAt: now - 14 * 60_000, turnStartedAt: null,
-    permissionMode: "default", host: { name: "Codex", exe: null, kind: "app" },
+    provider: "cindy", sessionId: "b", cwd: "E:\\Projects\\MioPicFlow", title: "恢复 Windows 发布机环境",
+    model: "gpt-6-astra", effort: null, phase: "waiting", updatedAt: now - 14 * 60_000, turnStartedAt: null,
+    permissionMode: "default",
     lastMessage: "关闭系统代理后国内网站立即恢复，要我继续排查 Clash 吗？",
   },
 ];

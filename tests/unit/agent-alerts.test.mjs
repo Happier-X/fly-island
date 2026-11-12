@@ -3,8 +3,8 @@ import test from "node:test";
 import { alertKind, detectAlerts, phasesOf } from "../../src/features/agent-status/alerts.ts";
 
 const session = (sessionId, phase) => ({
-  provider: "claudeCode", sessionId, cwd: null, title: sessionId, model: null, effort: null,
-  phase, lastMessage: null, updatedAt: 0, host: null, turnStartedAt: null,
+  provider: "cindy", sessionId, cwd: null, title: sessionId, model: null, effort: null,
+  phase, lastMessage: null, updatedAt: 0, turnStartedAt: null,
 });
 const ALL = { started: "everyTurn", completed: true, failed: true, waiting: true };
 
@@ -69,46 +69,10 @@ test("starts alert every turn, for new sessions only, or never", () => {
   assert.deepEqual(started(cAppears, [session("a", "completed"), session("b", "completed"), session("c", "running")], "newSession"), ["c"]);
 });
 
-test("the reply status marker decides how a finished turn alerts", () => {
-  assert.equal(alertKind("running", "completed", "yourTurn"), "waiting");
-  assert.equal(alertKind("running", "completed", "background"), null);
-  assert.equal(alertKind("running", "completed", "done"), "completed");
-  // The marker only speaks for a turn that just finished.
-  assert.equal(alertKind("completed", "completed", "yourTurn"), null);
-  assert.equal(alertKind("running", "failed", "yourTurn"), "failed");
-
-  const before = [session("a", "running"), session("b", "running"), session("c", "running")];
-  const after = [
-    { ...session("a", "completed"), replyMarker: "yourTurn" },
-    { ...session("b", "completed"), replyMarker: "background" },
-    { ...session("c", "completed"), replyMarker: "done" },
-  ];
-  const alerts = detectAlerts(phasesOf(before), after, ALL);
-  assert.deepEqual(alerts.map(({ kind, session }) => `${kind}:${session.sessionId}`), ["waiting:a", "completed:c"]);
-  // "Your turn" follows the waiting switch, not the completed one.
-  const noWaiting = detectAlerts(phasesOf(before), after, { ...ALL, waiting: false });
-  assert.deepEqual(noWaiting.map(({ session }) => session.sessionId), ["c"]);
-});
-
-test("without a marker, a finished reply that ends in a question mark alerts as completed", () => {
-  const before = [session("a", "running"), session("b", "running"), session("c", "running")];
-  const after = [
-    { ...session("a", "completed"), replyAsks: true },
-    { ...session("b", "completed"), replyAsks: false },
-    // The marker wins over the guess.
-    { ...session("c", "completed"), replyAsks: true, replyMarker: "done" },
-  ];
-  const alerts = detectAlerts(phasesOf(before), after, ALL);
-  // "要不要我顺便…？" is an offer; only the marker (or a question tool) asks for an answer.
-  assert.deepEqual(alerts.map(({ kind, session }) => `${kind}:${session.sessionId}`), ["completed:a", "completed:b", "completed:c"]);
-});
-
 test("reminders: once per wait, after the delay, for sessions still waiting on the user", async () => {
   const { isWaitingOnUser, takeDueReminders } = await import("../../src/features/agent-status/alerts.ts");
-  const { reminderSound } = await import("../../src/features/agent-status/sounds/events.ts");
   assert.equal(isWaitingOnUser(session("a", "waiting")), true);
-  assert.equal(isWaitingOnUser({ ...session("a", "completed"), replyMarker: "yourTurn" }), true);
-  assert.equal(isWaitingOnUser({ ...session("a", "completed"), replyMarker: "done" }), false);
+  assert.equal(isWaitingOnUser(session("a", "completed")), false);
   assert.equal(isWaitingOnUser(session("a", "running")), false);
 
   const state = { since: new Map(), reminded: new Set() };
@@ -127,10 +91,6 @@ test("reminders: once per wait, after the delay, for sessions still waiting on t
   const looked = (one) => one.sessionId === "w";
   takeDueReminders(fresh, [session("w", "waiting"), session("v", "waiting")], 0, 60_000, looked);
   assert.deepEqual(ids(takeDueReminders(fresh, [session("w", "waiting"), session("v", "waiting")], 61_000, 60_000, looked)), ["v"]);
-
-  assert.equal(reminderSound({ ...session("a", "waiting"), currentTool: { name: "AskUserQuestion", detail: null } }), "question");
-  assert.equal(reminderSound({ ...session("a", "completed"), replyMarker: "yourTurn" }), "question");
-  assert.equal(reminderSound({ ...session("a", "waiting"), currentTool: { name: "Bash", detail: "ls" } }), "approval");
 });
 
 test("by default only finished tasks, waits and questions pop up, and no reminder follows", async () => {

@@ -15,9 +15,7 @@ use tauri::{ipc::Response, AppHandle, Manager};
 const PACKS_DIR: &str = "sound-packs";
 const MANIFEST: &str = "pack.json";
 /// Mirrors AGENT_SOUND_EVENTS in src/features/agent-status/sounds/events.ts.
-pub(crate) const SOUND_EVENTS: [&str; 10] = [
-    "start", "complete", "error", "approval", "question", "ack", "compact", "idle", "quotaLow", "quotaReset",
-];
+pub(crate) const SOUND_EVENTS: [&str; 6] = ["start", "complete", "error", "question", "ack", "idle"];
 const EXTENSIONS: [&str; 5] = ["wav", "mp3", "ogg", "m4a", "flac"];
 /// Short notification sounds; anything larger is not one.
 const MAX_FILE_BYTES: usize = 4 * 1024 * 1024;

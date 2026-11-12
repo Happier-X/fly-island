@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isIslandMoving } from "../../lib/islandMotion";
 import { getAgentStatus, type AgentStatusSnapshot } from "./api";
-import { DEFAULT_AGENT_STATUS, listAgentStatuses } from "./status";
+import { DEFAULT_AGENT_STATUS } from "./status";
 
 /**
- * Polls agent status and keeps the previous snapshot when nothing the island renders has changed.
- * With `enabled` false (the status light switched off) it stops polling and reports idle.
+ * Polls what Cindy is doing and keeps the previous snapshot when nothing the island renders has
+ * changed. With `enabled` false (the status light switched off) it stops polling and reports idle.
  */
 export function useAgentStatus(enabled = true) {
-  const [agentStatus, setAgentStatus] =
-    useState<AgentStatusSnapshot>(DEFAULT_AGENT_STATUS);
+  const [agentStatus, setAgentStatus] = useState<AgentStatusSnapshot>(DEFAULT_AGENT_STATUS);
   const isRefreshingAgentStatus = useRef(false);
 
   const refreshAgentStatus = useCallback(async () => {
@@ -20,21 +19,13 @@ export function useAgentStatus(enabled = true) {
     isRefreshingAgentStatus.current = true;
     try {
       const snapshot = await getAgentStatus();
-      setAgentStatus((currentState) => {
-        const current = listAgentStatuses(currentState);
-        const next = listAgentStatuses(snapshot);
-        const unchanged =
-          currentState.statusPath === snapshot.statusPath &&
-          current.length === next.length &&
-          next.every((entry, index) =>
-            current[index].key === entry.key &&
-            current[index].label === entry.label &&
-            current[index].status.phase === entry.status.phase &&
-            current[index].status.taskId === entry.status.taskId &&
-            current[index].status.title === entry.status.title,
-          );
-        return unchanged ? currentState : snapshot;
-      });
+      setAgentStatus((current) =>
+        current.statusPath === snapshot.statusPath &&
+        current.cindy.phase === snapshot.cindy.phase &&
+        current.cindy.taskId === snapshot.cindy.taskId
+          ? current
+          : snapshot,
+      );
     } catch (error) {
       console.error("Failed to read agent status", error);
       setAgentStatus(DEFAULT_AGENT_STATUS);

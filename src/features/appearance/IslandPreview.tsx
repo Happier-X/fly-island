@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import claudeCodeIcon from "../../assets/brands/claude-code.png";
+import cindyIcon from "../../assets/brands/cindy.png";
 import { useTranslation } from "../../i18n";
 import { inkOn } from "../../utils/color";
 import { AgentPagePreview } from "./AgentPagePreview";
@@ -48,7 +48,7 @@ export function IslandPreview({ settings }: { settings: IslandSettings }) {
       <div className="island-preview__desktop">
         <div className={`${islandClass} island-preview__island--collapsed`}>
           <span className="island-preview__pulse" />
-          <img className="island-preview__provider" src={claudeCodeIcon} alt="" draggable={false} />
+          <img className="island-preview__provider" src={cindyIcon} alt="" draggable={false} />
           {settings.showCollapsedText && <span className="island-preview__task">{text.sessions.needs.title}</span>}
           <span className="island-preview__ring">1</span>
         </div>

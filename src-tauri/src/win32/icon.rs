@@ -1,6 +1,4 @@
-//! Icons as RGBA pixels: the icon an executable shows in Explorer, for labelling where an
-//! agent session runs (Orca, Windows Terminal, VS Code, ...), and the shell icon of a file or
-//! file type, for the file shelf.
+//! Icons as RGBA pixels: the shell icon of a file or file type, for the file shelf.
 
 use std::{ffi::c_void, mem::size_of};
 
@@ -15,7 +13,7 @@ use windows::{
         UI::{
             Controls::{IImageList, ILD_TRANSPARENT},
             Shell::{
-                ExtractIconExW, SHGetFileInfoW, SHGetImageList, SHFILEINFOW, SHGFI_SYSICONINDEX,
+                SHGetFileInfoW, SHGetImageList, SHFILEINFOW, SHGFI_SYSICONINDEX,
                 SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE,
             },
             WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO},
@@ -54,20 +52,6 @@ impl Drop for BitmapHandle {
             let _ = unsafe { DeleteObject(HGDIOBJ(self.0 .0)) };
         }
     }
-}
-
-/// The large (32 px at 100% scaling) icon of the executable at `path`, or `None` when it has
-/// none or it cannot be read.
-pub(crate) fn exe_icon(path: &str) -> Option<IconPixels> {
-    let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
-    let mut large = HICON::default();
-    // SAFETY: `wide` is a NUL-terminated UTF-16 path that outlives the call, and `large`
-    // is a valid place for one icon handle (nicons = 1).
-    let count = unsafe { ExtractIconExW(PCWSTR(wide.as_ptr()), 0, Some(&mut large), None, 1) };
-    if count == 0 || large.is_invalid() {
-        return None;
-    }
-    icon_pixels(&IconHandle(large))
 }
 
 /// Where [`shell_icon`] takes an icon from.
@@ -203,16 +187,6 @@ fn read_bgra(bitmap: &BitmapHandle, width: u32, height: u32) -> Option<Vec<u8>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn executables_with_an_icon_give_square_pixels_and_missing_files_none() {
-        let explorer = std::env::var("WINDIR").map(|dir| format!(r"{dir}\explorer.exe")).unwrap_or_default();
-        let icon = exe_icon(&explorer).expect("explorer.exe has an icon");
-        assert_eq!(icon.width, icon.height);
-        assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
-        assert!(icon.rgba.as_chunks::<4>().0.iter().any(|pixel| pixel[3] > 0));
-        assert!(exe_icon(r"C:\does\not\exist.exe").is_none());
-    }
 
     #[test]
     fn file_types_and_folders_have_shell_icons_without_the_file_existing() {

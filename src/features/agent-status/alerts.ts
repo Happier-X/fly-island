@@ -1,7 +1,6 @@
-import type { AgentSessionSummary, ReplyMarker } from "./api";
+import type { AgentSessionSummary } from "./api";
 import type { AgentAlertStarted, IslandSettings } from "../appearance/types";
 import { sessionKey } from "./unseen.ts";
-import { announcedEnding } from "./sessionLight.ts";
 
 /** What a session just did that the island pops up for. */
 export type AgentAlertKind = "started" | "completed" | "failed" | "waiting";
@@ -40,20 +39,13 @@ export function alertKindsOf(settings: Pick<IslandSettings, "agentAlertStarted" 
  * started); one that shows up finished is an old session coming into the listed time window,
  * not a turn that just ended. A turn starts when a finished session runs again; a stalled one
  * running again, or a waiting one answered, carries on the same turn.
- *
- * How a finished turn ended (`announcedEnding`: the reply status marker of roadmap B9; a reply that
- * merely ends in a question mark does not count) decides its alert: one
- * that waits for the user's reply alerts as waiting, one that waits for its own background task
- * does not alert (it goes on by itself), and a done one alerts as completed.
  */
-export function alertKind(before: Phase | undefined, after: Phase, marker: ReplyMarker | null = null): AgentAlertKind | null {
+export function alertKind(before: Phase | undefined, after: Phase): AgentAlertKind | null {
   if (after === "waiting" && before !== "waiting") return "waiting";
   if (after === "running" && (before === undefined || before === "completed" || before === "failed")) return "started";
   if (before === undefined) return null;
   if (after === "failed" && before !== "failed") return "failed";
-  if (after === "completed" && (before === "running" || before === "waiting" || before === "stale")) {
-    return marker === "yourTurn" ? "waiting" : marker === "background" ? null : "completed";
-  }
+  if (after === "completed" && (before === "running" || before === "waiting" || before === "stale")) return "completed";
   return null;
 }
 
@@ -69,7 +61,7 @@ export function detectAlerts(
   if (!previous) return [];
   return sessions.flatMap((session) => {
     const key = sessionKey(session);
-    const kind = alertKind(previous.phases.get(key), session.phase, announcedEnding(session));
+    const kind = alertKind(previous.phases.get(key), session.phase);
     if (!kind) return [];
     const on = kind === "started"
       ? kinds.started === "everyTurn" || (kinds.started === "newSession" && !previous.worked.has(key))
@@ -78,9 +70,9 @@ export function detectAlerts(
   });
 }
 
-/** A session that needs the user: waiting for approval or an answer, or (with the reply status marker) a finished turn ending on "your turn". */
+/** A session that needs the user: waiting on a question or a plan to confirm. */
 export function isWaitingOnUser(session: AgentSessionSummary) {
-  return session.phase === "waiting" || (session.phase === "completed" && session.replyMarker === "yourTurn");
+  return session.phase === "waiting";
 }
 
 /** Since when each session has waited on the user (`provider:sessionId` → Unix ms), and those already reminded. */

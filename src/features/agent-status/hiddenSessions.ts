@@ -8,11 +8,8 @@ export const MAX_HIDDEN = 200;
 
 /**
  * Sessions the user removed from the Agent page: `provider:sessionId` → the turn shown when it
- * was removed (when its prompt was sent, else when its file last changed). Some sessions never
- * report their end (the VS Code extensions skip SessionEnd), so they would stay listed as
- * running; removing only hides them, and one comes back when a new turn starts. Writes within the
- * same turn, such as the summary Claude Code adds while a session sits idle, do not bring it back.
- * Entries from before stored the last write, which is never earlier than the turn's start.
+ * was removed (when Cindy started it, else when it last changed). A session that keeps writing
+ * within the same turn would come back at once, so only a new turn brings it back.
  */
 export type HiddenSessions = Record<string, number>;
 

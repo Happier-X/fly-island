@@ -1,14 +1,11 @@
 import { useMemo } from "react";
 import type { IslandSettings } from "../appearance/types";
-import { countActiveSessions, filterSessions, isActivePhase } from "./sessionList";
+import { countActiveSessions, isActivePhase } from "./sessionList";
 import { useAgentSessions } from "./useAgentSessions";
 import { useHiddenSessions } from "./useHiddenSessions";
 import { useUnseenSessions } from "./useUnseenSessions";
 
-type AgentSessionSettings = Pick<
-  IslandSettings,
-  "agentStatusEnabled" | "agentSessionHours" | "agentShowClaudeCode" | "agentShowCodex" | "agentHideFinished" | "agentHideClosed"
->;
+type AgentSessionSettings = Pick<IslandSettings, "agentStatusEnabled" | "agentSessionHours" | "agentHideFinished">;
 
 /**
  * The island's agent sessions: all shown ones, the ones the Agent page lists, the running count,
@@ -16,21 +13,13 @@ type AgentSessionSettings = Pick<
  */
 export function useIslandAgentSessions(settings: AgentSessionSettings) {
   // Read every second: the collapsed island names sessions from it and holds a finished one's
-  // title for three seconds after its file last changed. Answered from a cache in about 1 ms.
+  // title for three seconds after its last change. Cindy's database answers from a small query.
   const allAgentSessions = useAgentSessions(settings.agentStatusEnabled, 1000, settings.agentSessionHours);
-  // Hidden agents are left out of the page, the count, the collapsed title, alerts and sounds.
-  const shownAgentSessions = useMemo(
-    () => filterSessions(allAgentSessions, { claudeCode: settings.agentShowClaudeCode, codex: settings.agentShowCodex }),
-    [allAgentSessions, settings.agentShowClaudeCode, settings.agentShowCodex],
-  );
   // Sessions removed from the Agent page leave the count and the collapsed island too.
-  const { visible: agentSessions, removal: agentRemoval } = useHiddenSessions(shownAgentSessions);
+  const { visible: agentSessions, removal: agentRemoval } = useHiddenSessions(allAgentSessions);
   const listedAgentSessions = useMemo(
-    () =>
-      agentSessions.filter(
-        (session) => (!settings.agentHideFinished || isActivePhase(session.phase)) && !(settings.agentHideClosed && session.closed),
-      ),
-    [agentSessions, settings.agentHideFinished, settings.agentHideClosed],
+    () => agentSessions.filter((session) => !settings.agentHideFinished || isActivePhase(session.phase)),
+    [agentSessions, settings.agentHideFinished],
   );
   const activeAgentSessionCount = countActiveSessions(agentSessions);
   const unseenAgentSessions = useUnseenSessions(agentSessions, settings.agentStatusEnabled);

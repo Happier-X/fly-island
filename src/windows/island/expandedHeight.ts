@@ -54,9 +54,7 @@ type ExpandedHeightInput = {
   agentVisibleRows: number;
   /** How the Agent page shows sessions (Settings); each view has its own row height. */
   agentSessionView?: AgentSessionView;
-  /** How many usage lines (Claude, Codex) sit above the Agent page's rows. */
-  agentUsageLines: number;
-  /** An alert's one-session card instead: the height its row measured, without the usage line. */
+  /** An alert's one-session card instead: the height its row measured. */
   agentAlertRowHeight?: number;
   /** The height the open settings page needs, or null before it is measured. */
   settingsContentHeight?: number | null;
@@ -81,7 +79,6 @@ export function getExpandedIslandHeight({
   clipboardVisibleRows,
   agentVisibleRows,
   agentSessionView = "list",
-  agentUsageLines,
   agentAlertRowHeight,
   settingsContentHeight = null,
   shelfItems = 0,
@@ -118,7 +115,7 @@ export function getExpandedIslandHeight({
       : page === "agents"
         ? agentAlertRowHeight !== undefined
           ? getAgentAlertExpandedHeight(agentAlertRowHeight)
-          : getAgentPageExpandedHeight(agentVisibleRows, agentUsageLines, agentSessionView)
+          : getAgentPageExpandedHeight(agentVisibleRows, agentSessionView)
       : page === "clipboard"
         ? getClipboardExpandedHeight(clipboardVisibleRows)
         : Math.min(messagePanelHeight(messageSource, isReadingMail), maxPanelHeight);

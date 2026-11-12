@@ -59,10 +59,9 @@ mockIPC((command, payload) => {
     case "get_clipboard_history": return empty ? { ...TOUR_CLIPBOARD, items: [] } : TOUR_CLIPBOARD;
     case "get_file_shelf": return { items: empty ? [] : TOUR_SHELF };
     case "list_agent_sessions": return empty ? [] : TOUR_SESSIONS;
-    case "agent_sessions_in_front": return [];
-    case "agent_approval_pending": return [];
+    case "agent_window_in_front": return false;
     case "list_plugin_views": return { views: [], status: [] };
-    case "get_agent_status": return { codex: { phase: "idle", updatedAt: 0 }, claudeCode: { phase: empty ? "idle" : "running", updatedAt: Date.now() }, updatedAt: Date.now(), statusPath: "" };
+    case "get_agent_status": return { cindy: { phase: empty ? "idle" : "running", updatedAt: Date.now() }, updatedAt: Date.now(), statusPath: empty ? "" : "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db" };
     case "get_media_state":
     case "media_play_pause":
     case "media_next":
@@ -81,8 +80,6 @@ mockIPC((command, payload) => {
     case "set_translation_shortcut": return args.shortcut;
     case "read_translation_clipboard": return "";
     case "updater_configured": return false;
-    case "get_agent_hooks_state": return { claudeCode: "installed", codex: "installed" };
-    case "get_reply_marker_state": return { installed: false, outdated: false, path: "", content: "" };
     case "plugin:window|is_visible": return true;
     default: return null;
   }

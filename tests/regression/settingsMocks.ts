@@ -2,6 +2,7 @@
 // regression pages. Importing this installs the mocks; the arrays record what was called.
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { MailSnapshot } from "../../src/features/messages/mail/api";
+import { DEFAULT_SCREENSHOT_SETTINGS } from "../../src/features/screenshot/api";
 
 let revision = 0;
 export const commands: string[] = [];
@@ -11,19 +12,15 @@ const mailbox = (email: string, extra: Partial<MailSnapshot> = {}): MailSnapshot
   unreadCount: 2, items: [], lastSyncedAt: 0, error: null, ...extra,
 });
 let mailboxes: MailSnapshot[] = [mailbox("demo@qq.com"), mailbox("louis@163.com", { status: "authRequired", enabled: false, unreadCount: null })];
-let replyMarkerOn = false;
-export const REPLY_MARKER = { path: "C:\\Users\\demo\\.claude\\rules\\focusd-island-reply-marker.md", content: "<!-- focusd-island: reply marker v2 -->\n## Reply status marker" };
-const replyMarker = () => ({ installed: replyMarkerOn, outdated: false, ...REPLY_MARKER });
-export const replyMarkerCalls: boolean[] = [];
 export const translationShortcutCalls: string[] = [];
+/** Cindy's database, as the data source page shows it. */
+export const CINDY_DATABASE = "C:\\Users\\demo\\AppData\\Roaming\\Cindy\\cindy-1.db";
 // Kept like the native store, so a page opened again reads back what was saved.
 let clipboardSettings = { enabled: true, captureImages: true, maxItems: 100, shortcut: "Ctrl+Shift+V", shortcutEnabled: true };
 mockIPC((command, payload) => {
   commands.push(command);
   const args = (payload ?? {}) as Record<string, unknown>;
   switch (command) {
-    case "get_reply_marker_state": return replyMarker();
-    case "set_reply_marker": replyMarkerCalls.push(replyMarkerOn = Boolean(args.enabled)); return replyMarker();
     // Two players open, NetEase playing; Spotify is in the saved order but not open.
     case "get_media_state": return { sessions: [{ id: "QQMusic", label: "QQ音乐", playing: false }, { id: "cloudmusic.exe", label: "网易云音乐", playing: true }] };
     case "get_launch_at_startup": return false;
@@ -33,7 +30,14 @@ mockIPC((command, payload) => {
     case "set_clipboard_history_settings":
       clipboardSettings = { ...clipboardSettings, ...(args.settings as object | undefined) };
       return { settings: clipboardSettings, items: [] };
-    case "get_agent_status": return { codex: { phase: "idle", updatedAt: 0 }, claudeCode: { phase: "idle", updatedAt: 0 }, updatedAt: 0, statusPath: "C:\\Users\\demo\\AppData\\Roaming\\com.focusd.island\\agent-status.json" };
+    case "get_agent_status": return { cindy: { phase: "idle", updatedAt: 0 }, updatedAt: 0, statusPath: CINDY_DATABASE };
+    case "list_agent_sessions": return [];
+    // The capture page asks the overlay side for its toolbar and key names; empty is a valid answer.
+    case "get_screenshot_settings": return { ...DEFAULT_SCREENSHOT_SETTINGS };
+    case "set_screenshot_settings": return null;
+    case "get_screenshot_toolbar_groups": return [];
+    case "get_screenshot_ocr_languages": return ["eng", "chi_sim"];
+    case "screenshot_key_names": return (args.vks as number[] | undefined)?.map((vk) => `VK${vk}`) ?? [];
     case "get_qq_mail_state": return mailboxes;
     case "connect_qq_mail":
     case "disconnect_qq_mail":
@@ -58,7 +62,6 @@ mockIPC((command, payload) => {
     case "updater_configured": return true;
     case "get_updater_proxy": return null;
     case "plugin:app|version": return "0.0.0-test";
-    case "get_agent_hooks_state": return { codex: "notInstalled", claudeCode: "notInstalled", scriptsOutdated: false };
     case "list_sound_packs": return [{ id: "chimes-1", name: "Chimes", author: "Ann", license: "CC0-1.0", sounds: { complete: "complete.wav", error: "error.wav" } }];
     default: return null;
   }

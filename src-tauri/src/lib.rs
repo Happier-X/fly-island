@@ -1,4 +1,3 @@
-mod agent_approval;
 mod agent_status;
 mod clipboard_history;
 mod file_shelf;
@@ -72,8 +71,8 @@ pub fn run() {
             if let Err(error) = file_shelf::init(app.handle()) {
                 eprintln!("failed to initialize the file shelf: {error}");
             }
-            if let Err(error) = agent_approval::init(app.handle()) {
-                eprintln!("failed to start the agent approval endpoint: {error}");
+            if let Err(error) = agent_status::clean_up_legacy_hooks(app.handle()) {
+                eprintln!("failed to remove the legacy agent hooks: {error}");
             }
             if let Err(error) = mail::init(app.handle()) {
                 eprintln!("failed to initialize QQ mail: {error}");
@@ -109,7 +108,6 @@ pub fn run() {
             island;
             system;
             agent_status;
-            agent_approval;
             media_control;
             lyrics;
             clipboard_history;
@@ -119,12 +117,7 @@ pub fn run() {
         ))
         .build(context)
         .map(|app| {
-            app.run(|_, event| {
-                // Hooks still waiting go back to the terminal rather than hit their timeout.
-                if let tauri::RunEvent::Exit = event {
-                    agent_approval::shutdown();
-                }
-            })
+            app.run(|_, _event| {});
         });
     if let Err(error) = result {
         eprintln!("error while running FocuSD Island: {error}");

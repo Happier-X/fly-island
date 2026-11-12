@@ -13,7 +13,6 @@ import { TranslationPanel } from "../../features/translation/TranslationPanel";
 import { AgentSessionsPanel } from "../../features/agent-status/AgentSessionsPanel";
 import type { AgentSessionSummary } from "../../features/agent-status/api";
 import type { UnseenSessions } from "../../features/agent-status/useUnseenSessions";
-import type { AgentUsages } from "../../features/agent-status/usage";
 import type { IslandSettings } from "../../features/appearance/types";
 import { ClipboardHistoryPanel } from "../../features/clipboard/ClipboardHistoryPanel";
 import type { useClipboardHistory } from "../../features/clipboard/useClipboardHistory";
@@ -52,8 +51,6 @@ type IslandPagesProps = {
   unseenAgentSessions: UnseenSessions;
   agentRemoval: SessionRemoval;
   alertedSession: AgentAlerts["alertedSession"];
-  agentApprovals: AgentAlerts["approvals"];
-  agentUsages: AgentUsages;
   fileShelf: ReturnType<typeof useFileShelf>;
   isShelfDropping: boolean;
   notebookProps: ReturnType<typeof useTodos>["notebookProps"];
@@ -80,8 +77,6 @@ export function IslandPages({
   unseenAgentSessions,
   agentRemoval,
   alertedSession,
-  agentApprovals,
-  agentUsages,
   fileShelf,
   isShelfDropping,
   notebookProps,
@@ -138,7 +133,7 @@ export function IslandPages({
           onClear={() => void clearClipboardHistoryItems()}
         />
       )}
-      {page === "agents" && <AgentSessionsPanel sessions={agentSessions} view={settings.agentSessionView} sort={settings.agentSessionSort} group={settings.agentSessionGroup} archiveMotion={settings.agentArchiveMotion} cardEffects={settings.agentCardEffects} hostDisplay={settings.agentHostDisplay} showElapsed={settings.agentShowElapsed} showModel={settings.agentShowModel} showActivity={settings.agentShowActivity} unseen={unseenAgentSessions} removal={agentRemoval} reveal={alertedSession} showUsage={settings.agentShowUsage} usages={agentUsages} approvals={agentApprovals} />}
+      {page === "agents" && <AgentSessionsPanel sessions={agentSessions} view={settings.agentSessionView} sort={settings.agentSessionSort} group={settings.agentSessionGroup} archiveMotion={settings.agentArchiveMotion} cardEffects={settings.agentCardEffects} showElapsed={settings.agentShowElapsed} showModel={settings.agentShowModel} unseen={unseenAgentSessions} removal={agentRemoval} reveal={alertedSession} />}
       {page === "translation" && <TranslationPanel isOpen={mode === "expanded"} onOpenSettings={() => openSettingsWindow("translation")} />}
       {page === "shelf" && <FileShelfPanel shelf={fileShelf} isDropTarget={isShelfDropping} revealOnDoubleClick={settings.shelfDoubleClick === "reveal"} />}
       {page === "todo" && (

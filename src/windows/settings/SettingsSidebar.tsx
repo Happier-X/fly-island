@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClipboardList, Info, Languages, ListTodo, MessageCircle, MessagesSquare, Music, Palette, Plug, Scan, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { ClipboardList, Database, Info, Languages, ListTodo, MessageCircle, MessagesSquare, Music, Palette, Scan, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { SETTINGS_GROUPS, type SettingsCategory } from "./categories";
 import "./SettingsSidebar.css";
@@ -14,7 +14,7 @@ const CATEGORY_ICONS: Record<SettingsCategory, LucideIcon> = {
   screenshot: Scan,
   translation: Languages,
   agents: MessagesSquare,
-  agentConnect: Plug,
+  agentSource: Database,
   about: Info,
 };
 

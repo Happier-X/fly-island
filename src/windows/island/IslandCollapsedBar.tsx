@@ -1,8 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { Bot, Inbox } from "lucide-react";
 import { AgentProviderIcon } from "../../features/agent-status/AgentProviderIcon";
-import type { QuotaAlert } from "../../features/agent-status/quotaAlerts";
-import { QuotaAlertPopup } from "../../features/agent-status/QuotaAlertPopup";
 import type { AgentSession } from "../../features/agent-status/session";
 import type { AgentVisualState } from "../../features/agent-status/status";
 import type { CollapsedItem, CollapsedSlot } from "../../features/appearance/types";
@@ -55,8 +53,6 @@ type IslandCollapsedBarProps = {
   showMusic: boolean;
   /** Files on the shelf, or null when the count is not shown. */
   shelfCount: number | null;
-  /** Claude's or Codex's usage reaching the alert level, or resetting; it takes the place of the text while shown. */
-  quotaAlert?: QuotaAlert | null;
   agentVisualState: AgentVisualState;
   onOpenPage: (page: IslandPage) => void;
   onOpenMessages: (source: MessageSource) => void;
@@ -89,7 +85,6 @@ export function IslandCollapsedBar({
   mediaState,
   showMusic,
   shelfCount,
-  quotaAlert = null,
   agentVisualState,
   onOpenPage,
   onOpenMessages,
@@ -144,9 +139,6 @@ export function IslandCollapsedBar({
           <span className={pulseClassName} />
           {collapsedCover && <img className="collapsed-cover" src={collapsedCover} alt="" draggable={false} />}
           <CollapsedMessageContent preview={preview} enabled={!isExpanded && !isTucked}>
-            {quotaAlert ? (
-              <QuotaAlertPopup alert={quotaAlert} />
-            ) : <>
             {showCollapsedText && showTitle && (
               <span className="island__brand">fly-island</span>
             )}
@@ -176,7 +168,6 @@ export function IslandCollapsedBar({
                 {t.island.pendingTodos(collapsedTodoCount)}
               </span>
             )}
-            </>}
           </CollapsedMessageContent>
         </button>
     ),

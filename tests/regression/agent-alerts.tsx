@@ -1,6 +1,6 @@
 // pnpm dev, then open /tests/regression/agent-alerts.html. Drives useAgentAlerts with a stand-in
-// for the island's mode and page, the in-front check mocked: when a session finishing, failing or
-// waiting opens the Agent page, when it closes again, and when it stays quiet.
+// for the island's mode and page, whether Cindy is in front mocked: when a session finishing,
+// failing or waiting opens the Agent page, when it closes again, and when it stays quiet.
 import { act, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { mockIPC } from "@tauri-apps/api/mocks";
@@ -11,20 +11,22 @@ import { AgentSessionsPanel } from "../../src/features/agent-status/AgentSession
 import { announceTiming } from "../../src/features/agent-status/announce";
 
 // The checks below look at what pops up, not the waits before it (announce.ts, unit-tested).
-Object.assign(announceTiming, { completeMs: 0, waitMs: 0, approvalRepeatMs: 0 });
+Object.assign(announceTiming, { completeMs: 0, waitMs: 0 });
 
 Object.assign(globalThis, { isTauri: true, IS_REACT_ACT_ENVIRONMENT: true });
 const DURATION_MS = 300;
 const SUMMARY = "修好了，已合入 main。完成提醒现在显示最后的回复，Markdown 符号已经去掉，卡片最多三行，高度按内容。";
-let inFront: string[] = [];
-mockIPC((command) => (command === "agent_sessions_in_front" ? inFront : null));
+let cindyInFront = false;
+mockIPC((command) => (command === "agent_window_in_front" ? cindyInFront : null));
 // The island holds the focus while the cursor rests on it; headless pages report focus on their own.
 let hovering = false;
 Object.defineProperty(document, "hasFocus", { value: () => hovering });
 
+// Every look is a newer write, as Cindy records one: a turn is told apart by when it last changed.
+let tick = 1;
 const session = (sessionId: string, phase: AgentSessionSummary["phase"]): AgentSessionSummary => ({
-  provider: "claudeCode", sessionId, cwd: null, title: sessionId, model: null, effort: null,
-  phase, lastMessage: null, updatedAt: 0, host: null, turnStartedAt: null,
+  provider: "cindy", sessionId, cwd: null, title: sessionId, model: null, effort: null,
+  phase, lastMessage: null, updatedAt: tick++, turnStartedAt: null,
 });
 
 type Island = { mode: "collapsed" | "expanded"; page: string };
@@ -86,15 +88,15 @@ try {
   await act(async () => setSessions([session("a", "completed"), session("b", "running")]));
   await wait(50);
   const opened = latestAlert();
-  check(island.mode === "expanded" && island.page === "agents" && opened?.key === "claudeCode:a" && opened.kind === "completed", "会话完成时打开 Agent 页，并指向这个会话");
+  check(island.mode === "expanded" && island.page === "agents" && opened?.key === "cindy:a" && opened.kind === "completed", "会话完成时打开 Agent 页，并指向这个会话");
   await wait(DURATION_MS + 100);
   check(island.mode === "collapsed", "停留时间到了自动收起");
 
-  inFront = ["b"];
+  cindyInFront = true;
   await act(async () => setSessions([session("a", "completed"), session("b", "waiting")]));
   await wait(50);
-  check(island.mode === "collapsed", "会话窗口已在前台时不弹");
-  inFront = [];
+  check(island.mode === "collapsed", "Cindy 已在前台时不弹");
+  cindyInFront = false;
 
   await act(async () => setSessions([session("a", "running"), session("b", "running")]));
   await act(async () => setCanAlert(false));
@@ -126,7 +128,7 @@ try {
   await press(document.getElementById("row")!);
   await wait(DURATION_MS + 100);
   check(island.mode === "expanded", "在弹出的面板里点过以后不再自动收起");
-  check(latestAlert()?.key === "claudeCode:a", "点的是这个会话那一行时，仍只显示这一个会话");
+  check(latestAlert()?.key === "cindy:a", "点的是这个会话那一行时，仍只显示这一个会话");
   await press(window);
   check(island.mode === "expanded" && latestAlert() === null, "点了岛上别处（如 Agent 按钮）就换回完整列表，岛屿不收起");
   await act(async () => setIsland({ mode: "collapsed", page: "agents" }));
@@ -134,7 +136,7 @@ try {
   await act(async () => setSessions([session("a", "running"), session("b", "running")]));
   await act(async () => setSessions([session("a", "running"), session("b", "failed")]));
   await wait(50);
-  check(latestAlert()?.key === "claudeCode:b", "下一条提醒只显示它自己的会话");
+  check(latestAlert()?.key === "cindy:b", "下一条提醒只显示它自己的会话");
   await act(async () => setIsland({ mode: "expanded", page: "todo" }));
   check(latestAlert() === null, "切到别的页后不再是单会话视图");
   await act(async () => setIsland({ mode: "collapsed", page: "todo" }));
@@ -146,7 +148,7 @@ try {
   await act(async () => setStarted("everyTurn"));
   await act(async () => setSessions([session("a", "running"), session("b", "running")]));
   await wait(50);
-  check(island.mode === "expanded" && latestAlert()?.key === "claudeCode:a" && latestAlert()?.kind === "started", "会话开始新一轮时弹出，只显示这个会话");
+  check(island.mode === "expanded" && latestAlert()?.key === "cindy:a" && latestAlert()?.kind === "started", "会话开始新一轮时弹出，只显示这个会话");
   await wait(DURATION_MS + 100);
   await act(async () => setSessions([session("a", "completed"), session("b", "running")]));
   await wait(DURATION_MS + 100);
@@ -156,7 +158,7 @@ try {
   check(island.mode === "collapsed", "设为只在新会话时，已有会话的新一轮不弹");
   await act(async () => setSessions([session("a", "running"), session("b", "running"), session("n", "running")]));
   await wait(50);
-  check(island.mode === "expanded" && latestAlert()?.key === "claudeCode:n" && latestAlert()?.kind === "started", "新会话开始时弹出");
+  check(island.mode === "expanded" && latestAlert()?.key === "cindy:n" && latestAlert()?.kind === "started", "新会话开始时弹出");
   await wait(DURATION_MS + 100);
 
   // Reminders: a session still waiting a while later pops up once more, once per wait.
@@ -175,7 +177,7 @@ try {
   let opensBefore = opens;
   await waitFor([...done, session("w", "waiting")]);
   await wait(50);
-  check(island.mode === "expanded" && latestAlert()?.key === "claudeCode:w" && opens === opensBefore + 1 && reminded.length === 0, "开始等你确认时先弹一次，这时还不算补提醒");
+  check(island.mode === "expanded" && latestAlert()?.key === "cindy:w" && opens === opensBefore + 1 && reminded.length === 0, "开始等你确认时先弹一次，这时还不算补提醒");
   await settle(DURATION_MS + 100);
   check(island.mode === "collapsed", "停留时间到了收起");
   opensBefore = opens;
@@ -188,37 +190,37 @@ try {
   await waitFor([...done, session("w", "waiting")]);
   await settle(REMIND_MS + DURATION_MS + 600);
   check(reminded.join() === "w,w", `回答后再次等待，又会补提醒一次（${reminded.join()}）`);
-  inFront = ["w"];
+  cindyInFront = true;
   await waitFor([...done, session("w", "running")]);
   await wait(50);
   await waitFor([...done, session("w", "waiting")]);
   await settle(REMIND_MS + DURATION_MS + 600);
-  check(reminded.length === 2 && island.mode === "collapsed", `会话窗口在前台时不补提醒（${reminded.join()}，${island.mode}）`);
-  inFront = [];
+  check(reminded.length === 2 && island.mode === "collapsed", `Cindy 在前台时不补提醒（${reminded.join()}，${island.mode}）`);
+  cindyInFront = false;
   await act(async () => setRemindAfter(0));
   await settle(DURATION_MS + 100);
 
-  // The panel: an alert shows its session alone and leaves the usage line out.
+  // The panel: an alert shows its session alone.
   const panel = createRoot(document.getElementById("panel")!);
   const listed = [session("a", "completed"), session("b", "running"), { ...session("c", "completed"), lastMessage: SUMMARY }];
   let measured = 0;
   const card = (id: string, alerted: AgentSessionSummary): AlertedSession => ({
-    key: `claudeCode:${id}`, kind: "completed", session: alerted, rowHeight: 78, measure: (height) => { measured = height; },
+    key: `cindy:${id}`, kind: "completed", session: alerted, rowHeight: 78, measure: (height) => { measured = height; },
   });
   const rows = () => [...document.querySelectorAll("#panel .agent-sessions__list > li")].map((row) => (row as HTMLElement).dataset.sessionKey);
-  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} hostDisplay="off" showUsage />));
+  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} />));
   check(rows().length === 3, "平时 Agent 页列出全部会话");
-  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} hostDisplay="off" showUsage reveal={card("c", listed[2])} />));
-  check(rows().join() === "claudeCode:c" && !document.querySelector("#panel .agent-quota"), "弹出提醒时只显示触发的那一个会话，不显示用量");
+  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} reveal={card("c", listed[2])} />));
+  check(rows().join() === "cindy:c", "弹出提醒时只显示触发的那一个会话");
   const reply = document.querySelector<HTMLElement>("#panel .agent-session__message--card");
   check(reply?.textContent === SUMMARY && getComputedStyle(reply).getPropertyValue("-webkit-line-clamp") === "3", "完成的会话在卡片上显示最后的回复，最多 3 行");
   const row = document.querySelector<HTMLElement>("#panel .agent-sessions__list > li")!;
   check(measured > 36 && measured === row.offsetHeight, `卡片把这一行的实际高度交给岛屿（${measured}px）`);
-  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} hostDisplay="off" />));
+  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} />));
   check(!document.querySelector("#panel .agent-session--completed .agent-session__message"), "平时 Agent 页里结束的会话仍折叠成一行");
   const gone = session("d", "completed");
-  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} hostDisplay="off" reveal={card("d", gone)} />));
-  check(rows().join() === "claudeCode:d", "列表里没有这个会话（只列运行中的）时，按提醒时的样子显示它");
+  await act(async () => panel.render(<AgentSessionsPanel sessions={listed} reveal={card("d", gone)} />));
+  check(rows().join() === "cindy:d", "列表里没有这个会话（只列运行中的）时，按提醒时的样子显示它");
 
   results.textContent = `${messages.join("\n")}\n\n全部 ${messages.length} 项检查通过。`;
   results.dataset.result = "passed";

@@ -21,10 +21,8 @@ import { useIslandKeyboard } from "./useIslandKeyboard";
 import { useIslandFeatures } from "./useIslandFeatures";
 import { useIslandAgentAlerts } from "./useIslandAgentAlerts";
 import { useIslandAgents } from "./useIslandAgents";
-import { useQuotaAlert } from "../../features/agent-status/useQuotaAlert";
 import { AgentArrangeButton } from "../../features/agent-status/AgentArrangeButton";
 import { useAgentIndicator } from "./useAgentIndicator";
-import { usageLineCount } from "../../features/agent-status/usage";
 import { useIslandNavigation } from "./useIslandNavigation";
 import { useIslandTodos } from "./useIslandTodos";
 import { useIslandTucking } from "./useIslandTucking";
@@ -58,12 +56,8 @@ export function IslandApp() {
   const { qqNotifications, wechatReminders, qqMail, hasMessagePreview } = notices;
   // The output level shows only on the collapsed island (its waveform).
   const media = useMediaState(settings.musicEnabled, mode === "collapsed");
-  const { agentStatus, agentSessions, listedAgentSessions, activeAgentSessionCount, unseenAgentSessions, agentRemoval, agentSession, agentUsages } =
+  const { agentStatus, agentSessions, listedAgentSessions, activeAgentSessionCount, unseenAgentSessions, agentRemoval, agentSession } =
     useIslandAgents(settings);
-  const quotaAlert = useQuotaAlert(agentUsages, settings.agentStatusEnabled ? settings.agentQuotaAlertPercent : 0, {
-    quiet: game.quiet,
-    canPopUp: !game.quiet && mode === "collapsed" && !isTucked,
-  });
   const { todos, activeTodoId, todoPageMode, notebookProps } = useIslandTodos({ settings, collapseIsland });
 
   const songPlaying = settings.musicEnabled && media.mediaState.playbackStatus === "playing" && Boolean(media.mediaState.title);
@@ -102,7 +96,7 @@ export function IslandApp() {
     setMessageSource,
     openIslandPage,
   });
-  const { alertedSession, approvals: agentApprovals, agentCardHeight } = useIslandAgentAlerts({
+  const { alertedSession, agentCardHeight } = useIslandAgentAlerts({
     sessions: agentSessions,
     unseen: unseenAgentSessions.keys,
     settings,
@@ -124,7 +118,6 @@ export function IslandApp() {
     clipboardVisibleRows: settings.clipboardVisibleRows,
     agentVisibleRows: settings.agentVisibleRows,
     agentSessionView: settings.agentSessionView,
-    agentUsageLines: settings.agentShowUsage ? usageLineCount(agentUsages) : 0,
     agentAlertRowHeight: agentCardHeight,
     settingsContentHeight,
     shelfItems: fileShelf.items.length,
@@ -210,7 +203,6 @@ export function IslandApp() {
         agentStatusLabel={agentStatusLabel}
         features={features}
         shelfCount={settings.shelfEnabled && settings.shelfShowCount ? fileShelf.items.length : null}
-        quotaAlert={quotaAlert}
         onOpenPage={openEnabledPage}
         onWindowDragStart={startIslandDrag}
         onCollapse={collapseIsland}
@@ -246,8 +238,6 @@ export function IslandApp() {
           unseenAgentSessions={unseenAgentSessions}
           agentRemoval={agentRemoval}
           alertedSession={alertedSession}
-          agentApprovals={agentApprovals}
-          agentUsages={agentUsages}
           fileShelf={fileShelf}
           isShelfDropping={isShelfDropping}
           notebookProps={notebookProps}

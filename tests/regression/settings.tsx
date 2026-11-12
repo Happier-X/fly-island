@@ -10,7 +10,7 @@ import { SettingsWindow } from "../../src/windows/settings/SettingsWindow";
 import { DEFAULT_SETTINGS } from "../../src/features/appearance/settings";
 import { settingsCategoryFor } from "../../src/windows/settings/categories";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../../src/i18n";
-import { commands, mailCalls, REPLY_MARKER, replyMarkerCalls, translationShortcutCalls } from "./settingsMocks";
+import { CINDY_DATABASE, commands, mailCalls, translationShortcutCalls } from "./settingsMocks";
 
 const query = new URLSearchParams(location.search);
 const automated = query.has("test");
@@ -214,37 +214,26 @@ if (!automated) {
     check(saved.accounts?.some((account) => account.email === "new@example.edu.cn" && account.host === "imap.example.edu.cn"),
       "The typed server is saved with the mailbox");
 
-    // AI Agent has its own group: sessions and alerts on one page, the hooks on the other.
+    // AI Agent has its own group: sessions and alerts on one page, where the data comes from on the other.
     const agentGroup = [...document.querySelectorAll<HTMLElement>(".settings-sidebar__group")].find((group) => group.getAttribute("aria-label") === "AI Agent");
-    check([...(agentGroup?.querySelectorAll(".settings-sidebar__item") ?? [])].map((item) => item.textContent).join("|") === "会话与提醒|连接", "AI Agent is its own sidebar group with two pages: sessions and alerts, connection");
-    await openPage("agentConnect");
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
-    check(agentPolls() > pollsAway, "The connection page reads the agents' state");
-    const connectGroups = [...document.querySelectorAll<HTMLElement>(".settings-group")];
-    const markerGroup = connectGroups.find((group) => group.textContent?.includes("回复状态标记"));
-    check(markerGroup && connectGroups[connectGroups.indexOf(markerGroup) - 1]?.textContent?.includes("安装/修复") && markerGroup.textContent!.includes("推荐打开"),
-      "The reply status marker follows the hooks on the connection page and is marked as recommended");
-    const markerSwitch = markerGroup?.querySelector<HTMLInputElement>("[role='switch']");
-    check(markerSwitch && !markerSwitch.checked && markerGroup!.textContent!.includes(REPLY_MARKER.path) && markerGroup!.querySelector("pre")?.textContent === REPLY_MARKER.content,
-      "The reply status marker is off by default and shows the rules file and the text it would write");
-    await act(async () => { markerSwitch!.click(); });
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-    check(replyMarkerCalls.join() === "true" && markerSwitch!.checked, "Switching the reply status marker on writes it");
+    check([...(agentGroup?.querySelectorAll(".settings-sidebar__item") ?? [])].map((item) => item.textContent).join("|") === "会话与提醒|数据来源", "AI Agent is its own sidebar group with two pages: sessions and alerts, data source");
+    await openPage("agentSource");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 80)); });
+    check(agentPolls() > pollsAway, "The data source page reads Cindy's database");
+    const sourceGroup = [...document.querySelectorAll<HTMLElement>(".settings-group")].find((group) => group.textContent?.includes("数据来源"));
+    check(sourceGroup?.textContent?.includes("已读取 0 个会话") && sourceGroup.textContent.includes(CINDY_DATABASE),
+      "The data source page says how many sessions it read and where they came from");
+    check(!document.querySelector(".settings-link-button[data-command]") && !sourceGroup?.textContent?.includes("安装"),
+      "Nothing to install: the island only reads that file");
 
     await openPage("agents"); await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
-    const hooksLink = [...document.querySelectorAll<HTMLButtonElement>(".editor-panel .settings-link-button")].find((button) => button.textContent === "安装/修复");
-    check(hooksLink, "Without hooks, the sessions page says so with a way to install them");
-    await act(async () => { hooksLink!.click(); });
-    check(element(".settings-sidebar__item[data-category='agentConnect']").getAttribute("aria-current") === "page", "The hooks notice on the sessions page opens the connection page");
-    await openPage("agents");
     const agentRow = (title: string) => [...document.querySelectorAll<HTMLElement>(".editor-panel .settings-row")].find((row) => row.querySelector(".settings-row__title")?.textContent === title);
     check(!document.querySelector(".session-filter__form"), "Hide-session rules are no longer offered");
     const soundSwitch = agentRow("AI Agent 音效")?.querySelector<HTMLInputElement>("[role='switch']");
     check(soundSwitch?.checked, "Agent sounds are a single switch on the sessions page, on by default");
     await act(async () => { soundSwitch!.click(); });
     check((JSON.parse(localStorage.getItem("focusd-island-agent-sounds") ?? "{}") as { enabled?: boolean }).enabled === false, "Switching agent sounds off is saved");
-    const approvalSwitch = agentRow("在岛上允许或拒绝 Agent 的操作")?.querySelector<HTMLInputElement>("[role='switch']");
-    check(approvalSwitch && !approvalSwitch.checked, "Approving on the island sits on the sessions page, off by default");
+    check(!agentRow("在岛上允许或拒绝 Agent 的操作"), "Approving on the island is gone: Cindy asks in its own window");
 
     // Settings → Music → Player order: the saved order, new players added after it, each one's
     // state, and moving a row saves the old format.

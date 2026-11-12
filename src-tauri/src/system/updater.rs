@@ -100,11 +100,13 @@ mod tests {
     }
 
     #[test]
-    fn shipped_updater_config_parses_with_the_empty_pubkey_placeholder() {
+    fn shipped_updater_config_parses_with_a_real_pubkey() {
         let parsed: tauri_plugin_updater::Config = serde_json::from_value(shipped_updater_config())
             .expect("plugins.updater must deserialize or the app aborts at startup");
 
-        assert_eq!(parsed.pubkey, "");
+        // The build only ships releases this fork signs itself, so the committed key is the
+        // real one: an empty placeholder would abort every launch.
+        assert!(!parsed.pubkey.is_empty());
         assert!(!parsed.endpoints.is_empty());
     }
 

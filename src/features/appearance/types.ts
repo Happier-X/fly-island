@@ -12,17 +12,15 @@ export type ExpandTrigger = "click" | "hover";
 export type MinimizeAction = "tray" | "tuck";
 /** What resting the pointer on an island tucked to the edge does: slide it out, or open its panel too. */
 export type TuckedHoverAction = "reveal" | "expand";
-/** How the Agent page shows the program a session runs in. */
-export type AgentHostDisplay = "both" | "icon" | "name" | "off";
 /** How the Agent page shows sessions: flat rows, two-line cards framed in their light, or one-line rows. */
 export type AgentSessionView = "list" | "cards" | "compact";
 /**
- * Agent page order: what needs the user first (red, orange, green, grey), the newest write first,
+ * Agent page order: what needs the user first (red, green, grey), the newest write first,
  * or the session the island saw first last (an order that stays put while sessions write).
  */
 export type AgentSessionSort = "status" | "recent" | "firstSeen";
-/** Agent page headings: one per computer, one per project (its computer named on the heading), or none. */
-export type AgentSessionGroup = "computer" | "project" | "none";
+/** Agent page headings: one per project, or none. */
+export type AgentSessionGroup = "project" | "none";
 /** How an archived session leaves the Agent page: sliding out, or dissolving into dust in its light's colour. */
 export type AgentArchiveMotion = "slide" | "dissolve";
 /** Light effects on the Agent page's cards and compact rows: none, the sparkle band, or a gradient wash. */
@@ -64,7 +62,6 @@ export type IslandSettings = {
   clipboardVisibleRows: number;
   /** Agent sessions the expanded Agent page shows before it scrolls. */
   agentVisibleRows: number;
-  agentHostDisplay: AgentHostDisplay;
   agentSessionView: AgentSessionView;
   agentSessionSort: AgentSessionSort;
   agentSessionGroup: AgentSessionGroup;
@@ -72,19 +69,11 @@ export type IslandSettings = {
   agentCardEffects: AgentCardEffects;
   /** How far back (hours) the Agent page lists sessions; one of AGENT_SESSION_HOURS. */
   agentSessionHours: number;
-  agentShowClaudeCode: boolean;
-  agentShowCodex: boolean;
-  /** List only running, waiting or stalled sessions on the Agent page. */
+  /** List only running or waiting sessions on the Agent page. */
   agentHideFinished: boolean;
-  /** Leave sessions whose agent has quit off the Agent page. */
-  agentHideClosed: boolean;
   /** Show how long a session's current (or last) turn has run. */
   agentShowElapsed: boolean;
   agentShowModel: boolean;
-  /** The latest prompt and the tool in use on working session rows. */
-  agentShowActivity: boolean;
-  /** Claude's usage limits at the top of the Agent page, when claude-hud keeps a usage snapshot. */
-  agentShowUsage: boolean;
   /** Open the Agent page when a session finishes, fails or waits for the user. */
   agentAlertCompleted: boolean;
   agentAlertFailed: boolean;
@@ -95,8 +84,6 @@ export type IslandSettings = {
   agentAlertSeconds: number;
   /** A session still waiting on the user pops up once more after this many seconds; 0: never. */
   agentRemindSeconds: number;
-  /** Claude's or Codex's usage reaching this percent pops up once, and again when it resets; 0: never. */
-  agentQuotaAlertPercent: number;
   taskTextColor: string;
   pulseColor: string;
   pulseBrightness: number;

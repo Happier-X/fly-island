@@ -1,11 +1,9 @@
-import claudeCodeIcon from "../../assets/brands/claude-code.png";
-import codexIcon from "../../assets/brands/codex.webp";
+import cindyIcon from "../../assets/brands/cindy.png";
 import type { AgentProvider } from "./api";
 import "./AgentProviderIcon.css";
 
 const PROVIDER_ICONS: Record<AgentProvider, string> = {
-  claudeCode: claudeCodeIcon,
-  codex: codexIcon,
+  cindy: cindyIcon,
 };
 
 export function AgentProviderIcon({ provider, size = 16 }: { provider: AgentProvider; size?: number }) {

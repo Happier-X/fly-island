@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { detectAlerts, phasesOf, takeDueReminders, trackWaiting, type AgentAlert, type AgentAlertKind, type AgentAlertKinds, type SessionPhases, type WaitingReminders } from "./alerts";
 import { announceTiming, emptyAnnounced, isUsersTurn, settledFinishes, settledWaits } from "./announce";
-import { agentSessionsInFront, type AgentSessionSummary } from "./api";
+import { agentWindowInFront, type AgentSessionSummary } from "./api";
 import { sessionKey } from "./unseen";
 
 export { alertKindsOf } from "./alerts";
@@ -103,7 +103,7 @@ export function useAgentAlerts({ sessions, kinds, durationMs, canAlert, isOpenOn
     if (collapsedNow || leftAgentPage) setAlerted(null);
   }, [isCollapsed, leftAgentPage]);
 
-  /** Shows the newest of `alerts` whose window is not in front; `onShown` hears about each such alert first. */
+  /** Shows the newest of `alerts` while Cindy is not the window in front; `onShown` hears about each alert first. */
   const popUpRef = useRef((alerts: AgentAlert[], onShown?: (shown: AgentAlert[]) => void) => {
     const close = () => {
       if (!openedByAlertRef.current) return;
@@ -116,13 +116,15 @@ export function useAgentAlerts({ sessions, kinds, durationMs, canAlert, isOpenOn
       if (latest.current.isOpenOnAgents) latest.current.onClose();
     };
 
-    void agentSessionsInFront(alerts.map((alert) => alert.session))
+    void agentWindowInFront()
       .catch((error: unknown) => {
-        console.error("Failed to check which agent windows are in front", error);
-        return [] as string[];
+        console.error("Failed to check whether Cindy is in front", error);
+        return false;
       })
       .then((inFront) => {
-        const shown = alerts.filter((alert) => !inFront.includes(alert.session.sessionId));
+        // The user is already looking at Cindy: no pop-up about a session there.
+        if (inFront) return;
+        const shown = alerts;
         const current = latest.current;
         if (shown.length === 0 || !current.canAlert) return;
         onShown?.(shown);
@@ -173,7 +175,7 @@ export function useAgentAlerts({ sessions, kinds, durationMs, canAlert, isOpenOn
       return pending.filter((alert) => settled.includes(alert.session));
     }, finished);
     later(announceTiming.waitMs, (pending) => {
-      const settled = settledWaits(pending.map((alert) => alert.session), sessionsRef.current, announcedRef.current, Date.now());
+      const settled = settledWaits(pending.map((alert) => alert.session), sessionsRef.current, announcedRef.current);
       return pending.filter((alert) => settled.includes(alert.session));
     }, waits);
   }, [sessions, started, completed, failed, waiting]);

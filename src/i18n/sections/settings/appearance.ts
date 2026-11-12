@@ -14,12 +14,12 @@ export type SettingsAppearanceText = {
     collapsed: string;
     expanded: string;
     /**
-     * Sample Agent sessions: one waiting for approval (also the collapsed bar's title), one
-     * asking, one done. Their states and times come from the Agent page's own strings.
+     * Sample Agent sessions: one waiting for the user (also the collapsed bar's title) with the
+     * reply under it, one done. Their states and times come from the Agent page's own strings.
      */
     sessions: {
       needs: { project: string; title: string };
-      yourTurn: { project: string; title: string };
+      reply: string;
       done: { project: string; title: string };
     };
   };
@@ -59,7 +59,7 @@ export const zhCN: SettingsAppearanceText = {
     expanded: "展开",
     sessions: {
       needs: { project: "fly-island", title: "设置页切换动画" },
-      yourTurn: { project: "notes", title: "整理周报大纲" },
+      reply: "加好了，三页都带过渡",
       done: { project: "api-server", title: "修复登录超时" },
     },
   },
@@ -101,7 +101,7 @@ export const en: SettingsAppearanceText = {
     expanded: "Expanded",
     sessions: {
       needs: { project: "fly-island", title: "Settings page transition" },
-      yourTurn: { project: "notes", title: "Weekly report outline" },
+      reply: "Done: the outline is in notes",
       done: { project: "api-server", title: "Fix the login timeout" },
     },
   },

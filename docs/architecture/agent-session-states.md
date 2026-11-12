@@ -1,5 +1,8 @@
 # Agent 会话四色状态（roadmap B11）
 
+> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/agent-status.md](../agent-status.md) 和 [docs/design/agent.md](../design/agent.md) 为准。
+
+
 开发中实时维护：开始某项把状态改成「进行中」并写上会话，做完改「已完成」并填提交。
 
 状态：`待做` / `进行中` / `已完成` / `不做` / `待用户确认`

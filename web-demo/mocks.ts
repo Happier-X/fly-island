@@ -24,18 +24,12 @@ export function installDemoMocks(data: DemoContent) {
   let revision = 1;
 
   const sessions = data.sessions.map((session, index) => ({
-    provider: index === 0 ? "claudeCode" : "codex", sessionId: `s${index}`, cwd: session.cwd, title: session.title,
-    model: index === 0 ? "Opus 5.5" : "gpt-6-astra", effort: index === 0 ? "high" : "medium",
+    provider: "cindy", sessionId: `s${index}`, cwd: session.cwd, title: session.title,
+    model: index === 0 ? "Opus 5.5" : "gpt-6-astra", effort: null,
     phase: ["running", "completed", "waiting"][index], lastMessage: session.message,
     updatedAt: now - [20_000, 6 * 60_000, 3 * 60_000][index], turnStartedAt: index === 0 ? now - 240_000 : null,
-    permissionMode: "default", subagents: 0,
-    host: index === 0 ? { name: "Windows Terminal", exe: null, kind: "terminal" } : { name: "Codex", exe: null, kind: "app" },
+    permissionMode: "default", contextTokens: index === 0 ? 42_000 : null, contextWindow: 200_000,
   }));
-  const usage = (fiveHour: number, sevenDay: number, plan: string) => ({
-    updatedAt: now, plan, models: [], source: "hud",
-    fiveHour: { name: "", used: fiveHour, resetsAt: now + 2 * 3_600_000 },
-    sevenDay: { name: "", used: sevenDay, resetsAt: now + 3 * 86_400_000 },
-  });
 
   let clips: Clip[] = data.clips.map((clip, index) => ({
     id: `c${index}`, kind: "text", hash: `c${index}`, createdAt: now - index * 600_000, copiedAt: now - index * 600_000,
@@ -109,14 +103,9 @@ export function installDemoMocks(data: DemoContent) {
       case "set_file_shelf_options": return { items: shelf };
       case "toggle_file_shelf_pin": shelf.forEach((item) => { if (item.id === args.id) item.pinned = !item.pinned; }); return { items: shelf };
       case "list_agent_sessions": return sessions;
-      case "agent_sessions_in_front":
-      case "agent_approval_pending": return [];
+      case "agent_window_in_front": return false;
       case "list_plugin_views": return { views: [], status: [] };
-      case "get_agent_status": return { codex: { phase: "idle", updatedAt: 0 }, claudeCode: { phase: "running", updatedAt: now }, updatedAt: now, statusPath: "" };
-      case "get_agent_usage": return usage(38, 54, "Max");
-      case "get_codex_usage": return usage(21, 47, "Pro");
-      case "get_agent_hooks_state": return { claudeCode: "installed", codex: "installed" };
-      case "get_reply_marker_state": return { installed: false, outdated: false, path: "", content: "" };
+      case "get_agent_status": return { cindy: { phase: "running", updatedAt: now }, updatedAt: now, statusPath: "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db" };
       case "get_media_state": return media();
       case "media_play_pause": position = elapsed(); since = Date.now(); playing = !playing; return media();
       case "media_seek": position = Math.max(0, Number(args.positionMs) || 0); since = Date.now(); return media();

@@ -4,7 +4,7 @@ import { sessionLight, type SessionLight } from "./sessionLight.ts";
 import { sessionKey } from "./unseen.ts";
 
 /** Fields the Agent page shows or its alerts read; `updatedAt` is left out because it only feeds the age label. */
-const SHOWN_FIELDS = ["provider", "sessionId", "cwd", "title", "model", "effort", "phase", "lastMessage", "turnStartedAt", "ownerPromptAt", "lastPrompt", "permissionMode", "subagents", "replyMarker", "replyAsks", "backgroundTasks", "compacting", "closed", "contextTokens"] as const;
+const SHOWN_FIELDS = ["provider", "sessionId", "cwd", "title", "model", "effort", "phase", "lastMessage", "turnStartedAt", "permissionMode", "contextTokens", "contextWindow"] as const;
 
 export function sameAgentSessions(a: AgentSessionSummary[], b: AgentSessionSummary[]) {
   return (
@@ -14,10 +14,6 @@ export function sameAgentSessions(a: AgentSessionSummary[], b: AgentSessionSumma
       // Ages are shown in minutes, so a newer write only matters once a minute has passed.
       return (
         SHOWN_FIELDS.every((field) => session[field] === other[field]) &&
-        session.host?.exe === other.host?.exe &&
-        session.host?.name === other.host?.name &&
-        session.currentTool?.name === other.currentTool?.name &&
-        session.currentTool?.detail === other.currentTool?.detail &&
         Math.floor(session.updatedAt / 60_000) === Math.floor(other.updatedAt / 60_000)
       );
     })
@@ -27,8 +23,6 @@ export function sameAgentSessions(a: AgentSessionSummary[], b: AgentSessionSumma
 /**
  * One entry per session, the one written last kept: the Agent page keys its rows by
  * `provider:sessionId`, and two rows with one key make React duplicate rows on every poll.
- * The native list already keeps one per session; this guards the page against any source that
- * does not (a Codex thread split over several rollout files did).
  */
 export function uniqueSessions(sessions: AgentSessionSummary[]) {
   const newest = new Map<string, AgentSessionSummary>();
@@ -43,14 +37,6 @@ export function uniqueSessions(sessions: AgentSessionSummary[]) {
 /** Sessions still working: running, waiting for the user, or silent mid-turn for a while (stale). */
 export function countActiveSessions(sessions: AgentSessionSummary[]) {
   return sessions.filter((session) => isActivePhase(session.phase)).length;
-}
-
-export type SessionFilter = { claudeCode: boolean; codex: boolean };
-
-/** Sessions of the agents the user wants to see. */
-export function filterSessions(sessions: AgentSessionSummary[], filter: SessionFilter) {
-  const shown = sessions.filter((session) => (session.provider === "codex" ? filter.codex : filter.claudeCode));
-  return shown.length === sessions.length ? sessions : shown;
 }
 
 export function isActivePhase(phase: AgentSessionSummary["phase"]) {
@@ -99,7 +85,7 @@ export function modelLabel(model: string | null, effort: string | null) {
   return [model, effortLabel].filter(Boolean).join(" · ") || null;
 }
 
-const LIGHT_ORDER: Record<SessionLight, number> = { needs: 0, failed: 0, yourTurn: 1, working: 2, stale: 3, done: 4 };
+const LIGHT_ORDER: Record<SessionLight, number> = { needs: 0, failed: 0, working: 2, stale: 3, done: 4 };
 
 // shortcut: kept in memory, so after a restart the sessions listed then count as first seen at
 // their last write; keep it in storage as unseen.ts does if that matters.
@@ -114,27 +100,23 @@ function firstSeen(session: AgentSessionSummary) {
 }
 
 /**
- * Sessions as the Agent page lists them: in the order `sort` asks (the lights red, orange, green,
- * grey, newest first within each; newest first; or first seen last), under one heading per computer (this one
- * first, then each remote host as met), per project and computer (as met, so the project with the
- * most urgent session comes first), or under none.
+ * Sessions as the Agent page lists them: in the order `sort` asks (the lights red, green, grey,
+ * newest first within each; newest first; or first seen last), under one heading per project
+ * (as met, so the project with the most urgent session comes first), or under none.
  */
 export function arrangeSessions(sessions: AgentSessionSummary[], sort: AgentSessionSort, group: AgentSessionGroup) {
   const rank = (session: AgentSessionSummary) => (sort === "status" ? LIGHT_ORDER[sessionLight(session)] : 0);
   const time = sort === "firstSeen" ? firstSeen : (session: AgentSessionSummary) => session.updatedAt;
   const sorted = [...sessions].sort((a, b) => rank(a) - rank(b) || time(b) - time(a));
-  const groups = new Map<string, { key: string; host: string | null; project: string | null; sessions: AgentSessionSummary[] }>();
-  const local = JSON.stringify([null, null]);
-  if (group === "computer") groups.set(local, { key: local, host: null, project: null, sessions: [] });
+  const groups = new Map<string, { key: string; project: string | null; sessions: AgentSessionSummary[] }>();
   for (const session of sorted) {
-    const host = group === "none" ? null : session.remoteHost ?? null;
     const project = group === "project" ? sessionProject(session.cwd) : null;
-    const key = JSON.stringify([host, project]);
-    const found = groups.get(key) ?? { key, host, project, sessions: [] };
+    const key = JSON.stringify(project);
+    const found = groups.get(key) ?? { key, project, sessions: [] };
     found.sessions.push(session);
     groups.set(key, found);
   }
-  return [...groups.values()].filter((found) => found.sessions.length > 0);
+  return [...groups.values()];
 }
 
 /** A context size as the cards show it: "860", "8.6k", "128k", "1.2M". */
