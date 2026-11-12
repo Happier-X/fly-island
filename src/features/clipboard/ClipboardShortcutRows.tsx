@@ -1,0 +1,85 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "../../i18n";
+import { ShortcutResetButton } from "../../components/controls/ShortcutResetButton";
+import { ShortcutRecordButton } from "../../components/controls/ShortcutRecordButton";
+import { SettingsToggleRow } from "../../components/settings/SettingsToggleRow";
+import { getClipboardShortcutError, listenClipboardShortcutStatus, type ClipboardHistorySettings } from "./api";
+import { buildShortcutFromEvent, DEFAULT_CLIPBOARD_SHORTCUT, normalizeClipboardShortcut } from "./shortcut";
+import "./ClipboardSettingsSection.css";
+
+/**
+ * The global shortcut that opens clipboard history: its switch and the recorded keys.
+ * Registration happens in the background service, which reports a failure afterwards;
+ * keys taken by another row of the page (`takenBy`) are refused before saving.
+ */
+export function ClipboardShortcutRows({ clipboardSettings, onClipboardSettingsChange, takenBy }: {
+  clipboardSettings: ClipboardHistorySettings;
+  onClipboardSettingsChange: (settings: ClipboardHistorySettings) => void;
+  takenBy: (shortcut: string) => string | null;
+}) {
+  const t = useTranslation();
+  const [registerError, setRegisterError] = useState("");
+  const [conflict, setConflict] = useState("");
+  const shortcut = normalizeClipboardShortcut(clipboardSettings.shortcut);
+
+  useEffect(() => {
+    let didCancel = false;
+    let unlisten: (() => void) | null = null;
+    void getClipboardShortcutError()
+      .then((error) => { if (!didCancel) setRegisterError(error ?? ""); })
+      .catch(() => {});
+    void listenClipboardShortcutStatus((error) => setRegisterError(error ?? ""))
+      .then((nextUnlisten) => { if (didCancel) nextUnlisten(); else unlisten = nextUnlisten; });
+    return () => { didCancel = true; unlisten?.(); };
+  }, []);
+
+  /** Saves new keys for the service to register; keys another row uses are refused. */
+  const apply = (next: string) => {
+    const owner = takenBy(next);
+    setConflict(owner ? t.settings.shortcuts.taken(next, owner) : "");
+    if (!owner) onClipboardSettingsChange({ ...clipboardSettings, shortcut: next });
+  };
+
+  // The service's own text is Chinese only; the details go to the console.
+  useEffect(() => {
+    if (registerError) console.warn("Clipboard history shortcut not registered:", registerError);
+  }, [registerError]);
+  const error = clipboardSettings.shortcutEnabled
+    ? conflict || (registerError ? t.settings.shortcuts.registerFailed(shortcut) : "")
+    : "";
+
+  return (
+    <>
+      <SettingsToggleRow
+        title={t.settings.clipboard.shortcutEnabled}
+        checked={clipboardSettings.shortcutEnabled}
+        onChange={(shortcutEnabled) => onClipboardSettingsChange({ ...clipboardSettings, shortcutEnabled })}
+      />
+      <div className="shortcut-row">
+        <div className={`shortcut-control${clipboardSettings.shortcutEnabled ? "" : " shortcut-control--disabled"}`}>
+          <div className="shortcut-control__meta">
+            <span>{t.settings.clipboard.shortcut}</span>
+            <strong>{shortcut}</strong>
+          </div>
+          <div className="shortcut-control__actions">
+            <ShortcutResetButton
+              label={t.settings.shortcuts.reset(DEFAULT_CLIPBOARD_SHORTCUT)}
+              isDefault={shortcut === DEFAULT_CLIPBOARD_SHORTCUT}
+              disabled={!clipboardSettings.shortcutEnabled}
+              onReset={() => apply(DEFAULT_CLIPBOARD_SHORTCUT)}
+            />
+            <ShortcutRecordButton
+              shortcut={shortcut}
+              pressKeysLabel={t.settings.clipboard.pressKeys}
+              disabled={!clipboardSettings.shortcutEnabled}
+              toShortcut={buildShortcutFromEvent}
+              onRecord={apply}
+              onInterrupted={() => setConflict(t.settings.shortcuts.takenElsewhere)}
+            />
+          </div>
+        </div>
+        {error && <p className="shortcut-control__error" role="alert">{error}</p>}
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,172 @@
+/* The line under the shelf's files (FileShelfBar.tsx): 28px, counted by getShelfExpandedHeight. */
+.shelf-bar {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.shelf-bar__message {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+}
+
+.shelf-bar__message > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-bar__hint {
+  color: var(--text-3);
+}
+
+.shelf-bar__hint--yielding {
+  animation: shelf-hint-yield 2.4s ease forwards;
+}
+
+.shelf-bar__notice {
+  color: var(--text-1);
+  font-style: normal;
+  font-weight: 600;
+  opacity: 0;
+  animation: shelf-notice 2.4s ease forwards;
+}
+
+@keyframes shelf-notice {
+  0% { opacity: 0; }
+  12%,
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes shelf-hint-yield {
+  0%,
+  88% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.shelf-search {
+  flex: none;
+  width: 168px;
+  height: 28px;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 6px 0 10px;
+  color: var(--text-3);
+  background: var(--color-white-a04);
+  border: 1px solid var(--color-white-a08);
+  border-radius: var(--corner-md);
+  corner-shape: var(--corner-shape);
+}
+
+.shelf-search:focus-within {
+  border-color: rgba(248, 246, 240, 0.28);
+}
+
+.shelf-search input {
+  min-width: 0;
+  padding: 0;
+  color: var(--text-1);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 12px;
+}
+
+.shelf-search input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.shelf-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.shelf-search button,
+.shelf-selection-bar button,
+.shelf-clear-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  outline: none;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.shelf-search button {
+  width: 20px;
+  height: 20px;
+}
+
+.shelf-clear-button {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.shelf-search button:hover,
+.shelf-selection-bar button:hover,
+.shelf-clear-button:hover {
+  color: var(--text-1);
+  background: var(--color-white-a10);
+}
+
+.shelf-clear-button--confirming,
+.shelf-clear-button--confirming:hover {
+  color: var(--color-white);
+  background: var(--color-danger);
+}
+
+.shelf-search button:focus-visible,
+.shelf-selection-bar button:focus-visible,
+.shelf-clear-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Two or more entries chosen: what acts on all of them, in one quiet line. */
+.shelf-selection-bar {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 4px 0 12px;
+  color: var(--text-1);
+  background: var(--color-white-a08);
+  border-radius: var(--corner-md);
+  corner-shape: var(--corner-shape);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shelf-selection-bar span {
+  flex: 1;
+}
+
+.shelf-selection-bar button {
+  width: 26px;
+  height: 26px;
+}
+
+/* Less motion: the notice and the hint swap without fading, at the same moments. */
+@media (prefers-reduced-motion: reduce) {
+  .shelf-bar__notice,
+  .shelf-bar__hint--yielding {
+    animation-timing-function: steps(1, end);
+  }
+}

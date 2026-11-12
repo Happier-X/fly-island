@@ -1,0 +1,429 @@
+.island {
+  /*
+   * The island's motion: springs, sampled with linear() from a damped spring (from rest, so a late
+   * first frame never shows as a jump). Opening (560ms) settles with a 0.8% overshoot, like the
+   * island catching itself; closing (380ms) is critically damped, quicker and without a bounce.
+   * Each state names the motion that brings the island into it (.island--expanded below).
+   * The native stage shrinks 600ms after a resize (STAGE_SHRINK_DELAY in island/geometry.rs),
+   * after either has finished.
+   */
+  --island-spring-open: linear(0, 0.0335, 0.1145, 0.2201, 0.3345, 0.4474, 0.5522, 0.6455, 0.7259, 0.7931, 0.8479, 0.8917, 0.9257, 0.9516, 0.9708, 0.9846, 0.9941, 1.0005, 1.0044, 1.0066, 1.0076, 1.0077, 1.0073, 1.0066, 1.0055, 1.0043, 1.003, 1.0015, 1);
+  --island-spring-close: linear(0, 0.067, 0.2057, 0.3589, 0.5005, 0.6204, 0.7168, 0.7917, 0.8486, 0.8909, 0.922, 0.9446, 0.9609, 0.9725, 0.9808, 0.9866, 0.9908, 0.9942, 0.9972, 1);
+  --island-motion: var(--island-spring-close);
+  --island-motion-duration: 380ms;
+  /*
+   * The two sizes (Appearance), from the stage (stageStyle.ts). Nothing animates a scale: the
+   * shape below takes its scaled size in px, and the collapsed bar and the page panel each keep
+   * their own fixed scale (.island__collapsed, .island__expanded). An animated scale re-rendered
+   * the whole island, page included, on every frame of every open and close.
+   */
+  --island-collapsed-scale: var(--island-collapsed-scale-target, 1);
+  --island-expanded-scale: var(--island-expanded-scale-target, 1);
+  --glass-pointer-x: 50%;
+  --glass-pointer-y: 18%;
+  --glass-page-accent: 116, 214, 255;
+  /*
+   * Island corner radii, all scaled from the expanded bottom radius in the appearance
+   * settings (stageStyle.ts) with the ratios of the 30 / 12 / 14 px design (collapsed 12, 2026-11-11).
+   * Rust scales its hit-test corners the same way (island/state.rs).
+   */
+  --island-radius: calc(var(--island-corner-radius-size, 42) * 1px);
+  --island-radius-collapsed: calc(var(--island-radius) * 12 / 30);
+  /* Inner panels sit 20px inside the expanded island, so this keeps their corners concentric. */
+  --island-panel-radius: max(8px, calc(var(--island-radius) - 20px));
+  /* A box inside a panel with the usual 16px padding (inner = outer - padding). */
+  --island-card-radius: max(var(--corner-xs), calc(var(--island-panel-radius) - 16px));
+  /* The shape's own corners, at the scale of its state (the panels inside are scaled already). */
+  --island-shape-radius: calc(var(--island-radius) * var(--island-expanded-scale));
+  --island-shape-radius-collapsed: calc(var(--island-radius-collapsed) * var(--island-collapsed-scale));
+  /* The 1px rim of the expanded island (.island::after); the collapsed bar has none. */
+  --island-rim: transparent;
+  /*
+   * The soft squircle (default) or round, from the appearance settings (stageStyle.ts). Every layer
+   * that inherits the island's radius, and the inner panels, take the same shape so the rims, glass
+   * and panels stay concentric; Rust hit-tests the same curve (island/passthrough.rs).
+   */
+  corner-shape: var(--island-corner-shape, round);
+  position: relative;
+  flex: 0 0 auto;
+  color: var(--color-text);
+  /* A flat fill, the same colour the collapsed island shows, without grid lines or shading.
+     The opacity setting fades only this fill (stageStyle.ts), never the text on it. */
+  background: var(--island-fill, var(--island-background-color));
+  border: 0;
+  overflow: visible;
+  /*
+   * Only the shape moves: its width, height and corners, already scaled (Rust's hit test,
+   * island/passthrough.rs, assumes a box of base size x scale, centred at the top). Its children
+   * keep their size, so a frame lays out the shape alone and paints a rounded rectangle, while the
+   * page panel rides on a layer of its own (useMotionLayer.ts) and is not drawn again.
+   */
+  transition:
+    width var(--island-motion-duration) var(--island-motion),
+    height var(--island-motion-duration) var(--island-motion),
+    border-radius var(--island-motion-duration) var(--island-motion);
+}
+
+.island__surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  corner-shape: var(--island-corner-shape, round);
+}
+
+/*
+ * The expanded island's rim: a hairline that keeps a black island apart from a dark window
+ * behind it. Its own layer rather than an inset shadow on .island, so the attached island can
+ * fade it out towards the screen edge (IslandTopEdge.css).
+ */
+.island::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  corner-shape: var(--island-corner-shape, round);
+  box-shadow: inset 0 0 0 1px var(--island-rim);
+  pointer-events: none;
+}
+
+.island--music {
+  --glass-page-accent: 182, 156, 255;
+}
+
+.island--clipboard {
+  --glass-page-accent: 244, 167, 196;
+}
+
+.island--shelf {
+  /* Neutral like the panel inside it: the files' own colours lead. */
+  --glass-page-accent: 248, 246, 240;
+}
+
+.island__glass {
+  display: none;
+}
+
+.island--appearance-liquidGlass {
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.36), transparent 96px),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, var(--glass-soft-alpha)),
+      transparent 42%
+    ),
+    linear-gradient(
+      165deg,
+      transparent 42%,
+      rgba(2, 8, 14, 0.08)
+    ),
+    var(--glass-tint-color);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, var(--glass-shadow-alpha)),
+    inset 0 1px 0 rgba(255, 255, 255, var(--glass-inset-alpha)),
+    inset 0 -1px 0 rgba(8, 18, 28, 0.16),
+    inset 1px 0 0 rgba(130, 224, 255, var(--glass-cyan-alpha)),
+    inset -1px 0 0 rgba(255, 158, 230, var(--glass-magenta-alpha));
+  backdrop-filter: blur(var(--glass-panel-blur)) saturate(1.18);
+  -webkit-backdrop-filter: blur(var(--glass-panel-blur)) saturate(1.18);
+}
+
+.island--appearance-liquidGlass.island--glass-css-fallback {
+  background:
+    linear-gradient(145deg, var(--color-white-a12), transparent 42%),
+    linear-gradient(165deg, transparent 40%, rgba(4, 12, 20, 0.2)),
+    var(--glass-tint-color);
+}
+
+.island--appearance-liquidGlass .island__glass {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  corner-shape: var(--island-corner-shape, round);
+  pointer-events: none;
+}
+
+.island__glass::before,
+.island__glass::after,
+.island__glass-refraction,
+.island__glass-highlight {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.island__glass::before {
+  width: 48%;
+  aspect-ratio: 1;
+  left: var(--glass-pointer-x);
+  top: var(--glass-pointer-y);
+  border-radius: var(--radius-circle);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, var(--glass-glow-alpha)),
+    rgba(var(--glass-page-accent), var(--glass-accent-alpha)) 38%,
+    transparent 70%
+  );
+  filter: blur(20px);
+  opacity: 0.9;
+  transform: translate(-50%, -50%);
+  transition:
+    left 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.island__glass::after {
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: var(--island-corner-shape, round);
+  background:
+    linear-gradient(112deg, rgba(116, 214, 255, 0.1), transparent 16% 82%, rgba(255, 156, 224, 0.08)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 22% 82%, rgba(20, 40, 52, 0.08));
+  mix-blend-mode: screen;
+  opacity: var(--glass-refraction-opacity);
+}
+
+.island__glass-refraction {
+  inset: 1px;
+  border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
+  border-radius: inherit;
+  corner-shape: var(--island-corner-shape, round);
+  box-shadow:
+    inset 0 0 14px rgba(var(--glass-page-accent), var(--glass-inner-accent-alpha)),
+    inset 0 0 2px rgba(255, 255, 255, 0.24);
+}
+
+.island__glass-highlight {
+  top: 2px;
+  left: var(--glass-pointer-x);
+  width: 42%;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
+  filter: blur(0.4px);
+  opacity: var(--glass-highlight-opacity);
+  transform: translateX(-50%);
+  transition: left 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.island--expanded.island--todo {
+  color: #f8f4e9;
+}
+
+.island--collapsed {
+  width: calc(var(--collapsed-island-width) * var(--island-collapsed-scale));
+  height: calc(38px * var(--island-collapsed-scale));
+  border-radius: 0 0 var(--island-shape-radius-collapsed) var(--island-shape-radius-collapsed);
+  /* The island is a surface, not a link: only its small buttons show the hand. */
+  cursor: default;
+  background:
+    /* The shading fades with the fill (classic opacity). */
+    linear-gradient(180deg, rgba(255, 255, 255, calc(0.06 * var(--island-fill-alpha, 1))), rgba(0, 0, 0, calc(0.22 * var(--island-fill-alpha, 1)))),
+    var(--island-fill, var(--island-background-color));
+  box-shadow: none;
+}
+
+/* Lit only for keyboard focus: a mouse click on one of its buttons should not leave a white line. */
+.island--collapsed:has(:focus-visible) {
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 0 18px var(--color-white-a08),
+    0 5px 16px rgba(0, 0, 0, 0.12);
+}
+
+.island--appearance-liquidGlass.island--collapsed {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.11), transparent 42%),
+    linear-gradient(180deg, transparent 48%, rgba(6, 16, 24, 0.1)),
+    var(--glass-collapsed-tint-color);
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(8, 22, 32, 0.18),
+    inset 1px 0 0 rgba(116, 214, 255, 0.14),
+    inset -1px 0 0 rgba(255, 156, 224, 0.08);
+}
+
+.island--appearance-liquidGlass.island--collapsed:has(:focus-visible) {
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 0 18px var(--color-white-a10),
+    inset 1px 0 0 rgba(116, 214, 255, 0.24),
+    inset -1px 0 0 rgba(255, 156, 224, 0.16);
+}
+
+.island--appearance-liquidGlass.island--expanded .island__glass::after {
+  animation: glassBloomExpand 440ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.island--appearance-liquidGlass.island--collapsed .island__glass::after {
+  animation: glassBloomCollapse 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes glassBloomExpand {
+  0% {
+    opacity: 0.28;
+    transform: scale(0.7, 0.28);
+    transform-origin: top center;
+  }
+  48% {
+    opacity: 1;
+    transform: scale(1.015, 1.02);
+  }
+  100% {
+    opacity: var(--glass-refraction-opacity);
+    transform: none;
+  }
+}
+
+@keyframes glassBloomCollapse {
+  0% {
+    opacity: var(--glass-refraction-opacity);
+    transform: none;
+  }
+  52% {
+    opacity: 0.9;
+    transform: scale(1.02, 0.76);
+    transform-origin: top center;
+  }
+  100% {
+    opacity: var(--glass-refraction-opacity);
+    transform: none;
+  }
+}
+
+.island--expanded {
+  --island-motion: var(--island-spring-open);
+  --island-motion-duration: 560ms;
+  --island-rim: var(--color-white-a08);
+  width: calc(560px * var(--island-expanded-scale));
+  height: calc(var(--expanded-island-height, 306px) * var(--island-expanded-scale));
+  border-radius: 0 0 var(--island-shape-radius) var(--island-shape-radius);
+  cursor: default;
+}
+
+/* Liquid glass draws its own rim (the refraction border). */
+.island--appearance-liquidGlass.island--expanded {
+  --island-rim: transparent;
+}
+
+/* Away from the top edge the island floats: a full pill collapsed, evenly rounded expanded. */
+.island--detached.island--collapsed {
+  border-radius: var(--island-shape-radius-collapsed);
+}
+
+.island--detached.island--expanded {
+  border-radius: var(--island-shape-radius);
+}
+
+/*
+ * The collapsed bar and the page panel, each at its own fixed scale. The 6px slide is a translate
+ * in front of that scale: it moves the layer without drawing it again, and as the scale itself
+ * never animates the text is drawn at its final size and stays sharp.
+ */
+.island__collapsed,
+.island__expanded {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  transform-origin: top center;
+  transition:
+    opacity 120ms ease,
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.island__collapsed {
+  width: var(--collapsed-island-width);
+  height: 38px;
+  margin-left: calc(var(--collapsed-island-width) / -2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 18px;
+  opacity: 1;
+  transform: scale(var(--island-collapsed-scale));
+  transition-delay: 140ms, 0s;
+}
+
+/* Tucked, only the island's bottom rim is on screen: show it empty, not cut-off contents.
+   They fade back in after the island slides out (the 140ms delay above). */
+.island--tucked .island__collapsed {
+  pointer-events: none;
+  opacity: 0;
+  transition-delay: 0s;
+}
+
+.island--expanded .island__collapsed {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px) scale(var(--island-collapsed-scale));
+  transition-delay: 0s;
+}
+
+.island__expanded {
+  width: 560px;
+  height: var(--expanded-island-height, 306px);
+  margin-left: -280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+  padding: 18px 20px 20px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px) scale(var(--island-expanded-scale));
+}
+
+.island--preparing.island--collapsed .island__surface {
+  overflow: visible;
+}
+
+.island--preparing.island--collapsed .island__expanded {
+  opacity: 0.001;
+  transition: none;
+}
+
+.island--expanded .island__expanded {
+  pointer-events: auto;
+  opacity: 1;
+  transform: scale(var(--island-expanded-scale));
+  /* The page fades in once the island has some size (120ms in, a fifth of the way), and the
+     6px drop rides the same spring. Between pages the panel takes its new height at once (laid
+     out once, not on every frame); the shape's own height transition uncovers or trims it. */
+  transition:
+    opacity 240ms ease-out 120ms,
+    transform 420ms var(--island-spring-open) 80ms;
+}
+
+/* Translation simply appears open: the tall page used to drop down from the bar, which read as
+   a rush downwards (2026-11-11, owner). Closing it still animates. */
+.island--translation.island--expanded,
+.island--translation.island--expanded .island__expanded {
+  transition: none;
+}
+
+.island__content {
+  min-height: 0;
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island--appearance-liquidGlass.island--expanded .island__glass::after,
+  .island--appearance-liquidGlass.island--collapsed .island__glass::after {
+    animation: none;
+  }
+}
+
+/* Without corner-shape the 1.4x radius would draw a much rounder corner than Apple's: fall back
+   to a round corner of the Apple radius (42 / 1.4 = 30), which the native hit test still covers. */
+@supports not (corner-shape: superellipse(1.6)) {
+  .island {
+    --island-radius: calc(var(--island-corner-radius-size, 42) * 1px / 1.4);
+  }
+}

@@ -1,0 +1,108 @@
+.shortcut-control {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+.shortcut-control--disabled {
+  opacity: 0.45;
+}
+
+.shortcut-control__meta {
+  min-width: 0;
+  display: grid;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* The keys are already on the record button; the row reads like any other settings row. */
+.shortcut-control__meta strong {
+  display: none;
+}
+
+.shortcut-record-button {
+  min-width: 112px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  color: rgba(248, 246, 240, 0.82);
+  background: var(--color-white-a08);
+  border: 0;
+  border-radius: var(--radius-pill);
+  outline: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.shortcut-record-button span {
+  white-space: nowrap;
+}
+
+.shortcut-record-button:hover,
+.shortcut-record-button:focus-visible {
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+.shortcut-record-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.shortcut-record-button:disabled {
+  color: rgba(248, 246, 240, 0.42);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: default;
+}
+
+.shortcut-record-button--recording {
+  color: var(--color-white);
+  background: var(--color-danger);
+  box-shadow: 0 0 0 4px rgba(199, 80, 101, 0.16);
+  animation: saveButtonPop 760ms ease both;
+}
+
+/* A recorded shortcut with the error below it, if its keys could not be used. Padded like
+   .settings-row, since it sits in the same group card. */
+.shortcut-row {
+  min-width: 0;
+  min-height: 46px;
+  display: grid;
+  align-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 14px;
+}
+
+.shortcut-control__error {
+  margin: 0;
+  color: #ff9aa9;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The record button with its reset button, at the right end of a shortcut row. */
+.shortcut-control__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcut-record-button--recording {
+    animation: none;
+  }
+}

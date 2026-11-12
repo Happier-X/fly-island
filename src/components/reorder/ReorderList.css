@@ -1,0 +1,119 @@
+/* A short list put in order by dragging a row (or the arrow keys on its handle): rows like .settings-row. */
+.reorder-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reorder-list__item {
+  position: relative;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-md) 8px var(--space-md) 14px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  border-radius: var(--corner-md);
+  corner-shape: var(--corner-shape);
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.reorder-list__item + .reorder-list__item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 14px;
+  left: 14px;
+  height: 1px;
+  background: var(--color-white-a08);
+}
+
+.reorder-list__item--dragging {
+  z-index: 1;
+  cursor: grabbing;
+  background: var(--color-white-a08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+}
+
+.reorder-list__item--dragging::before,
+.reorder-list__item--dragging + .reorder-list__item::before {
+  opacity: 0;
+}
+
+.reorder-list__rank {
+  width: 16px;
+  flex: none;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.reorder-list__icon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.reorder-list__text {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.reorder-list__name {
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.reorder-list__hint {
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reorder-list__handle {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--color-text-subtle);
+  background: transparent;
+  border: 0;
+  border-radius: var(--corner-sm);
+  corner-shape: var(--corner-shape);
+  cursor: inherit;
+}
+
+.reorder-list__handle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* A step smaller on the island's own settings page, like its other rows. */
+.island-settings .reorder-list__item {
+  min-height: 40px;
+  padding: 6px 6px 6px 12px;
+}
+
+.island-settings .reorder-list__item + .reorder-list__item::before {
+  right: 12px;
+  left: 12px;
+}
+
+.island-settings .reorder-list__name {
+  font-size: 13px;
+}
+
+.island-settings .reorder-list__hint {
+  font-size: 11.5px;
+}

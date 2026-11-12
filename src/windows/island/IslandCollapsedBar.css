@@ -1,0 +1,214 @@
+.island__open-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: default;
+  text-align: left;
+  touch-action: none;
+}
+
+.island__open-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: -3px;
+  /* Inset 3px inside the collapsed island corners. */
+  border-radius: 0 0 calc(var(--island-radius-collapsed, 22px) - 3px) calc(var(--island-radius-collapsed, 22px) - 3px);
+  corner-shape: var(--island-corner-shape, round);
+}
+
+.island__pulse {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--island-pulse-color);
+  box-shadow: 0 0 14px var(--island-pulse-glow-color);
+  filter: brightness(var(--island-pulse-brightness));
+}
+
+.island__pulse--agent-idle {
+  background: var(--color-agent-idle);
+  box-shadow: 0 0 14px rgba(53, 233, 133, 0.72);
+}
+
+.island__pulse--agent-running {
+  background: var(--color-agent-running);
+  box-shadow: 0 0 14px rgba(61, 139, 255, 0.72);
+}
+
+.island__pulse--agent-attention {
+  background: var(--color-warning);
+  box-shadow: 0 0 14px rgba(255, 209, 102, 0.72);
+}
+
+.island--title-hidden .island__open-button {
+  padding-left: 8px;
+}
+
+.island__brand {
+  min-width: 0;
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.island__todo-count {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--task-text-color);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.island__active-task {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--task-text-color);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: taskFlowIn 260ms ease-out backwards;
+}
+
+/* Running agent: icon and session title, laid out like the active task. */
+.island__agent-session {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  color: var(--task-text-color);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  animation: taskFlowIn 260ms ease-out backwards;
+}
+
+.island__agent-session-separator {
+  flex: 0 0 auto;
+}
+
+/* Agents reported by plugins or the local API have no brand icon. */
+.island__agent-session-bot {
+  flex: 0 0 auto;
+}
+
+.island__agent-session-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes taskFlowIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.island__quiet-button {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  margin-left: 0;
+  padding: 0;
+  background: rgba(186, 186, 186, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  outline: none;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--color-white-a18),
+    0 0 12px var(--color-white-a08);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.island__quiet-button::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.island__quiet-button:hover {
+  background: rgba(210, 210, 210, 0.58);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: scale(1.08);
+}
+
+.island__quiet-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: 4px;
+}
+
+/* Files waiting on the shelf; opens the shelf page. */
+.island-shelf-count {
+  flex: 0 0 auto;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 7px;
+  color: var(--text-2);
+  background: var(--color-white-a10);
+  border: 0;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+/* Running agent sessions, in the tuck dot's place while the AI Agent switch is on. */
+.island-agent-count {
+  flex: 0 0 auto;
+  min-width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  color: var(--color-white);
+  background: rgba(61, 139, 255, 0.32);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 10px rgba(61, 139, 255, 0.36);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.island-agent-count:hover {
+  background: rgba(61, 139, 255, 0.5);
+}
+
+.island-agent-count:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: 2px;
+}
+
+.island-shelf-count:hover {
+  color: var(--color-white);
+  background: var(--color-white-a18);
+}

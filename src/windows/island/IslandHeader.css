@@ -1,0 +1,277 @@
+.island__agent-status-icon {
+  flex: 0 0 auto;
+  filter: brightness(var(--island-pulse-brightness));
+  transition:
+    color 160ms ease,
+    filter 160ms ease;
+}
+
+.island__agent-status-icon--idle {
+  color: var(--color-agent-idle);
+}
+
+.island__agent-status-icon--running {
+  color: var(--color-agent-running);
+}
+
+.island__agent-status-icon--attention {
+  color: var(--color-warning);
+}
+
+.island__title .island__agent-status-icon--idle {
+  color: var(--color-agent-idle);
+}
+
+.island__title .island__agent-status-icon--running {
+  color: var(--color-agent-running);
+}
+
+.island__title .island__agent-status-icon--attention {
+  color: var(--color-warning);
+}
+
+.island__header {
+  /* Above the page, so the dots' name tips are not hidden under it. */
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 34px;
+}
+
+.island__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.island__title svg {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.island--todo .island__title {
+  color: var(--text-1);
+}
+
+.island--todo .island__title svg {
+  color: var(--color-accent);
+}
+
+.editor-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-xs);
+  height: 34px;
+  padding-left: 4px;
+}
+
+.island__collapse-target {
+  min-width: 0;
+  height: 68px;
+  margin: -18px 0 -16px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: default;
+  outline: none;
+}
+
+.island__collapse-target:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: -5px;
+}
+
+.dot-button {
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* The hit area stays still while the short capsule rises, so hovering its edge never flickers. */
+.dot-button::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 3px;
+  width: 18px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--dot-color);
+  box-shadow: 0 0 12px var(--dot-glow);
+  pointer-events: none;
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1.25),
+    filter 140ms ease,
+    box-shadow 160ms ease;
+}
+
+.dot-button--calendar {
+  --dot-color: #ff9a76;
+  --dot-glow: rgba(255, 154, 118, 0.46);
+}
+
+.dot-button--todo {
+  --dot-color: var(--color-accent);
+  --dot-glow: rgba(116, 214, 255, 0.48);
+}
+
+.dot-button--music {
+  --dot-color: #b69cff;
+  --dot-glow: rgba(182, 156, 255, 0.46);
+}
+
+.dot-button--clipboard {
+  /* Pink, not yellow: yellow means "needs attention" (agent status). */
+  --dot-color: #f4a7c4;
+  --dot-glow: rgba(244, 167, 196, 0.48);
+}
+
+.dot-button--shelf {
+  /* Warm light grey, not mint: the shelf page itself is neutral. */
+  --dot-color: #d8d6cf;
+  --dot-glow: rgba(248, 246, 240, 0.34);
+}
+
+.dot-button--translation {
+  --dot-color: #ff9a76;
+  --dot-glow: rgba(255, 154, 118, 0.46);
+}
+
+.dot-button--active::before {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--color-white-a18), 0 0 14px var(--dot-glow);
+}
+
+/* Like a small Dock: the pointed-at entry rises most; its immediate neighbours follow softly. */
+.editor-dots:not(:has(.dot-button--dragging)) .dot-button:has(+ .dot-button:hover)::before,
+.editor-dots:not(:has(.dot-button--dragging)) .dot-button:hover + .dot-button::before {
+  transform: translateY(-1px) scale(1.12);
+}
+
+.dot-button:not(.dot-button--dragging):is(:hover, :focus-visible)::before {
+  transform: translateY(-3px) scale(1.4);
+  filter: brightness(1.12);
+}
+
+.dot-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: 1px;
+}
+
+.dot-button--dragging {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+.dot-button--dragging::before {
+  transform: translateY(-3px) scale(1.4);
+}
+
+/* Names stay separate from the scaled capsule and appear immediately, within the top edge. */
+.dot-button:not(.dot-button--dragging)::after,
+.island__agent-button::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  z-index: 5;
+  padding: 3px 7px;
+  color: var(--text-1);
+  background: rgba(38, 38, 42, 0.97);
+  border: 1px solid var(--color-white-a10);
+  border-radius: var(--corner-md);
+  corner-shape: var(--corner-shape);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.32);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  translate: -50% 0;
+}
+
+.island__agent-button::after {
+  top: calc(100% + 5px);
+  bottom: auto;
+}
+
+.dot-button:not(.dot-button--dragging):is(:hover, :focus-visible)::after,
+.island__agent-button:is(:hover, :focus-visible)::after {
+  opacity: 1;
+}
+
+.window-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+/* The status light opens the Agent page; a ring marks it while that page is open. */
+.island__agent-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.island__agent-button:hover,
+.island__agent-button--active {
+  background: var(--color-white-a10);
+}
+
+.island__agent-button .island__agent-status-icon {
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1.25), color 160ms ease, filter 160ms ease;
+}
+
+.island__agent-button:is(:hover, :focus-visible) .island__agent-status-icon {
+  transform: translateY(-3px) scale(1.3);
+}
+
+.island__agent-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring-soft);
+  outline-offset: 1px;
+}
+
+.island-settings-button {
+  position: relative;
+}
+
+.icon-button.island-settings-button--active {
+  color: #fff;
+  background: var(--color-white-a16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-button::before,
+  .island__agent-button .island__agent-status-icon {
+    transition: none;
+    transform: none !important;
+  }
+}

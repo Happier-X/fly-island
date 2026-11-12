@@ -1,0 +1,13 @@
+/* Opened from the island to pick a folder: the card glows until the folder is saved. */
+.save-path-panel--attention .settings-group__card {
+  border-color: rgba(116, 214, 255, 0.6);
+  box-shadow: 0 0 0 4px rgba(116, 214, 255, 0.14);
+}
+
+.save-path-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-agent-idle);
+  font-size: 13px;
+}

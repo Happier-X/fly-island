@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { isStale, tightestWindow, untilReset, usageLevel } from "../../src/features/agent-status/usage.ts";
+
+const window = (name, used, resetsAt = null) => ({ name, used, resetsAt });
+
+test("usage levels and the time until a window resets", () => {
+  assert.deepEqual([usageLevel(0), usageLevel(49), usageLevel(50), usageLevel(84), usageLevel(85), usageLevel(100)], ["low", "low", "medium", "medium", "high", "high"]);
+  const now = 1_000_000_000;
+  assert.deepEqual(untilReset(now + (34 * 60 + 10) * 60_000 + 30_000, now), { days: 1, hours: 10, minutes: 11 });
+  assert.deepEqual(untilReset(now + 59_000, now), { days: 0, hours: 0, minutes: 1 });
+  assert.equal(untilReset(now - 1, now), null);
+  assert.equal(untilReset(null, now), null);
+});
+
+test("the reset time shown is the fullest window's", () => {
+  const usage = { updatedAt: 0, fiveHour: window("", 27), sevenDay: window("", 47), models: [window("Fable", 100)], plan: null };
+  assert.equal(tightestWindow(usage)?.name, "Fable");
+  assert.equal(tightestWindow({ ...usage, models: [] })?.used, 47);
+  assert.equal(tightestWindow({ updatedAt: 0, fiveHour: null, sevenDay: null, models: [], plan: null }), null);
+  assert.equal(isStale(usage, 46 * 60_000), true);
+  assert.equal(isStale(usage, 30 * 60_000), false);
+  assert.equal(isStale({ ...usage, updatedAt: null }, 10 ** 12), false);
+});
+
+test("one usage line per agent that reports numbers, and the card names the source", async () => {
+  const { EMPTY_USAGES, hasUsageNumbers, usageLineCount, usageSourceLines } = await import("../../src/features/agent-status/usage.ts");
+  const { zhCN: agentZh } = await import("../../src/i18n/sections/agent.ts");
+  const zhCN = agentZh.usage;
+  const usage = (overrides = {}) => ({ updatedAt: 0, fiveHour: window("", 10), sevenDay: null, models: [], plan: null, ...overrides });
+  assert.equal(usageLineCount(EMPTY_USAGES), 0);
+  assert.equal(usageLineCount({ claude: usage(), codex: null, readAt: 0 }), 1);
+  // One row holds both agents' rings.
+  assert.equal(usageLineCount({ claude: usage(), codex: usage({ source: "codex" }), readAt: 0 }), 1);
+  // Only per-model windows: nothing for the rings, so no row.
+  assert.equal(usageLineCount({ claude: usage({ fiveHour: null, models: [window("Fable", 1)] }), codex: null, readAt: 0 }), 0);
+  assert.equal(hasUsageNumbers(usage({ fiveHour: null })), false, "an answer with only an error has no line");
+  assert.equal(hasUsageNumbers(usage({ fiveHour: null, models: [window("Fable", 1)] })), true);
+  assert.deepEqual(usageSourceLines(usage({ source: "codex" }), 60_000, zhCN).map((line) => line.text), ["1 分钟前更新 · 来自 Codex 会话记录"]);
+  assert.deepEqual(usageSourceLines(usage(), 0, zhCN).map((line) => line.text), ["刚刚更新 · 来自 claude-hud"]);
+  assert.deepEqual(usageSourceLines(usage({ source: "claudeDesktop" }), 0, zhCN).map((line) => line.text), ["刚刚更新 · 来自 Claude 桌面版"]);
+});
+
+test("a window past its reset time is not shown with the figure from before the reset", async () => {
+  const { withoutPastWindows } = await import("../../src/features/agent-status/usage.ts");
+  const now = 1_800_000_000_000;
+  const usage = {
+    updatedAt: now - 3 * 3_600_000,
+    fiveHour: { name: "", used: 22, resetsAt: now - 60_000 },
+    sevenDay: { name: "", used: 3, resetsAt: now + 86_400_000 },
+    models: [{ name: "30d", used: 54, resetsAt: now - 1 }],
+    plan: "Plus",
+    source: "codex",
+  };
+  const shown = withoutPastWindows(usage, now);
+  assert.equal(shown.fiveHour, null);
+  assert.deepEqual(shown.sevenDay, usage.sevenDay);
+  assert.deepEqual(shown.models, []);
+  // Nothing past: the same object, so the island does not re-render for it.
+  const current = { ...usage, fiveHour: { name: "", used: 4, resetsAt: now + 1 }, models: [] };
+  assert.equal(withoutPastWindows(current, now), current);
+  assert.equal(withoutPastWindows(null, now), null);
+});
+
+test("quota rings: 5 hours outside, 7 days inside, a lone long window inside, per-model windows on the card", async () => {
+  const { quotaRings, quotaSummaries } = await import("../../src/features/agent-status/usage.ts");
+  const { zhCN: agentZh, en: agentEn } = await import("../../src/i18n/sections/agent.ts");
+  const five = window("", 4, 1_000 + 2 * 3_600_000 + 49 * 60_000);
+  const week = window("", 7, null);
+  const usage = { updatedAt: 0, fiveHour: five, sevenDay: week, models: [window("Fable", 100)], plan: null };
+  assert.deepEqual(quotaRings(usage), { outer: five, inner: week });
+  // What is left first, as Codex shows it, then what is used, as Claude shows it.
+  assert.deepEqual(quotaSummaries(usage, 1_000, agentZh.usage), ["5 小时 剩余 96%（已用 4%） · 2 小时 49 分后重置", "7 天 剩余 93%（已用 7%）", "Fable 剩余 0%（已用 100%）"]);
+  assert.deepEqual(quotaSummaries(usage, 1_000, agentEn.usage).slice(0, 2), ["5h 96% left (4% used) · resets in 2h49m", "7d 93% left (7% used)"]);
+  // Codex Free has only a 30-day window: drawn inside, the outer ring left empty.
+  const free = window("30d", 54);
+  assert.deepEqual(quotaRings({ ...usage, fiveHour: null, sevenDay: null, models: [free] }), { outer: null, inner: free });
+  // A 5-hour window alone keeps the inside empty rather than using a model's window.
+  assert.deepEqual(quotaRings({ ...usage, sevenDay: null }), { outer: five, inner: null });
+  assert.equal(quotaRings({ ...usage, fiveHour: null, sevenDay: null }), null);
+  assert.equal(quotaRings(null), null);
+});

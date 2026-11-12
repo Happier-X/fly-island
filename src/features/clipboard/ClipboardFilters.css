@@ -1,0 +1,105 @@
+.clipboard-filters {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xl);
+}
+
+.clipboard-segments {
+  min-height: 32px;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.clipboard-segments button {
+  position: relative;
+  min-width: 0;
+  width: auto;
+  height: 32px;
+  padding: 0 1px;
+  color: var(--text-3);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.clipboard-segments button:hover,
+.clipboard-segments .clipboard-segment--active {
+  color: var(--text-1);
+  background: transparent;
+}
+
+.clipboard-segments .clipboard-segment--active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: rgba(248, 246, 240, 0.82);
+  border-radius: var(--radius-pill);
+}
+
+.clipboard-search {
+  min-width: 0;
+  min-height: 32px;
+  display: grid;
+  flex: 1;
+  grid-template-columns: 18px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 9px;
+  color: var(--text-3);
+  background: var(--color-white-a06);
+  border: 1px solid transparent;
+  border-radius: var(--corner-sm);
+  corner-shape: var(--corner-shape);
+}
+
+.clipboard-search:focus-within {
+  border-color: var(--color-focus-ring-soft);
+}
+
+.clipboard-search input {
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  color: var(--text-1);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clipboard-search input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.clipboard-search button {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  outline: none;
+  cursor: pointer;
+}
+
+.clipboard-search button:hover {
+  color: var(--color-white);
+  background: var(--color-white-a10);
+}

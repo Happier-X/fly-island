@@ -1,0 +1,211 @@
+import { getVersion } from "@tauri-apps/api/app";
+import { isTauri } from "@tauri-apps/api/core";
+import {
+  checkUpdate,
+  downloadAndInstallUpdate,
+  downloadUpdate,
+  getUpdaterProxy,
+  isUpdaterConfigured,
+  listenUpdateRequests,
+  listenUpdateState,
+  publishUpdateState,
+  requestUpdateAction,
+  type DownloadEvent,
+} from "./api";
+
+export type UpdateStage =
+  | "idle"
+  | "checking"
+  | "latest"
+  | "available"
+  | "downloading"
+  | "ready"
+  | "installing"
+  | "done"
+  | "error"
+  | "disabled";
+
+export type UpdateState = {
+  stage: UpdateStage;
+  version: string;
+  nextVersion: string;
+  downloaded: number;
+  total: number;
+  detail: string;
+  /** The user hid the update todo; the settings panel still offers the restart. */
+  dismissed: boolean;
+};
+
+// Only the main window owns the update: the standalone settings window can be
+// destroyed and recreated without interrupting the download or starting another
+// one, so it mirrors the main window's state and forwards its actions there.
+const windowKind = new URLSearchParams(window.location.search).get("window");
+const remoteSettings = windowKind === "settings";
+const initialState: UpdateState = {
+  stage: "idle",
+  version: "",
+  nextVersion: "",
+  downloaded: 0,
+  total: 0,
+  detail: "",
+  dismissed: false,
+};
+
+let state: UpdateState = initialState;
+const listeners = new Set<() => void>();
+
+let proxy: string | null = null;
+let initialized = false;
+let startupCheckStarted = false;
+
+// The translation window shares this bundle but stays out of the update flow,
+// otherwise every startup would check and download twice.
+function isMainWindow() {
+  return windowKind === null || windowKind === "main";
+}
+
+function setState(patch: Partial<UpdateState>) {
+  state = { ...state, ...patch };
+  for (const listener of listeners) listener();
+  if (isMainWindow() && isTauri()) {
+    void publishUpdateState(state).catch((error) => console.error("Failed to share update state", error));
+  }
+}
+
+export function subscribeToUpdate(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getUpdateState() {
+  return state;
+}
+
+export function errorReason(error: unknown) {
+  const reason = error instanceof Error ? error.message : String(error);
+  return reason.length > 240 ? `${reason.slice(0, 240)}…` : reason;
+}
+
+function busy(stage: UpdateStage) {
+  return stage === "checking" || stage === "downloading" || stage === "installing";
+}
+
+function trackProgress(event: DownloadEvent) {
+  if (event.event === "Started") setState({ total: event.data.contentLength ?? 0 });
+  else if (event.event === "Progress") setState({ downloaded: state.downloaded + event.data.chunkLength });
+}
+
+async function initialize() {
+  if (initialized) return;
+  initialized = true;
+
+  if (!isTauri()) {
+    setState({ stage: "disabled" });
+    return;
+  }
+
+  if (remoteSettings) {
+    await listenUpdateState((snapshot) => setState(snapshot));
+    await requestUpdateAction({ action: "snapshot" });
+    return;
+  }
+
+  if (!isMainWindow()) return;
+
+  await listenUpdateRequests((request) => {
+    if (request.action === "check") void checkForUpdate();
+    else if (request.action === "install") void installUpdate();
+    else if (request.action === "dismiss") dismissUpdatePrompt();
+    else void publishUpdateState(state).catch((error) => console.error("Failed to share update state", error));
+  });
+
+  const [version, configured] = await Promise.all([
+    getVersion().catch(() => ""),
+    isUpdaterConfigured().catch(() => false),
+  ]);
+  proxy = await getUpdaterProxy().catch(() => null);
+
+  setState({
+    version,
+    stage: configured ? state.stage : "disabled",
+  });
+
+  if (configured) void runStartupUpdate();
+}
+
+async function findUpdate() {
+  setState({ nextVersion: "", downloaded: 0, total: 0, detail: "", dismissed: false, stage: "checking" });
+  try {
+    const found = await checkUpdate(proxy);
+    if (!found) {
+      setState({ stage: "latest" });
+      return false;
+    }
+    setState({ stage: "available", nextVersion: found.version });
+    return true;
+  } catch (error) {
+    console.error("Failed to check for updates", error);
+    setState({ stage: "error", detail: errorReason(error) });
+    return false;
+  }
+}
+
+/** Downloads the found update without installing it; installing waits for the user. */
+async function downloadFound() {
+  setState({ downloaded: 0, total: 0, detail: "", stage: "downloading" });
+  try {
+    await downloadUpdate(trackProgress);
+    // A dismissed flag stays: hiding the todo mid-download must not bring it back.
+    setState({ stage: "ready" });
+  } catch (error) {
+    console.error("Failed to download the update", error);
+    setState({ stage: "error", detail: errorReason(error) });
+  }
+}
+
+/** Checks once at startup and downloads quietly; the todo list offers the restart. */
+async function runStartupUpdate() {
+  if (startupCheckStarted || state.stage !== "idle") return;
+  startupCheckStarted = true;
+  if (await findUpdate()) await downloadFound();
+}
+
+export async function checkForUpdate() {
+  if (remoteSettings) return requestUpdateAction({ action: "check" });
+  if (busy(state.stage) || state.stage === "disabled") return;
+  if (await findUpdate()) await downloadFound();
+}
+
+/** Hiding the todo row installs nothing and keeps the downloaded package. */
+export function dismissUpdatePrompt() {
+  if (remoteSettings) {
+    void requestUpdateAction({ action: "dismiss" }).catch((error) => console.error("Failed to dismiss update prompt", error));
+    return;
+  }
+  if (!state.dismissed) setState({ dismissed: true });
+}
+
+export async function installUpdate() {
+  if (remoteSettings) return requestUpdateAction({ action: "install" });
+  if (busy(state.stage) || (state.stage !== "available" && state.stage !== "ready")) return;
+
+  const downloadedAlready = state.stage === "ready";
+  setState(downloadedAlready ? { stage: "installing" } : { downloaded: 0, total: 0, detail: "", stage: "downloading" });
+  try {
+    await downloadAndInstallUpdate((event) => {
+      if (event.event === "Finished") setState({ stage: "installing" });
+      else trackProgress(event);
+    });
+    setState({ stage: "done" });
+  } catch (error) {
+    console.error("Failed to install the update", error);
+    setState({ stage: "error", detail: errorReason(error) });
+  }
+}
+
+void initialize().catch((error) => {
+  console.error("Failed to initialize updates", error);
+  setState({ stage: "error", detail: errorReason(error) });
+});

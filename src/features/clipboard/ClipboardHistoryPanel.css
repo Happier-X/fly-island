@@ -1,0 +1,55 @@
+.clipboard-panel {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--space-lg);
+  overflow: hidden;
+  padding: 16px 0 18px;
+  color: var(--text-1);
+}
+
+.clipboard-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-color: rgba(248, 246, 240, 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+.clipboard-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.clipboard-list::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: var(--radius-pill);
+}
+
+.clipboard-list::-webkit-scrollbar-thumb {
+  background: rgba(248, 246, 240, 0.28);
+  border-radius: var(--radius-pill);
+}
+
+.clipboard-empty {
+  min-height: 118px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clipboard-item__main:focus-visible,
+.clipboard-item__note button:focus-visible,
+.clipboard-note-editor input:focus-visible,
+.clipboard-item__actions button:focus-visible,
+.clipboard-clear-button:focus-visible,
+.clipboard-segments button:focus-visible,
+.clipboard-search button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}

@@ -1,0 +1,34 @@
+.settings-stage {
+  height: 100%;
+  color: var(--color-page-text);
+  background: #17191d;
+}
+
+.settings-stage select {
+  font: inherit;
+}
+
+/* Pages stop at a readable width (rows read as label + control, not a stretched line); a wider
+   window leaves the rest empty on the right. */
+.settings-stage .editor-panel {
+  grid-template-columns: minmax(0, 600px);
+  height: 100%;
+  min-height: 0;
+  padding: 14px 20px 20px;
+  border-radius: 0;
+  background: transparent;
+  gap: var(--space-xl);
+}
+
+.settings-stage .preset-name-input {
+  font-weight: 400;
+}
+
+.settings-stage .select-control__trigger {
+  font-weight: 500;
+}
+
+/* Buttons keep some weight, but stay below the page title. */
+.settings-stage .shortcut-record-button {
+  font-weight: 600;
+}

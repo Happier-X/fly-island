@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+dist-web-demo
+src-tauri/target
+src-tauri/gen
+src-tauri/tauri.release.conf.json
+
+# Output of `tsc -b` (tsconfig.node.json is composite). A stray vite.config.js would
+# win over vite.config.ts, so keep these out of the tree.
+*.tsbuildinfo
+/vite.config.js
+/vite.config.d.ts
+
+*.key
+*.key.pub
+*.dpapi
+*.local
+
+# Local Claude Code skills. This machine only; not part of the repo.
+.claude/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+/demo.mp4
+*.vsix
