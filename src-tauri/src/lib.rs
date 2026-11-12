@@ -9,6 +9,7 @@ mod messenger_activation;
 mod notification_diagnostics;
 mod mail;
 mod qq_notifications;
+mod screenshot;
 mod settings_window;
 mod system;
 mod translation;
@@ -65,6 +66,9 @@ pub fn run() {
                 eprintln!("failed to initialize clipboard history: {error}");
             }
             translation::init(app.handle());
+            if let Err(error) = screenshot::init(app.handle()) {
+                eprintln!("failed to initialize screenshots: {error}");
+            }
             if let Err(error) = file_shelf::init(app.handle()) {
                 eprintln!("failed to initialize the file shelf: {error}");
             }
@@ -110,6 +114,7 @@ pub fn run() {
             lyrics;
             clipboard_history;
             translation;
+            screenshot;
             settings_window
         ))
         .build(context)

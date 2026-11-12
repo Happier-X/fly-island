@@ -1,0 +1,7 @@
+# 统一行尾为 LF（rustfmt 要求），避免 CRLF 干扰 fmt --check。
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

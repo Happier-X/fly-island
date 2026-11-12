@@ -1,0 +1,37 @@
+[package]
+name = "airsnip"
+version = "0.11.0"
+edition = "2024"
+description = "AirSnip 轻截：轻量原生截图与标注工具（Windows，纯 CPU 渲染）"
+license = "GPL-3.0-only"
+
+# 作为库被 FocuSD Island 承载：不再有自己的 bin target，入口见 src/lib.rs。
+# 原有的 [profile.release] 与 build.rs（嵌入 exe 清单/图标）留给宿主项目负责，
+# 因此这里不声明 profile，也不编译 app.rc。
+
+[lib]
+name = "airsnip"
+path = "src/lib.rs"
+
+[dependencies]
+# 自动更新（#59）：验签（ed25519 + sha256）与清单解析
+ed25519-dalek = { version = "2.2.0", default-features = false, features = ["std", "zeroize", "rand_core"] }
+sha2 = { version = "0.10.9", default-features = false }
+serde_json = "1.0.145"
+image-webp = "0.2.4"
+jpeg-encoder = "0.7.1"
+png = "0.18.1"
+serde = { version = "1.0.229", features = ["derive"] }
+tiny-skia = "0.12.0"
+toml = "1.1.6"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_System_Com", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_Controls", "Win32_UI_Input", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Input_Ime", "Win32_Security", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_Graphics_DirectWrite", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Devices_Display", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Controls_Dialogs", "Win32_System_SystemInformation", "Win32_System_Ole", "Win32_Networking_WinHttp", "Foundation", "Globalization", "Graphics_Imaging", "Media_Ocr", "Storage_Streams", "Win32_System_WinRT"] }
+# 取字（#61）：`OcrEngine::RecognizeAsync` 返回 `windows_future::IAsyncOperation`，
+# 该类型只实现 `IntoFuture`（没有阻塞 `get()`），后台线程用其 `Async::join()` 同步等待。
+# 微软维护、MIT OR Apache-2.0，依赖仅 windows-core / windows-link / windows-threading（ADR 0022）。
+windows-future = { version = "0.3.2", default-features = false, features = ["std"] }
+# implement 宏展开需要 windows_core crate 在 crate root 可见（COM 自定义接口）
+windows-core = { version = "0.62.2", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# 仅开发工具（examples/update-keygen、update-sign）使用：生成更新密钥与签名
+rand_core = { version = "0.6.4", features = ["getrandom"] }

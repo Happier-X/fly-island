@@ -5,6 +5,7 @@ import { GeneralSettingsPage } from "./GeneralSettingsPage";
 import { AgentSettingsPage } from "./AgentSettingsPage";
 import { AgentConnectSettingsPage } from "./AgentConnectSettingsPage";
 import { ClipboardSettingsPage } from "./ClipboardSettingsPage";
+import { ScreenshotSettingsPage } from "./ScreenshotSettingsPage";
 import { LayoutEditor } from "./LayoutEditor";
 import { MusicSettingsPage } from "./MusicSettingsPage";
 import { MessagesSettingsPage } from "./MessagesSettingsPage";
@@ -109,6 +110,7 @@ export function SettingsPanel({
       )}
       {category === "translation" && <TranslationSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "clipboard" && <ClipboardSettingsPage settings={settings} onSettingsChange={setSettings} />}
+      {category === "screenshot" && <ScreenshotSettingsPage settings={settings} />}
       {category === "music" && <MusicSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "agents" && <AgentSettingsPage settings={settings} onSettingsChange={setSettings} onOpenConnect={() => setCategory("agentConnect")} />}
       {category === "agentConnect" && <AgentConnectSettingsPage />}

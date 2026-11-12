@@ -4,6 +4,7 @@ version = "3.0.3"
 description = "A compact floating island shell for Windows."
 authors = ["you"]
 edition = "2021"
+license = "GPL-3.0-only"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,6 +19,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# 截图能力：AirSnip 的抓屏 / 覆盖窗 / 标注 / 长截图 / OCR / 贴图（GPL-3.0-only）。
+# 独立 crate 保留它原有的 unsafe 写法与依赖版本，不受本目录的 clippy 规则约束。
+airsnip = { path = "../crates/airsnip" }
 arboard = "3"
 base64 = "0.22"
 flate2 = "1"

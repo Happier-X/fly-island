@@ -1,0 +1,532 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//! 配置（SYS-5）：`%APPDATA%\airsnip\config.toml`，缺失或损坏时回退默认值。
+
+pub mod hotkey;
+pub mod panel;
+pub mod toolbar;
+
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+pub use hotkey::{HotkeyConfig, ToolKeys, UNBOUND};
+pub use toolbar::{GroupState, ToolbarConfig, ToolbarGroup, ToolbarSlot};
+
+use crate::editor::Tool;
+
+/// 最近一次截图会话使用的工具（下次截图默认沿用，首次为矩形，M3）。
+static LAST_TOOL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// 上次使用的标注工具。
+pub fn last_tool() -> Tool {
+    let i = LAST_TOOL.load(std::sync::atomic::Ordering::Relaxed) as usize;
+    Tool::ALL[i.min(Tool::ALL.len() - 1)]
+}
+
+/// 记录本次会话最后使用的工具。
+pub fn last_tool_store(t: Tool) {
+    LAST_TOOL.store(t as u8, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// 主题设置：跟随系统 / 浅色 / 深色。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ThemeSetting {
+    #[default]
+    #[serde(rename = "follow")]
+    Follow,
+    #[serde(rename = "light")]
+    Light,
+    #[serde(rename = "dark")]
+    Dark,
+}
+
+/// 贴图初始位置（M2b）：编辑器内贴选区（PIN-1）时显示在截图原位置或屏幕中央；
+/// 剪贴板贴图（PIN-2）无「原位置」，始终居中。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum PinPosition {
+    /// 在截图选区原位置显示（默认）。
+    #[default]
+    #[serde(rename = "original")]
+    Original,
+    /// 在虚拟屏中央显示。
+    #[serde(rename = "center")]
+    Center,
+}
+
+/// 保存文件名模板（OUT-2）：保存对话框预填的文件名，可在设置面板选择。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum NameStyle {
+    /// `airsnip-20241231-235959`（日期 + 时间，默认）。
+    #[default]
+    #[serde(rename = "datetime")]
+    DateTime,
+    /// `1735689599123`（Unix 毫秒时间戳）。
+    #[serde(rename = "timestamp")]
+    Timestamp,
+    /// `airsnip-20241231`（仅日期）。
+    #[serde(rename = "date")]
+    Date,
+}
+
+impl NameStyle {
+    pub fn title(self) -> &'static str {
+        match self {
+            NameStyle::DateTime => "日期 + 时间",
+            NameStyle::Timestamp => "时间戳（Unix 毫秒）",
+            NameStyle::Date => "仅日期",
+        }
+    }
+}
+
+/// 覆盖层界面缩放（CAP-5）：自动 / 固定百分比。
+/// 只影响截图工具栏、手柄、尺寸提示与光标，不影响标注内容（线宽、字号）与导出结果。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum UiScale {
+    /// 按显示器 DPI 与物理分辨率自动（默认）。
+    #[default]
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "100")]
+    P100,
+    #[serde(rename = "125")]
+    P125,
+    #[serde(rename = "150")]
+    P150,
+    #[serde(rename = "175")]
+    P175,
+    #[serde(rename = "200")]
+    P200,
+}
+
+impl UiScale {
+    pub const ALL: [UiScale; 6] = [
+        UiScale::Auto,
+        UiScale::P100,
+        UiScale::P125,
+        UiScale::P150,
+        UiScale::P175,
+        UiScale::P200,
+    ];
+
+    /// 设置面板行标签。
+    pub fn title(self) -> &'static str {
+        match self {
+            UiScale::Auto => "界面缩放·自动",
+            UiScale::P100 => "界面缩放·100%",
+            UiScale::P125 => "界面缩放·125%",
+            UiScale::P150 => "界面缩放·150%",
+            UiScale::P175 => "界面缩放·175%",
+            UiScale::P200 => "界面缩放·200%",
+        }
+    }
+
+    /// 固定倍率；`Auto` 返回 None（由 `Ui::resolve` 按显示器算）。
+    pub fn factor(self) -> Option<f32> {
+        match self {
+            UiScale::Auto => None,
+            UiScale::P100 => Some(1.0),
+            UiScale::P125 => Some(1.25),
+            UiScale::P150 => Some(1.5),
+            UiScale::P175 => Some(1.75),
+            UiScale::P200 => Some(2.0),
+        }
+    }
+}
+
+/// OCR 与翻译（OCR-1，ADR 0022）：可选能力。
+/// OCR **没有总开关**（issue #143）：常开、首次触发才初始化 WinRT，
+/// 界面上出不出现按钮交给「工具栏可见性」；不想用就把 OCR 键清空（ADR 0017）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OcrConfig {
+    /// 识别成功后自动写剪贴板（默认关，OCR-10）。
+    pub auto_copy: bool,
+    /// 识别语言：`auto` 跟随系统首选，否则为 BCP-47 标签（如 `zh-Hans-CN`）。
+    pub language: String,
+}
+
+/// 识别语言「跟随系统」的配置值。
+pub const OCR_LANG_AUTO: &str = "auto";
+
+impl Default for OcrConfig {
+    fn default() -> Self {
+        Self {
+            auto_copy: false,
+            language: OCR_LANG_AUTO.to_string(),
+        }
+    }
+}
+
+impl OcrConfig {
+    /// 识别语言标签：`None` 表示跟随系统首选语言（`auto`）。
+    pub fn language_tag(&self) -> Option<&str> {
+        let t = self.language.trim();
+        (!t.is_empty() && !t.eq_ignore_ascii_case(OCR_LANG_AUTO)).then_some(t)
+    }
+}
+
+/// 保存相关运行时偏好（OUT-2）：文件名模板 + 上次格式 + 上次目录。
+/// 截图开始时从配置快照后传入覆盖层线程（`HWND` 不可跨线程，值可以）。
+#[derive(Debug, Clone, Default)]
+pub struct SavePrefs {
+    /// 保存文件名模板。
+    pub name_style: NameStyle,
+    /// 上次保存的格式扩展名（下次对话框默认选中该格式）。
+    pub last_ext: Option<String>,
+    /// 上次保存的目录（下次对话框初始位置；目录已不存在时回退默认目录）。
+    pub last_dir: Option<String>,
+}
+
+/// 根配置。所有字段带默认值，旧配置文件缺字段时自动补齐。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Config {
+    /// 开机自启开关。实际生效状态以注册表 Run 键 + StartupApproved 为准。
+    pub auto_start: bool,
+    /// 界面语言（一期仅 zh-CN，预留 i18n）。
+    pub language: String,
+    pub theme: ThemeSetting,
+    pub hotkey: HotkeyConfig,
+    /// 覆盖层工具切换键（M3）。
+    pub tool_keys: ToolKeys,
+    /// 是否已提示过无修饰键热键风险（避免每次启动弹窗）。
+    pub hotkey_warned: bool,
+    /// 贴图初始位置（M2b）。
+    pub pin_position: PinPosition,
+    /// 贴图 1px 蓝色边框（M2b，默认开）。
+    pub pin_border: bool,
+    /// 覆盖层界面缩放（CAP-5，默认自动）：4K@100% 这类高密度屏需要手动放大。
+    pub ui_scale: UiScale,
+    /// 工具栏 5 个色块的颜色（EDT-7，issue #73 后续）：双击色块取色改写，缺省为预设色。
+    pub swatch_colors: [[u8; 4]; crate::editor::SWATCH_COUNT],
+    /// 有未保存标注时取消截图先弹确认框（OUT-3 / ADR 0027，默认开）；关闭后直接退出（issue #120）。
+    pub confirm_cancel: bool,
+    /// 工具栏可见性（EDT-16，issue #143）：纯视觉偏好，只存隐藏集合、默认全可见。
+    pub toolbar: ToolbarConfig,
+    /// 保存文件名模板（OUT-2）。
+    pub name_style: NameStyle,
+    /// 上次保存用的格式扩展名（OUT-2，运行时记忆）：保存对话框下次默认选中该格式。
+    pub last_save_ext: Option<String>,
+    /// 上次保存的目录（OUT-2，运行时记忆）：保存对话框下次的初始位置。
+    pub last_save_dir: Option<String>,
+    /// 长截图拼接高度上限（像素，LNG-7，默认 30000）。
+    pub longshot_max_height: u32,
+    /// 启动后自动检查更新（SYS-7，默认开）。关闭后只能从关于页手动检查。
+    pub auto_check_update: bool,
+    /// 用户选择「跳过此版本」的版本号（SYS-7）。
+    pub skipped_version: Option<String>,
+    /// OCR 与翻译（OCR-1；OCR 无总开关，见 `OcrConfig`）。
+    pub ocr: OcrConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            auto_start: false,
+            language: "zh-CN".to_string(),
+            theme: ThemeSetting::Follow,
+            hotkey: HotkeyConfig::default(),
+            tool_keys: ToolKeys::default(),
+            hotkey_warned: false,
+            pin_position: PinPosition::Original,
+            pin_border: true,
+            ui_scale: UiScale::Auto,
+            swatch_colors: crate::editor::DEFAULT_COLORS,
+            confirm_cancel: true,
+            toolbar: ToolbarConfig::default(),
+            name_style: NameStyle::DateTime,
+            last_save_ext: None,
+            last_save_dir: None,
+            longshot_max_height: 30000,
+            auto_check_update: true,
+            skipped_version: None,
+            ocr: OcrConfig::default(),
+        }
+    }
+}
+
+/// 托管模式（FocuSD Island 承载）：配置整体由宿主注入，
+/// 既不读也不写 AirSnip 自己的 `config.toml`，避免两套设置互相覆盖。
+static HOSTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 由宿主在启动前调用一次。
+pub fn set_hosted(hosted: bool) {
+    HOSTED.store(hosted, std::sync::atomic::Ordering::SeqCst);
+}
+
+pub fn is_hosted() -> bool {
+    HOSTED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// 宿主注入的配置目录（FocuSD Island 承载时指向宿主应用数据目录）。
+/// 未注入时保持 AirSnip 自己的 `%APPDATA%\airsnip`。
+static CONFIG_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// 由宿主进程在启动时调用一次；重复调用保留第一次的值。
+pub fn set_config_dir_override(dir: PathBuf) {
+    let _ = CONFIG_DIR_OVERRIDE.set(dir);
+}
+
+impl Config {
+    /// 配置目录：默认 `%APPDATA%\airsnip`，宿主导入时用注入值。
+    pub fn config_dir() -> PathBuf {
+        if let Some(dir) = CONFIG_DIR_OVERRIDE.get() {
+            return dir.clone();
+        }
+        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(appdata).join("airsnip")
+    }
+
+    /// 配置文件路径。
+    pub fn config_path() -> PathBuf {
+        Self::config_dir().join("config.toml")
+    }
+
+    /// 加载配置：文件缺失或解析失败时回退默认值（SYS-5）。
+    /// 托管模式下配置由宿主注入，这里只返回默认值（`run_hosted` 不会调用它）。
+    pub fn load() -> Self {
+        if is_hosted() {
+            return Self::default();
+        }
+        let mut cfg: Config = match std::fs::read_to_string(Self::config_path()) {
+            Ok(text) => toml::from_str(&text).unwrap_or_default(),
+            Err(_) => Config::default(),
+        };
+        // 迁移：旧版共享 modifiers（同时作用于两键）→ 拆分到各键
+        let h = &mut cfg.hotkey;
+        if h.legacy_modifiers != 0 && h.screenshot_modifiers == 0 && h.pin_modifiers == 0 {
+            h.screenshot_modifiers = h.legacy_modifiers;
+            h.pin_modifiers = h.legacy_modifiers;
+        }
+        cfg
+    }
+
+    /// 保存配置：自动创建目录，写入失败静默忽略。
+    /// 托管模式下不落盘：设置项由宿主持有，写 AirSnip 的 toml 只会造成两份真相。
+    pub fn save(&self) {
+        if is_hosted() {
+            return;
+        }
+        let text = toml::to_string_pretty(self).unwrap_or_default();
+        let _ = std::fs::create_dir_all(Self::config_dir());
+        let _ = std::fs::write(Self::config_path(), text);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 旧配置（共享 modifiers）能正确迁移到各键独立修饰键。
+    #[test]
+    fn legacy_shared_modifiers_migrate() {
+        let old = "[hotkey]\nscreenshot_key = 0x70\npin_key = 0x72\nmodifiers = 1\n";
+        let cfg: Config = toml::from_str(old).unwrap();
+        let (mut h, _) = (cfg.hotkey.clone(), ());
+        assert_eq!(h.legacy_modifiers, 1, "旧 modifiers 应读入遗留字段");
+        assert_eq!(h.screenshot_modifiers, 0);
+        // 模拟 load() 的迁移逻辑
+        if h.legacy_modifiers != 0 && h.screenshot_modifiers == 0 && h.pin_modifiers == 0 {
+            h.screenshot_modifiers = h.legacy_modifiers;
+            h.pin_modifiers = h.legacy_modifiers;
+        }
+        assert_eq!(h.screenshot_modifiers, 1);
+        assert_eq!(h.pin_modifiers, 1);
+    }
+
+    /// 新格式各键独立修饰键，互不干扰。
+    #[test]
+    fn per_key_modifiers_roundtrip() {
+        let cfg = Config {
+            hotkey: HotkeyConfig {
+                screenshot_key: 0x41,
+                screenshot_modifiers: 1, // Alt
+                pin_key: 0x72,
+                pin_modifiers: 4, // Shift
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        let back: Config = toml::from_str(&text).unwrap();
+        assert_eq!(back.hotkey.screenshot_modifiers, 1);
+        assert_eq!(back.hotkey.pin_modifiers, 4);
+        assert!(!text.contains("legacy_modifiers"), "遗留字段不应写入配置：{text}");
+    }
+
+    /// 再次截图键（issue #118）：默认 Shift+F1；旧配置缺字段时回退默认值，新值能往返。
+    #[test]
+    fn recapture_key_defaults_and_roundtrip() {
+        let d = HotkeyConfig::default();
+        assert_eq!(d.recapture_key, 0x70, "默认再次截图键应为 F1");
+        assert_eq!(d.recapture_modifiers, 1 << 2, "默认应带 Shift（= Shift+F1）");
+        assert_ne!(
+            (d.screenshot_key, d.screenshot_modifiers),
+            (d.recapture_key, d.recapture_modifiers),
+            "默认值不应与截图热键撞成同一个组合"
+        );
+
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.hotkey.recapture_modifiers, 1 << 2, "旧配置应回退默认修饰键");
+
+        let cfg = Config {
+            hotkey: HotkeyConfig {
+                recapture_key: 0x71, // F2
+                recapture_modifiers: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!((back.hotkey.recapture_key, back.hotkey.recapture_modifiers), (0x71, 0));
+    }
+
+    /// 命名模板（OUT-2）：旧配置缺字段时回退默认值，新值能往返。
+    #[test]
+    fn name_style_roundtrip_and_defaults() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.name_style, NameStyle::DateTime, "旧配置应回退默认命名模板");
+        assert_eq!(old.last_save_ext, None, "旧配置无上次格式记录");
+
+        let cfg = Config {
+            name_style: NameStyle::Date,
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.name_style, NameStyle::Date);
+        assert_eq!(back.name_style.title(), "仅日期");
+    }
+
+    /// 长截图键（M5）：默认 S；旧配置缺字段时回退默认值，新值能往返。
+    #[test]
+    fn longshot_key_defaults_and_roundtrip() {
+        assert_eq!(HotkeyConfig::default().longshot_key, 0x53, "默认长截图键应为 S");
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.hotkey.longshot_key, 0x53, "旧配置应回退默认长截图键");
+
+        let cfg = Config {
+            hotkey: HotkeyConfig {
+                longshot_key: 0x4C, // L
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.hotkey.longshot_key, 0x4C);
+    }
+
+    /// OCR 键（OCR-3）：默认 T；旧配置缺字段时回退默认值，新值能往返。
+    #[test]
+    fn ocr_key_defaults_and_roundtrip() {
+        assert_eq!(HotkeyConfig::default().ocr_key, 0x54, "默认 OCR 键应为 T");
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.hotkey.ocr_key, 0x54, "旧配置应回退默认 OCR 键");
+
+        let cfg = Config {
+            hotkey: HotkeyConfig {
+                ocr_key: 0x4F, // O
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.hotkey.ocr_key, 0x4F);
+    }
+
+    /// OCR 配置（OCR-1/OCR-10）：无总开关字段（issue #143），旧配置的 `enabled` 被忽略。
+    #[test]
+    fn ocr_config_defaults_and_roundtrip() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert!(!old.ocr.auto_copy, "自动复制默认关闭");
+        assert_eq!(old.ocr.language, OCR_LANG_AUTO, "默认跟随系统语言");
+
+        let cfg = Config {
+            ocr: OcrConfig {
+                auto_copy: true,
+                language: "zh-Hans-CN".to_string(),
+            },
+            ..Default::default()
+        };
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        assert!(text.contains("[ocr]"), "应写成独立的 [ocr] 段：{text}");
+        assert!(!text.contains("enabled"), "不应再写 enabled（OCR 常开）：{text}");
+        let back: Config = toml::from_str(&text).unwrap();
+        assert!(back.ocr.auto_copy, "自动复制开关应能往返");
+        assert_eq!(back.ocr.language, "zh-Hans-CN");
+    }
+
+    /// 旧配置里的 `[ocr] enabled = false` 不迁移、不报错：升级后 OCR 直接可用（issue #143）。
+    #[test]
+    fn legacy_ocr_enabled_is_ignored() {
+        let old: Config = toml::from_str("[ocr]\nenabled = false\nauto_copy = true\n").unwrap();
+        assert!(old.ocr.auto_copy, "同段其余字段照旧读入");
+        let text = toml::to_string_pretty(&old).unwrap();
+        assert!(!text.contains("enabled"), "再存盘时不应写回遗留字段：{text}");
+    }
+
+    /// 上次保存目录（OUT-2）：旧配置缺字段回退 None，新值能往返。
+    #[test]
+    fn last_save_dir_roundtrip() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.last_save_dir, None, "旧配置应无上次保存目录");
+
+        let cfg = Config {
+            last_save_dir: Some(r"D:\shots".to_string()),
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.last_save_dir.as_deref(), Some(r"D:\shots"));
+    }
+
+    /// 界面缩放（CAP-5）：旧配置回退自动，固定倍率能往返。
+    #[test]
+    fn ui_scale_defaults_and_roundtrip() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.ui_scale, UiScale::Auto, "旧配置应回退自动缩放");
+        assert_eq!(UiScale::Auto.factor(), None, "自动模式不固定倍率");
+        assert_eq!(UiScale::P150.factor(), Some(1.5));
+
+        let cfg = Config {
+            ui_scale: UiScale::P175,
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.ui_scale, UiScale::P175);
+        // 每个选项都有标签与（Auto 之外的）倍率
+        for m in UiScale::ALL {
+            assert!(!m.title().is_empty());
+            if m != UiScale::Auto {
+                assert!(m.factor().is_some(), "{m:?} 应有固定倍率");
+            }
+        }
+    }
+
+    /// 连按两次退出（OUT-3，issue #120）：旧配置缺字段回退开启（保持 ADR 0027 行为），关闭能往返。
+    #[test]
+    fn confirm_cancel_defaults_and_roundtrip() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert!(old.confirm_cancel, "旧配置应默认开启取消确认");
+
+        let cfg = Config {
+            confirm_cancel: false,
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert!(!back.confirm_cancel);
+    }
+
+    /// 色块颜色（EDT-7）：旧配置缺字段回退预设色，新值能往返。
+    #[test]
+    fn swatch_colors_defaults_and_roundtrip() {
+        let old: Config = toml::from_str("[hotkey]\nscreenshot_key = 0x70\n").unwrap();
+        assert_eq!(old.swatch_colors, crate::editor::DEFAULT_COLORS, "旧配置应回退预设色");
+
+        let mut colors = crate::editor::DEFAULT_COLORS;
+        colors[4] = [142, 36, 170, 255];
+        let cfg = Config {
+            swatch_colors: colors,
+            ..Default::default()
+        };
+        let back: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.swatch_colors, colors);
+    }
+}

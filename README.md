@@ -10,20 +10,22 @@
   <p>
     <a href="https://island.flyliu.org/">在线预览</a>
     ·
-    <a href="https://github.com/flyl1u/fly-island/releases/latest">下载 Release</a>
+    <a href="https://github.com/Happier-X/fly-island/releases/latest">下载 Release</a>
     ·
-    <a href="https://github.com/flyl1u/fly-island/issues">反馈 Issue</a>
+    <a href="https://github.com/Happier-X/fly-island/issues">反馈 Issue</a>
     ·
     <a href="#用户交流群">用户交流群</a>
   </p>
 
   <p>
-    <img alt="Version" src="https://img.shields.io/github/v/release/flyl1u/fly-island?label=version">
+    <img alt="Version" src="https://img.shields.io/github/v/release/Happier-X/fly-island?label=version">
     <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4">
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB">
     <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB">
   </p>
 </div>
+
+> 本仓库是 [flyl1u/fly-island](https://github.com/flyl1u/fly-island) 的 GPL-3.0 分支，在 v3.0.3 的基础上内置了 [AirSnip（轻截）](https://github.com/bd-dxg/airsnip) 的截图能力：框选标注、长截图、OCR、贴图，全部在设置页里配置。
 
 ## 这是什么
 
@@ -86,7 +88,7 @@ fly-island 把分散在不同窗口中的高频操作放到一个可折叠、可
   <img src="docs/assets/wechat-community.jpg" alt="fly-island 微信用户交流群二维码" width="360">
 </p>
 
-二维码有有效期，当前图片标注为 **11 月 18 日前有效**；若已失效，可通过 [Issue](https://github.com/flyl1u/fly-island/issues) 反馈以便更新。
+二维码有有效期，当前图片标注为 **11 月 18 日前有效**；若已失效，可通过 [Issue](https://github.com/Happier-X/fly-island/issues) 反馈以便更新。
 
 ## 开发与构建
 
@@ -95,7 +97,7 @@ fly-island 把分散在不同窗口中的高频操作放到一个可折叠、可
 需要 Windows 10/11、Node.js、pnpm、Rust、Visual Studio C++ Build Tools 和 WebView2 Runtime。
 
 ```powershell
-git clone https://github.com/flyl1u/fly-island.git
+git clone https://github.com/Happier-X/fly-island.git
 cd fly-island
 pnpm install
 pnpm tauri dev
@@ -118,7 +120,7 @@ pnpm tauri build
 - `src-tauri/target/release/bundle/nsis/fly-island_版本号_x64-setup.exe`
 - `src-tauri/target/release/bundle/msi/fly-island_版本号_x64_en-US.msi`
 
-也可以直接从 [GitHub Releases](https://github.com/flyl1u/fly-island/releases/latest) 下载 Windows x64 安装包。
+也可以直接从 [GitHub Releases](https://github.com/Happier-X/fly-island/releases/latest) 下载 Windows x64 安装包。
 
 应用内更新（检查更新、签名与 `latest.json` 发布流程）见 [docs/updater.md](docs/updater.md)。
 
@@ -128,16 +130,16 @@ pnpm tauri build
 
 ## 开源协议
 
-本项目采用 [MIT 协议](LICENSE)。
+本项目采用 [GPL-3.0-only 协议](LICENSE)。v3.0.3 及更早版本为 MIT，原声明保留在 [NOTICE](NOTICE)。
 
-第三方依赖和内置资源仍遵循各自的许可证。内置字体的许可信息见[字体说明](src/assets/fonts/README.md)。
+截图功能来自 [AirSnip（轻截）](https://github.com/bd-dxg/airsnip)，源码在 `crates/airsnip/`，同样以 GPL-3.0-only 发布。第三方依赖和内置资源仍遵循各自的许可证。内置字体的许可信息见[字体说明](src/assets/fonts/README.md)。
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=flyl1u%2Ffly-island&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=Happier-X%2Ffly-island&type=date&legend=top-left">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=flyl1u/fly-island&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=flyl1u/fly-island&type=date&theme=light&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=flyl1u/fly-island&type=date&theme=light&legend=top-left" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Happier-X/fly-island&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Happier-X/fly-island&type=date&theme=light&legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Happier-X/fly-island&type=date&theme=light&legend=top-left" />
   </picture>
 </a>

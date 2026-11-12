@@ -15,6 +15,7 @@ export type SettingsCategoriesText = {
   todos: string;
   music: string;
   clipboard: string;
+  screenshot: string;
   translation: string;
   /** The file shelf's group on the Clipboard page. */
   shelf: string;
@@ -39,6 +40,7 @@ export const zhCN: SettingsCategoriesText = {
   todos: "待办",
   music: "音乐",
   clipboard: "剪贴板与文件",
+  screenshot: "截图",
   translation: "翻译",
   shelf: "文件中转",
   agents: "会话与提醒",
@@ -61,6 +63,7 @@ export const en: SettingsCategoriesText = {
   todos: "Todos",
   music: "Music",
   clipboard: "Clipboard & files",
+  screenshot: "Screenshots",
   translation: "Translation",
   shelf: "File shelf",
   agents: "Sessions & alerts",

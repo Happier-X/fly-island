@@ -17,6 +17,7 @@ import type { SettingsLayoutText } from "./layout";
 import type { SettingsTodoText } from "./todo";
 import type { SettingsAgentText } from "./agent";
 import type { SettingsClipboardText } from "./clipboard";
+import type { SettingsScreenshotText } from "./screenshot";
 import type { SettingsColorsText } from "./colors";
 import type { SettingsSaveText } from "./save";
 import type { SettingsSoundsText } from "./sounds";
@@ -39,6 +40,7 @@ import * as layout from "./layout.ts";
 import * as todo from "./todo.ts";
 import * as agent from "./agent.ts";
 import * as clipboard from "./clipboard.ts";
+import * as screenshot from "./screenshot.ts";
 import * as colors from "./colors.ts";
 import * as save from "./save.ts";
 import * as sounds from "./sounds.ts";
@@ -81,6 +83,8 @@ export type SettingsText = {
   agent: SettingsAgentText;
 
   clipboard: SettingsClipboardText;
+
+  screenshot: SettingsScreenshotText;
 
   colors: SettingsColorsText;
 
@@ -127,6 +131,8 @@ export const zhCN: SettingsText = {
 
   clipboard: clipboard.zhCN,
 
+  screenshot: screenshot.zhCN,
+
   colors: colors.zhCN,
 
 
@@ -171,6 +177,8 @@ export const en: SettingsText = {
   agent: agent.en,
 
   clipboard: clipboard.en,
+
+  screenshot: screenshot.en,
 
   colors: colors.en,
 

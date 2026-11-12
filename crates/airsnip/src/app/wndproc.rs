@@ -1,0 +1,300 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//! 消息窗口与窗口过程（SYS-1/2/3/4/6）：注册窗口类、创建隐藏窗口、分发消息。
+//! 拆分自 `app`：`run` 入口与 `App` 状态在父模块，本文件只管窗口与消息路由。
+
+use windows::Win32::Foundation::{GetLastError, GlobalFree, HGLOBAL, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Graphics::Gdi::HBRUSH;
+use windows::Win32::UI::WindowsAndMessaging::*;
+use windows::core::{PCWSTR, w};
+
+use super::{
+    App, TIMER_UPDATE_CHECK, WINDOW_CLASS, WM_HOST_CAPTURE, WM_HOST_CONFIG, WM_OCR_AUTOCOPY_CHANGED,
+    WM_OCR_REQUEST, WM_OVERLAY_DONE, WM_PIN_BORDER_CHANGED, WM_PIN_EDIT_DONE, WM_PIN_EDIT_REQUEST,
+    WM_PIN_FROM_EDITOR, WM_PIN_SAVE_REQUEST, WM_TRAY, icon_resource, tray,
+};
+
+/// 注册消息窗口类并创建窗口（隐藏）。
+pub(super) fn create_message_window(hinstance: HINSTANCE) -> Result<HWND, String> {
+    unsafe {
+        let icon = LoadIconW(Some(hinstance), icon_resource()).unwrap_or_default();
+        let wc = WNDCLASSW {
+            style: CS_HREDRAW | CS_VREDRAW,
+            lpfnWndProc: Some(wndproc),
+            hInstance: hinstance,
+            hIcon: icon,
+            hCursor: Default::default(),
+            hbrBackground: HBRUSH::default(),
+            lpszMenuName: PCWSTR::null(),
+            lpszClassName: WINDOW_CLASS,
+            ..Default::default()
+        };
+        if RegisterClassW(&wc) == 0 {
+            return Err(format!("注册窗口类失败，错误码 {}", GetLastError().0));
+        }
+
+        let hwnd = match CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            WINDOW_CLASS,
+            w!("AirSnip"),
+            WINDOW_STYLE(0),
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(hinstance),
+            None,
+        ) {
+            Ok(h) => h,
+            Err(e) => return Err(format!("创建窗口失败：{e}")),
+        };
+        // UIPI：本进程 requireAdministrator，explorer 是普通权限。不放行的话，
+        // explorer 重启后的 TaskbarCreated 广播与托盘点击的 WM_TRAY 都会被静默
+        // 丢弃（图标消失且点击无响应，见 ADR 0013）。
+        let taskbar_msg = tray::taskbar_created_message();
+        if taskbar_msg != 0 {
+            log_uipi_failure(
+                "TaskbarCreated",
+                ChangeWindowMessageFilterEx(hwnd, taskbar_msg, MSGFLT_ALLOW, None),
+            );
+        }
+        log_uipi_failure(
+            "WM_TRAY",
+            ChangeWindowMessageFilterEx(hwnd, WM_TRAY, MSGFLT_ALLOW, None),
+        );
+        Ok(hwnd)
+    }
+}
+
+/// UIPI 放行失败只在调试时提示：失败不致命，仅退化为「收不到 explorer 的低权限消息」。
+fn log_uipi_failure(name: &str, result: windows::core::Result<()>) {
+    if let Err(e) = result {
+        if std::env::var_os("AIRSNIP_DEBUG").is_some() {
+            eprintln!("[airsnip] UIPI 放行 {name} 失败：{e:?}");
+        }
+    }
+}
+
+unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // explorer 启动/重启后任务栏通知区重建：重新添加托盘图标（开机自启早于 explorer 就绪时）。
+    if tray::is_taskbar_created(msg) {
+        if let Some(app) = app_from(hwnd) {
+            app.restore_tray();
+        }
+        return LRESULT(0);
+    }
+    match msg {
+        WM_TIMER if wparam.0 == tray::TIMER_TRAY_RETRY => {
+            // 托盘图标补加重试：explorer 通知区就绪前 NIM_ADD 会失败。
+            // 这里不能走 restore_tray：计数被清零会变成无限重试。
+            if let Some(app) = app_from(hwnd) {
+                app.ensure_tray();
+            }
+            LRESULT(0)
+        }
+        // 宿主进程请求截图（FocuSD Island 的全局热键不经过本模块的 RegisterHotKey）。
+        WM_HOST_CAPTURE => {
+            if let Some(app) = app_from(hwnd) {
+                app.start_capture();
+            }
+            LRESULT(0)
+        }
+        // 宿主换了配置（保存格式 / 目录 / 标注颜色）：接管 lparam 里的 Box。
+        WM_HOST_CONFIG => {
+            if lparam.0 != 0 {
+                // SAFETY: 指针由 `HostHandle::apply_config` 用 `Box::into_raw` 交出，
+                // 只在这里取回一次，Box 随作用域结束释放。
+                let config = unsafe { Box::from_raw(lparam.0 as *mut crate::settings::Config) };
+                if let Some(app) = app_from(hwnd) {
+                    app.config = *config;
+                }
+            }
+            LRESULT(0)
+        }
+        WM_TIMER if wparam.0 == TIMER_UPDATE_CHECK => {            // 启动后一次性检查更新（SYS-7）：立刻停掉定时器，不留常驻轮询
+            unsafe {
+                let _ = KillTimer(Some(hwnd), TIMER_UPDATE_CHECK);
+            }
+            if let Some(app) = app_from(hwnd) {
+                app.check_update_silently();
+            }
+            LRESULT(0)
+        }
+        WM_POWERBROADCAST => {
+            // 休眠唤醒后通知区可能重建：explorer 未重启时不会有 TaskbarCreated
+            let event = wparam.0 as u32;
+            if matches!(
+                event,
+                PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND | PBT_APMRESUMECRITICAL
+            ) {
+                if let Some(app) = app_from(hwnd) {
+                    app.restore_tray();
+                }
+                LRESULT(1) // TRUE：已处理
+            } else {
+                unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+            }
+        }
+        WM_DESTROY => {
+            unsafe { PostQuitMessage(0) };
+            LRESULT(0)
+        }
+        WM_COMMAND => {
+            let id = (wparam.0 & 0xFFFF) as u16;
+            if let Some(app) = app_from(hwnd) {
+                app.handle_command(id);
+            }
+            LRESULT(0)
+        }
+        WM_TRAY => {
+            if let Some(app) = app_from(hwnd) {
+                app.handle_tray(lparam);
+            }
+            LRESULT(0)
+        }
+        WM_HOTKEY => {
+            let id = wparam.0 as i32;
+            if let Some(app) = app_from(hwnd) {
+                app.handle_hotkey(id);
+            }
+            LRESULT(0)
+        }
+        WM_INPUT => {
+            // Raw Input（ADR 0019）：鼠标中键 / 侧键热键。
+            // 必须交 DefWindowProc 处理 RIM_INPUT 的输入缓冲清理。
+            if let Some(app) = app_from(hwnd)
+                && let Some(vk) = crate::app::mouse::pressed_vk(lparam)
+            {
+                if crate::app::mouse::debug_enabled() {
+                    eprintln!("[airsnip] WM_INPUT 鼠标键 vk={vk:#x}");
+                }
+                app.handle_mouse_hotkey(vk);
+            }
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        }
+        WM_PIN_FROM_EDITOR => {
+            // 覆盖层线程送来的贴图载荷：由本（主）线程创建贴图窗口并释放内存
+            let hg = HGLOBAL(wparam.0 as *mut core::ffi::c_void);
+            let Some(app) = app_from(hwnd) else {
+                // 主窗口异常（理论不可达）：释放载荷防泄漏
+                unsafe {
+                    let _ = GlobalFree(Some(hg));
+                }
+                return LRESULT(0);
+            };
+            unsafe { crate::pin::from_payload(hg, app.hinstance, app.config.pin_position, app.config.pin_border) };
+            LRESULT(0)
+        }
+        WM_OCR_REQUEST => {
+            // 覆盖层线程送来的 OCR 请求（OCR-7）：主线程弹气泡并在后台识别
+            let hg = HGLOBAL(wparam.0 as *mut core::ffi::c_void);
+            if let Some(app) = app_from(hwnd) {
+                app.open_ocr_bubble(hg);
+            } else {
+                unsafe {
+                    let _ = GlobalFree(Some(hg));
+                }
+            }
+            LRESULT(0)
+        }
+        WM_OCR_AUTOCOPY_CHANGED => {
+            // OCR 卡片里切了「自动复制」：写回配置并持久化
+            if let Some(app) = app_from(hwnd) {
+                let on = wparam.0 != 0;
+                if app.config.ocr.auto_copy != on {
+                    app.config.ocr.auto_copy = on;
+                    app.config.save();
+                }
+            }
+            LRESULT(0)
+        }
+        WM_PIN_EDIT_REQUEST => {
+            // 贴图窗口请求进入标注编辑（ADR 0028）：主线程起编辑覆盖层
+            if let Some(app) = app_from(hwnd) {
+                app.start_pin_edit(HWND(wparam.0 as *mut core::ffi::c_void));
+            }
+            LRESULT(0)
+        }
+        WM_PIN_SAVE_REQUEST => {
+            // 贴图右键「另存为」（OUT-2）：主线程弹原生保存对话框
+            if let Some(app) = app_from(hwnd) {
+                app.save_pin_as(HWND(wparam.0 as *mut core::ffi::c_void));
+            }
+            LRESULT(0)
+        }
+        WM_PIN_EDIT_DONE => {
+            // 贴图编辑完成 / 取消（ADR 0028）：wparam = 载荷 HGLOBAL 或 0，lparam = 目标贴图句柄
+            if let Some(app) = app_from(hwnd) {
+                let target = HWND(lparam.0 as *mut core::ffi::c_void);
+                if wparam.0 == 0 {
+                    // 取消 / 复制 / 保存：贴图保持原样，恢复显示
+                    crate::pin::show(target);
+                } else {
+                    let hg = HGLOBAL(wparam.0 as *mut core::ffi::c_void);
+                    match unsafe { crate::pin::decode_payload(hg) } {
+                        Some((pm, _)) => crate::pin::apply_edit(target, pm),
+                        None => crate::pin::show(target),
+                    }
+                }
+                app.pin_edit_target = None;
+            }
+            LRESULT(0)
+        }
+        WM_OVERLAY_DONE => {
+            if let Some(app) = app_from(hwnd) {
+                app.register_hotkeys(); // 重注册截图期间撤销的贴图热键
+                // 本次保存用过对话框的话，记住格式与目录供下次默认（OUT-2）
+                let mut changed = false;
+                if let Some(ext) = crate::output::recent::last_save_ext_take() {
+                    app.config.last_save_ext = Some(ext);
+                    changed = true;
+                }
+                if let Some(dir) = crate::output::recent::last_save_dir_take() {
+                    app.config.last_save_dir = Some(dir);
+                    changed = true;
+                }
+                // 本次改过色块颜色的话，记住它们（EDT-7，issue #73 后续）
+                if let Some(colors) = crate::editor::colors_take() {
+                    app.config.swatch_colors = colors;
+                    changed = true;
+                }
+                if changed {
+                    app.config.save();
+                }
+                // 贴图编辑未走完成消息（取消 / 复制 / 保存）：把隐藏的贴图恢复显示（ADR 0028）
+                if let Some(target) = app.pin_edit_target.take() {
+                    crate::pin::show(target);
+                }
+            }
+            LRESULT(0)
+        }
+        WM_PIN_BORDER_CHANGED => {
+            // 贴图窗口内快捷键切了边框：更新默认配置（M2b）
+            if let Some(app) = app_from(hwnd) {
+                app.toggle_pin_border();
+            }
+            LRESULT(0)
+        }
+        crate::update::notify::WM_UPDATE_FOUND => {
+            // 后台检查发现新版本（SYS-7）：弹托盘气泡，设置面板关于页可看详情
+            if let Some(app) = app_from(hwnd)
+                && let crate::update::state::Phase::Available { version } = crate::update::state::phase()
+            {
+                app.balloon(
+                    "AirSnip 有新版本",
+                    &format!("v{version} 已发布，点托盘图标打开设置更新"),
+                );
+            }
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+fn app_from(hwnd: HWND) -> Option<&'static mut App> {
+    unsafe {
+        let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+        if ptr == 0 { None } else { Some(&mut *(ptr as *mut App)) }
+    }
+}

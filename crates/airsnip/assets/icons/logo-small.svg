@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 40 518 518" width="518" height="518">
+  <g fill="none" stroke="#1E6FD9" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 外框:严格横平竖直 -->
+    <rect x="145" y="148" width="348" height="302" rx="10"/>
+    <!-- 四个裁剪标记 -->
+    <line x1="152" y1="90" x2="152" y2="148"/>
+    <line x1="90" y1="148" x2="145" y2="148"/>
+    <line x1="493" y1="450" x2="548" y2="450"/>
+    <line x1="485" y1="450" x2="485" y2="508"/>
+  </g>
+  <!-- 内部图片块 -->
+  <rect x="203" y="207" width="229" height="158" rx="6" fill="#1E6FD9"/>
+  <circle cx="232" cy="233" r="10" fill="#fff"/>
+  <circle cx="405" cy="231" r="10" fill="#fff"/>
+  <!-- 光标 -->
+  <path d="M338 285 L434 335 L398 345 L428 385 L410 397 L380 358 L362 392 Z"
+        fill="#1E6FD9" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>
+</svg>

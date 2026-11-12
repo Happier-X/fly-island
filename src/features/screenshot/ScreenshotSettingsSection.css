@@ -1,0 +1,244 @@
+/* The screenshot shortcut row and its try-it button, in the settings window. */
+
+.screenshot-shortcut-row {
+  min-width: 0;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xl);
+  padding: var(--space-lg) 14px;
+}
+
+.screenshot-shortcut-row__meta {
+  min-width: 0;
+  display: grid;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* The keys are already on the record button. */
+.screenshot-shortcut-row__meta strong {
+  display: none;
+}
+
+.screenshot-shortcut-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.screenshot-shortcut-row__error {
+  margin: 0;
+  padding: 0 14px var(--space-lg);
+  color: #ff9aa9;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.screenshot-try-button {
+  height: 32px;
+  padding: 0 14px;
+  color: rgba(248, 246, 240, 0.82);
+  background: var(--color-white-a08);
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 140ms ease;
+}
+
+.screenshot-try-button:hover,
+.screenshot-try-button:focus-visible {
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.screenshot-try-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.screenshot-try-button:disabled {
+  color: rgba(248, 246, 240, 0.42);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: default;
+}
+
+/* The choose / reset buttons at the right end of a save row. */
+.screenshot-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.screenshot-ghost-button {
+  height: 32px;
+  padding: 0 12px;
+  color: rgba(248, 246, 240, 0.66);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.screenshot-ghost-button:hover,
+.screenshot-ghost-button:focus-visible {
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.screenshot-ghost-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.screenshot-ghost-button:disabled {
+  color: rgba(248, 246, 240, 0.3);
+  background: transparent;
+  cursor: default;
+}
+
+/* The five annotation swatches. */
+.screenshot-colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screenshot-color {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.screenshot-color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.screenshot-color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+.screenshot-color:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Sits under the swatches, left-aligned with the row's text. */
+.screenshot-colors-reset {
+  justify-self: start;
+  margin-top: var(--space-sm);
+  margin-left: -12px;
+}
+
+/* The control sizes to its longest option ("WebP（无损）"), not to the row. */
+.screenshot-format-control {
+  width: 150px;
+}
+
+/* A group-level action on the title line, such as "reset these keys". */
+.screenshot-group-action {
+  margin-right: -12px;
+}
+
+/* The overlay keys: a small grid of "tool name + its key" cells. */
+.screenshot-key-block {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 14px;
+}
+
+.screenshot-key-block + .screenshot-key-block {
+  border-top: 1px solid var(--color-white-a08);
+}
+
+.screenshot-key-block__title {
+  color: rgba(248, 246, 240, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.screenshot-key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-sm) 10px;
+}
+
+.screenshot-key-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.screenshot-key-cell__label {
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Which toolbar items the overlay draws: pill toggles, dimmed when hidden. */
+.screenshot-toolbar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
+.screenshot-toolbar-chip {
+  height: 26px;
+  padding: 0 11px;
+  color: rgba(248, 246, 240, 0.4);
+  background: rgba(255, 255, 255, 0.045);
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.screenshot-toolbar-chip--on {
+  color: rgba(248, 246, 240, 0.9);
+  background: var(--color-white-a08);
+}
+
+.screenshot-toolbar-chip:hover,
+.screenshot-toolbar-chip:focus-visible {
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.screenshot-toolbar-chip:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.screenshot-toolbar-chip:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Room for "自动（按显示器）" without letting the row stretch the control. */
+.screenshot-select-control {
+  width: 168px;
+}

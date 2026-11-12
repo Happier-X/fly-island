@@ -1,0 +1,716 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//! 编辑对象模型（EDT-1/EDT-2/EDT-3/EDT-7，PRD 6.3.3）：
+//! 底图保持不变，标注以矢量对象列表叠加；列表顺序即 z 序（越靠后越上层）。
+//! 坐标统一为覆盖层坐标系下的物理像素。
+
+mod corner;
+mod curve;
+mod document;
+mod hit;
+mod number;
+pub(crate) mod palette;
+pub(crate) mod text;
+mod tool;
+mod transform;
+
+pub use curve::{
+    SEGMENTS as CURVE_SEGMENTS, dist_to_polyline, end_tangent, flatten, head_entry_t, point_at, polyline_len,
+    split_left, t_at_arc_from_end,
+};
+pub use document::{Document, MAX_HISTORY};
+pub use number::{next_number, number_arrow_start};
+pub use palette::{DEFAULT_COLORS, SWATCH_COUNT, colors_store, colors_take};
+pub use tool::{
+    DEFAULT_BLUR_RADIUS, DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, DEFAULT_LINE_WIDTH, DEFAULT_NUMBER_FONT_SIZE,
+    FONT_SIZE_RANGE, Tool,
+};
+pub use transform::{ArrowEnd, scale_factors, snap_direction, square_corner};
+
+use std::sync::Arc;
+
+/// 坐标点。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Point {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+/// 对象的外接矩形（已含线宽/箭头头部的余量）。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Bounds {
+    pub x0: f32,
+    pub y0: f32,
+    pub x1: f32,
+    pub y1: f32,
+}
+
+impl Bounds {
+    fn around(x0: f32, y0: f32, x1: f32, y1: f32, pad: f32) -> Self {
+        Self {
+            x0: x0 - pad,
+            y0: y0 - pad,
+            x1: x1 + pad,
+            y1: y1 + pad,
+        }
+    }
+}
+
+/// 对象样式（EDT-7：颜色、线宽）。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Style {
+    /// 描边/填充色（RGBA，alpha 支持矩形透明度，EDT-1）。
+    pub color: [u8; 4],
+    /// 线宽（物理像素）。
+    pub width: f32,
+}
+
+impl Style {
+    pub fn new(color: [u8; 4], width: f32) -> Self {
+        Self { color, width }
+    }
+}
+
+/// 对象几何（EDT-1 矩形 / EDT-2 直线箭头 / EDT-3 曲线箭头 / EDT-4 文本 / EDT-5 模糊 / EDT-6 高亮）。
+#[derive(Clone, Debug, PartialEq)]
+pub enum Kind {
+    /// EDT-1 矩形：对角两点；`radius` 圆角半径；`filled` 是否填充（描边始终绘制）。
+    Rect {
+        a: Point,
+        b: Point,
+        radius: f32,
+        filled: bool,
+    },
+    /// EDT-2/EDT-3 箭头：尾部 `from` → 尖端 `to`，三次贝塞尔控制点 `c1`/`c2`。
+    Arrow {
+        from: Point,
+        c1: Point,
+        c2: Point,
+        to: Point,
+    },
+    /// EDT-4 文本：`pos` 为文字左上角；`text` 为内容（共享字符串，保持对象 Clone）；
+    /// `font_size` 字号（物理像素）；`font_family` 字体族名；`bold`/`italic` 粗体与斜体；
+    /// `size` 为测量缓存（文字宽高，不含内边距），由渲染层测量后写入。
+    Text {
+        pos: Point,
+        text: std::sync::Arc<str>,
+        font_size: f32,
+        font_family: std::sync::Arc<str>,
+        bold: bool,
+        italic: bool,
+        size: (f32, f32),
+    },
+    /// EDT-6 高亮：对角两点，荧光笔效果（半透明色块 + Multiply 混合，不遮挡文字）；
+    /// `corner` 圆角半径（与矩形同一套手柄，0 = 直角）。
+    Highlight { a: Point, b: Point, corner: f32 },
+    /// EDT-5 高斯模糊：对角两点，`radius` 为模糊**强度**（由滚轮调），
+    /// `corner` 为圆角半径（勿混用命名，见 `editor::corner`）。
+    Blur {
+        a: Point,
+        b: Point,
+        radius: f32,
+        corner: f32,
+    },
+    /// 高亮（聚光效果，与荧光笔是两种功能）：对角两点 + `corner` 圆角半径。
+    /// 选区其余部分暗化、该区域显示原图亮度，详见渲染层说明。
+    Glow { a: Point, b: Point, corner: f32 },
+    /// EDT-12 序号标记：`center` 为徽标圆心（按下点），`tip` 为引线箭头尖端（拖动终点）；
+    /// `n` 为显示的编号，`font_size` 为数字字号（滚轮连续调）。
+    /// `radius` 为徽标圆半径：由渲染层按字号与编号位数测量后写入（与 `Kind::Text::size` 同源约定）。
+    Number {
+        center: Point,
+        tip: Point,
+        n: u32,
+        font_size: f32,
+        radius: f32,
+    },
+    /// EDT-13 直线：无箭头的纯线段，`from` → `to` 两端点。
+    /// Shift 绘制约束为水平 / 垂直 / 45°（见 `transform::snap_direction`）。
+    Line { from: Point, to: Point },
+    /// EDT-14 椭圆：外接矩形对角两点 `a`/`b`；`filled` 是否填充（与矩形同套路，
+    /// Shift 绘制约束为正方形外接矩形 → 正圆，见 `transform::square_corner`）。
+    Ellipse { a: Point, b: Point, filled: bool },
+    /// EDT-15 手绘自由笔画：原始折线点列（拖动时按最小间距采样），
+    /// 渲染层用「相邻点中点 + 二次贝塞尔」平滑；命中测试直接按折线距离。
+    ///
+    /// 点列用 `Arc` 共享：撤销栈是整份对象列表的快照（`Document`），长笔画若独占
+    /// 一份点列，100 层历史会让内存随笔画长度线性膨胀。共享后只有被编辑的那一笔深拷贝。
+    Freehand { pts: Arc<Vec<Point>> },
+}
+
+impl Kind {
+    /// 直线箭头：控制点取起点→终点的 1/3、2/3 处（EDT-3 控制柄初始位置）。
+    pub fn arrow(from: Point, to: Point) -> Self {
+        Kind::Arrow {
+            from,
+            c1: lerp(from, to, 1.0 / 3.0),
+            c2: lerp(from, to, 2.0 / 3.0),
+            to,
+        }
+    }
+
+    /// 两个控制点（非箭头返回 None）。
+    pub fn control_points(&self) -> Option<[Point; 2]> {
+        match *self {
+            Kind::Arrow { c1, c2, .. } => Some([c1, c2]),
+            Kind::Rect { .. }
+            | Kind::Text { .. }
+            | Kind::Highlight { .. }
+            | Kind::Blur { .. }
+            | Kind::Glow { .. }
+            | Kind::Number { .. }
+            | Kind::Line { .. }
+            | Kind::Ellipse { .. }
+            | Kind::Freehand { .. } => None,
+        }
+    }
+
+    /// 拖动控制柄（EDT-3）；`index` 为 0（尾部侧）或 1（头部侧）。
+    pub fn set_control(&mut self, index: usize, p: Point) {
+        if let Kind::Arrow { c1, c2, .. } = self {
+            match index {
+                0 => *c1 = p,
+                _ => *c2 = p,
+            }
+        }
+    }
+
+    /// 双击控制柄恢复直线（EDT-3）；返回是否发生变化。
+    pub fn reset_curve(&mut self) -> bool {
+        let Kind::Arrow { from, to, .. } = self else {
+            return false;
+        };
+        let straight = Kind::arrow(*from, *to);
+        if &straight == self {
+            return false;
+        }
+        *self = straight;
+        true
+    }
+
+    /// 几何包围盒，含线宽一半与箭头头部的余量（供脏区计算使用）。
+    pub fn bounds(&self, style: &Style) -> Bounds {
+        let half = style.width * 0.5 + 1.0;
+        match self {
+            Kind::Rect { a, b, .. } => Bounds::around(a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y), half),
+            Kind::Arrow { from, c1, c2, to } => {
+                // 曲线必落在控制点凸包内，故取凸包包围盒（精确上界）再补头部尺寸
+                let pad = half.max(arrow_head_len(style.width) * 0.5);
+                let (x0, y0, x1, y1) = curve::hull_bounds(*from, *c1, *c2, *to);
+                Bounds::around(x0, y0, x1, y1, pad)
+            }
+            // 区域类（高亮/模糊/聚光）：整块都是绘制内容，外扩 1px 保证脏区取整
+            Kind::Highlight { a, b, .. } | Kind::Blur { a, b, .. } | Kind::Glow { a, b, .. } => {
+                Bounds::around(a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y), 1.0)
+            }
+            // EDT-12 序号标记：徽标圆与引线箭头的并集（几何见 `number`）
+            Kind::Number {
+                center, tip, radius, ..
+            } => number::bounds(*center, *tip, *radius, style),
+            // 文本：范围由测量缓存决定（EDT-4），padding 随字号缩放
+            Kind::Text {
+                pos, size, font_size, ..
+            } => text::bounds(*pos, *size, *font_size),
+            // EDT-13 直线：两端点外扩线宽一半（无箭头头部余量）
+            Kind::Line { from, to } => Bounds::around(
+                from.x.min(to.x),
+                from.y.min(to.y),
+                from.x.max(to.x),
+                from.y.max(to.y),
+                half,
+            ),
+            // EDT-14 椭圆：外接矩形外扩线宽一半
+            Kind::Ellipse { a, b, .. } => Bounds::around(a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y), half),
+            // EDT-15 手绘：点列包围盒外扩线宽一半
+            Kind::Freehand { pts } => {
+                let mut x0 = f32::INFINITY;
+                let mut y0 = f32::INFINITY;
+                let mut x1 = f32::NEG_INFINITY;
+                let mut y1 = f32::NEG_INFINITY;
+                for p in pts.iter() {
+                    x0 = x0.min(p.x);
+                    y0 = y0.min(p.y);
+                    x1 = x1.max(p.x);
+                    y1 = y1.max(p.y);
+                }
+                if x1 < x0 || y1 < y0 {
+                    // 空点列（不应发生，防退化）：给 1px 兜底
+                    Bounds::around(0.0, 0.0, 1.0, 1.0, half)
+                } else {
+                    Bounds::around(x0, y0, x1, y1, half)
+                }
+            }
+        }
+    }
+}
+
+fn lerp(a: Point, b: Point, t: f32) -> Point {
+    Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+}
+
+/// 箭头头部长度（EDT-2：随线宽缩放，并保证最小可见尺寸）。
+pub fn arrow_head_len(width: f32) -> f32 {
+    (width * 4.0).max(10.0)
+}
+
+/// 一个标注对象。
+#[derive(Clone, Debug, PartialEq)]
+pub struct Object {
+    pub kind: Kind,
+    pub style: Style,
+}
+
+impl Object {
+    /// 一个标注对象是否命中点 `q`（容差含半个线宽，EDT-3a/EDT-7）。
+    pub fn hit(&self, q: Point, tol: f32) -> bool {
+        self.kind.hit(q, tol + self.style.width * 0.5)
+    }
+
+    pub fn bounds(&self) -> Bounds {
+        self.kind.bounds(&self.style)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(a: (f32, f32), b: (f32, f32)) -> Object {
+        Object {
+            kind: Kind::Rect {
+                a: Point::new(a.0, a.1),
+                b: Point::new(b.0, b.1),
+                radius: 0.0,
+                filled: false,
+            },
+            style: Style::new([255, 0, 0, 255], 2.0),
+        }
+    }
+
+    fn arrow(a: (f32, f32), b: (f32, f32)) -> Object {
+        Object {
+            kind: Kind::arrow(Point::new(a.0, a.1), Point::new(b.0, b.1)),
+            style: Style::new([255, 0, 0, 255], 2.0),
+        }
+    }
+
+    #[test]
+    fn add_undo_redo_roundtrip() {
+        let mut doc = Document::new();
+        doc.begin();
+        doc.push(rect((0.0, 0.0), (10.0, 10.0)));
+        doc.commit(true);
+
+        assert_eq!(doc.objects().len(), 1);
+        assert!(doc.can_undo());
+
+        assert!(doc.undo());
+        assert!(doc.objects().is_empty());
+        assert!(doc.can_redo());
+
+        assert!(doc.redo());
+        assert_eq!(doc.objects().len(), 1);
+    }
+
+    #[test]
+    fn commit_false_keeps_history_clean() {
+        let mut doc = Document::new();
+        doc.begin();
+        doc.push(rect((0.0, 0.0), (1.0, 1.0)));
+        doc.commit(false); // 误触，丢弃
+
+        assert!(!doc.can_undo());
+        assert_eq!(doc.objects().len(), 1);
+    }
+
+    #[test]
+    fn new_edit_clears_redo() {
+        let mut doc = Document::new();
+        doc.begin();
+        doc.push(rect((0.0, 0.0), (5.0, 5.0)));
+        doc.commit(true);
+        doc.undo();
+        assert!(doc.can_redo());
+
+        doc.begin();
+        doc.push(arrow((0.0, 0.0), (9.0, 9.0)));
+        doc.commit(true);
+        assert!(!doc.can_redo());
+
+        assert!(doc.undo());
+        assert!(doc.objects().is_empty());
+        assert!(doc.redo());
+        assert!(matches!(&doc.objects()[0].kind, Kind::Arrow { .. }));
+    }
+
+    #[test]
+    fn undoing_past_empty_is_noop() {
+        let mut doc = Document::new();
+        assert!(!doc.undo());
+        assert!(!doc.redo());
+    }
+
+    #[test]
+    fn history_is_bounded() {
+        let mut doc = Document::new();
+        for i in 0..(MAX_HISTORY + 20) {
+            doc.begin();
+            doc.push(rect((i as f32, 0.0), (i as f32 + 1.0, 1.0)));
+            doc.commit(true);
+        }
+        let mut pops = 0;
+        while doc.undo() {
+            pops += 1;
+        }
+        assert!(pops <= MAX_HISTORY);
+    }
+
+    #[test]
+    fn bounds_include_stroke_and_arrow_head() {
+        let thin = rect((10.0, 20.0), (30.0, 40.0));
+        let b = thin.bounds();
+        assert!(b.x0 < 10.0 && b.y0 < 20.0 && b.x1 > 30.0 && b.y1 > 40.0);
+
+        // 水平箭头：头部沿 x 方向外扩
+        let a = arrow((0.0, 0.0), (100.0, 0.0));
+        let ab = a.bounds();
+        assert!(ab.x1 > 100.0, "箭头头部应超出尖端：{ab:?}");
+        assert!(ab.x0 <= 0.0);
+    }
+
+    #[test]
+    fn new_arrow_is_straight_with_third_point_handles() {
+        let a = arrow((0.0, 0.0), (90.0, 0.0));
+        let [c1, c2] = a.kind.control_points().unwrap();
+        assert!(
+            (c1.x - 30.0).abs() < 1e-3 && (c2.x - 60.0).abs() < 1e-3,
+            "控制柄应在 1/3、2/3 处"
+        );
+        // 直线：中点在两点连线上
+        let mid = point_at(Point::new(0.0, 0.0), c1, c2, Point::new(90.0, 0.0), 0.5);
+        assert!((mid.x - 45.0).abs() < 0.01 && mid.y.abs() < 0.01);
+    }
+
+    #[test]
+    fn control_drag_bends_then_reset_restores_straight() {
+        let mut obj = arrow((0.0, 0.0), (90.0, 0.0));
+        obj.kind.set_control(0, Point::new(30.0, 60.0));
+        let [c1, _] = obj.kind.control_points().unwrap();
+        assert_eq!(c1, Point::new(30.0, 60.0));
+        // 弯曲后包围盒应向上扩张
+        assert!(obj.bounds().y1 > 40.0);
+
+        obj.kind.reset_curve();
+        let [c1, c2] = obj.kind.control_points().unwrap();
+        assert!((c1.x - 30.0).abs() < 1e-3 && c1.y.abs() < 1e-3);
+        assert!((c2.x - 60.0).abs() < 1e-3 && c2.y.abs() < 1e-3);
+    }
+
+    #[test]
+    fn hit_test_rect_and_arrow() {
+        let r = rect((10.0, 10.0), (60.0, 60.0));
+        assert!(r.hit(Point::new(10.0, 30.0), 3.0), "左边框应命中");
+        assert!(!r.hit(Point::new(35.0, 35.0), 3.0), "未填充矩形内部不命中");
+
+        let filled = Object {
+            kind: Kind::Rect {
+                a: Point::new(10.0, 10.0),
+                b: Point::new(60.0, 60.0),
+                radius: 0.0,
+                filled: true,
+            },
+            style: Style::new([0, 0, 0, 255], 2.0),
+        };
+        assert!(filled.hit(Point::new(35.0, 35.0), 3.0), "填充矩形内部应命中");
+
+        // 弯曲箭头：曲线经过 (45, 45) 附近，而非直线中点
+        let mut a = arrow((0.0, 0.0), (90.0, 0.0));
+        a.kind.set_control(0, Point::new(0.0, 60.0));
+        a.kind.set_control(1, Point::new(90.0, 60.0));
+        let on_curve = point_at(
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 60.0),
+            Point::new(90.0, 60.0),
+            Point::new(90.0, 0.0),
+            0.5,
+        );
+        assert!(a.hit(on_curve, 3.0), "曲线上的点应命中：{on_curve:?}");
+        assert!(!a.hit(Point::new(45.0, 0.0), 3.0), "直线位置不应命中弯曲箭头");
+    }
+
+    #[test]
+    fn text_object_hit_and_bounds_with_measure_cache() {
+        let mut obj = Object {
+            kind: Kind::Text {
+                pos: Point::new(100.0, 50.0),
+                text: std::sync::Arc::from("测试"),
+                font_size: 24.0,
+                font_family: std::sync::Arc::from(DEFAULT_FONT_FAMILY),
+                bold: false,
+                italic: false,
+                size: (48.0, 33.0), // 渲染层测量后的缓存
+            },
+            style: Style::new([255, 255, 255, 255], 2.0),
+        };
+        assert!(obj.hit(Point::new(110.0, 60.0), 3.0), "文字矩形内应命中");
+        assert!(!obj.hit(Point::new(200.0, 90.0), 3.0), "文字矩形外不命中");
+
+        let b = obj.bounds();
+        assert!(
+            b.x0 < 100.0 && b.y0 < 50.0 && b.x1 > 148.0 && b.y1 > 83.0,
+            "包围盒应含文字范围与内边距：{b:?}"
+        );
+        assert!(obj.kind.control_points().is_none(), "文本无控制柄");
+
+        // 对象保持 Copy 语义（Arc 引用计数，快照克隆不拷贝字符串内容）
+        let clone = obj.clone();
+        assert_eq!(obj, clone, "文本对象应可 Copy");
+
+        // 编辑文本后尺寸缓存由调用方重测
+        obj.kind = Kind::Text {
+            pos: Point::new(100.0, 50.0),
+            text: std::sync::Arc::from("测试"),
+            font_size: 32.0,
+            font_family: std::sync::Arc::from(DEFAULT_FONT_FAMILY),
+            bold: true,
+            italic: false,
+            size: (64.0, 44.0),
+        };
+        let b2 = obj.bounds();
+        assert!(b2.x1 > b.x1, "字号变大后包围盒应变大");
+        assert!(obj.hit(Point::new(120.0, 70.0), 3.0));
+    }
+
+    #[test]
+    fn tool_all_includes_text() {
+        assert!(Tool::ALL.contains(&Tool::Text));
+        assert!(Tool::ALL.contains(&Tool::Glow));
+        assert!(Tool::ALL.contains(&Tool::Number));
+        assert!(Tool::ALL.contains(&Tool::Line));
+        assert!(Tool::ALL.contains(&Tool::Ellipse));
+        assert!(Tool::ALL.contains(&Tool::Freehand));
+        assert_eq!(Tool::ALL.len(), 10);
+    }
+
+    /// `settings::last_tool` 把 `Tool as u8` 当 `Tool::ALL` 的下标用（见 ADR 0030），
+    /// 因此「枚举声明顺序 == `ALL` 顺序」是隐含契约：以后无论重排枚举还是重排工具栏，
+    /// 这条断言会立即报错，而不是默默把用户上次的工具还原成别的。
+    #[test]
+    fn tool_discriminant_matches_all_index() {
+        for (i, t) in Tool::ALL.iter().enumerate() {
+            assert_eq!(
+                *t as usize, i,
+                "{t:?} 的判别值应与 Tool::ALL 下标一致（settings::last_tool 依赖）"
+            );
+        }
+    }
+
+    fn number(center: (f32, f32), tip: (f32, f32), n: u32) -> Object {
+        Object {
+            kind: Kind::Number {
+                center: Point::new(center.0, center.1),
+                tip: Point::new(tip.0, tip.1),
+                n,
+                font_size: 20.0,
+                radius: 14.0,
+            },
+            style: Style::new([255, 0, 0, 255], 3.0),
+        }
+    }
+
+    #[test]
+    fn number_bounds_cover_badge_and_arrow() {
+        // 只有徽标（tip 重合）：包围盒应覆盖圆心 ± 半径
+        let badge = number((100.0, 100.0), (100.0, 100.0), 1);
+        let b = badge.bounds();
+        assert!(b.x0 < 100.0 - 14.0 && b.x1 > 100.0 + 14.0, "应包住徽标圆：{b:?}");
+        assert!(b.y0 < 100.0 - 14.0 && b.y1 > 100.0 + 14.0);
+        // 带引线：包围盒应延伸到尖端之外（箭头头部随线宽外扩）
+        let arrow = number((100.0, 100.0), (300.0, 100.0), 1);
+        assert!(arrow.bounds().x1 > 300.0, "引线箭头应超出尖端：{:?}", arrow.bounds());
+    }
+
+    #[test]
+    fn number_hit_badge_and_leader() {
+        let obj = number((50.0, 50.0), (200.0, 50.0), 1);
+        assert!(obj.hit(Point::new(50.0, 50.0), 2.0), "徽标圆心应命中");
+        assert!(obj.hit(Point::new(50.0 + 12.0, 50.0), 2.0), "徽标圆内应命中");
+        assert!(obj.hit(Point::new(150.0, 50.0), 2.0), "引线线段上应命中");
+        assert!(!obj.hit(Point::new(150.0, 120.0), 2.0), "引线外不应命中");
+    }
+
+    #[test]
+    fn number_arrow_start_sits_on_badge_edge() {
+        let start = number_arrow_start(Point::new(0.0, 0.0), Point::new(100.0, 0.0), 10.0);
+        assert!((start.x - 10.0).abs() < 1e-3 && start.y.abs() < 1e-3, "{start:?}");
+        // 未拖动（tip 重合）：返回圆心，不产生 NaN
+        assert_eq!(
+            number_arrow_start(Point::new(5.0, 6.0), Point::new(5.0, 6.0), 10.0),
+            Point::new(5.0, 6.0)
+        );
+    }
+
+    #[test]
+    fn next_number_takes_max_plus_one() {
+        assert_eq!(next_number(&[]), 1, "空文档从 1 开始");
+        // 中间删掉一个（1、3）也不重排：新号取最大值 +1
+        let objs = vec![number((0.0, 0.0), (0.0, 0.0), 1), number((0.0, 0.0), (0.0, 0.0), 3)];
+        assert_eq!(next_number(&objs), 4);
+    }
+
+    #[test]
+    fn area_objects_hit_and_bounds() {
+        let hl = Object {
+            kind: Kind::Highlight {
+                a: Point::new(10.0, 10.0),
+                b: Point::new(50.0, 40.0),
+                corner: 0.0,
+            },
+            style: Style::new([255, 240, 0, 255], 2.0),
+        };
+        assert!(hl.hit(Point::new(30.0, 25.0), 3.0), "高亮内部应命中");
+        assert!(!hl.hit(Point::new(60.0, 25.0), 3.0), "高亮外部不应命中");
+        let b = hl.bounds();
+        assert!(b.x0 <= 10.0 && b.x1 >= 50.0 && b.y0 <= 10.0 && b.y1 >= 40.0);
+
+        let blur = Object {
+            kind: Kind::Blur {
+                a: Point::new(1.0, 2.0),
+                b: Point::new(11.0, 22.0),
+                radius: 16.0,
+                corner: 0.0,
+            },
+            style: Style::new([0, 0, 0, 255], 2.0),
+        };
+        assert!(blur.hit(Point::new(5.0, 10.0), 3.0), "模糊内部应命中");
+        assert!(!blur.hit(Point::new(30.0, 30.0), 3.0), "模糊外部不应命中");
+        assert!(blur.kind.control_points().is_none(), "区域类无控制柄");
+        assert!(Tool::ALL.contains(&Tool::Highlight) && Tool::ALL.contains(&Tool::Blur));
+    }
+
+    /// EDT-13 直线：点到线段距离命中；包围盒含线宽余量；无控制柄 / 圆角。
+    #[test]
+    fn line_hit_bounds_and_no_handles() {
+        let line = Object {
+            kind: Kind::Line {
+                from: Point::new(10.0, 10.0),
+                to: Point::new(110.0, 10.0),
+            },
+            style: Style::new([255, 0, 0, 255], 4.0),
+        };
+        assert!(line.hit(Point::new(60.0, 12.0), 3.0), "线身上应命中");
+        assert!(!line.hit(Point::new(60.0, 40.0), 3.0), "离线身较远不应命中");
+        assert!(!line.hit(Point::new(10.0, 40.0), 3.0), "线段之外不应命中");
+        let b = line.bounds();
+        assert!(b.x0 < 10.0 && b.x1 > 110.0, "包围盒应含线宽余量：{b:?}");
+        assert!(line.kind.control_points().is_none(), "直线无控制柄");
+        assert!(line.kind.corner().is_none(), "直线无圆角");
+    }
+
+    /// EDT-14 椭圆：描边命中轮廓、内部不命中；填充后内部命中；Shift 正圆外接正方形。
+    #[test]
+    fn ellipse_hit_stroke_and_fill() {
+        let stroke = Object {
+            kind: Kind::Ellipse {
+                a: Point::new(0.0, 0.0),
+                b: Point::new(200.0, 100.0),
+                filled: false,
+            },
+            style: Style::new([0, 0, 255, 255], 2.0),
+        };
+        // 右端点 (200,50) 在轮廓上
+        assert!(stroke.hit(Point::new(200.0, 50.0), 4.0), "轮廓右端应命中");
+        // 中心 (100,50) 不在轮廓上
+        assert!(!stroke.hit(Point::new(100.0, 50.0), 4.0), "未填充椭圆内部不命中");
+        let b = stroke.bounds();
+        assert!(b.x0 <= 0.0 && b.x1 >= 200.0 && b.y0 <= 0.0 && b.y1 >= 100.0, "{b:?}");
+
+        let filled = Object {
+            kind: Kind::Ellipse {
+                a: Point::new(0.0, 0.0),
+                b: Point::new(200.0, 100.0),
+                filled: true,
+            },
+            style: Style::new([0, 0, 255, 255], 2.0),
+        };
+        assert!(filled.hit(Point::new(100.0, 50.0), 4.0), "填充椭圆内部应命中");
+        // 外接矩形角上（椭圆外）仍不命中
+        assert!(!filled.hit(Point::new(2.0, 2.0), 2.0), "外接矩形角不在椭圆内");
+        assert!(stroke.kind.corner().is_none(), "椭圆无圆角手柄");
+    }
+
+    /// EDT-15 手绘：折线命中；包围盒覆盖全点列；remap 按包围盒映射所有点。
+    #[test]
+    fn freehand_hit_bounds_and_remap() {
+        let mut obj = Object {
+            kind: Kind::Freehand {
+                pts: Arc::new(vec![
+                    Point::new(10.0, 10.0),
+                    Point::new(60.0, 40.0),
+                    Point::new(110.0, 10.0),
+                ]),
+            },
+            style: Style::new([0, 0, 0, 255], 2.0),
+        };
+        assert!(obj.hit(Point::new(60.0, 40.0), 3.0), "顶点应命中");
+        assert!(obj.hit(Point::new(35.0, 25.0), 3.0), "线段中点应命中");
+        assert!(!obj.hit(Point::new(60.0, 90.0), 3.0), "远处不应命中");
+        let b = obj.bounds();
+        assert!(b.x0 < 10.0 && b.x1 > 110.0 && b.y0 < 10.0 && b.y1 > 40.0, "{b:?}");
+
+        // 平移所有点
+        obj.kind.translate(5.0, -5.0);
+        let Kind::Freehand { pts } = &obj.kind else {
+            panic!("应仍是手绘")
+        };
+        assert_eq!(pts[0], Point::new(15.0, 5.0));
+
+        // 按包围盒放大一倍：首点相对位置不变、跨度翻倍
+        let from = obj.bounds();
+        let to = Bounds {
+            x0: from.x0,
+            x1: from.x0 + (from.x1 - from.x0) * 2.0,
+            y0: from.y0,
+            y1: from.y0 + (from.y1 - from.y0) * 2.0,
+        };
+        obj.kind.remap(from, to);
+        let Kind::Freehand { pts } = &obj.kind else {
+            panic!("应仍是手绘")
+        };
+        let span = pts.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max)
+            - pts.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+        assert!(span > 150.0, "映射后水平跨度应明显变大：{span}");
+        assert!(obj.kind.corner().is_none(), "手绘无圆角手柄");
+    }
+
+    /// EDT-15：点列 `Arc` 共享——`Document::begin` 的整份快照不得因后续编辑被污染，
+    /// 同时未编辑时快照之间共享同一份点列（内存不随笔画长度 × 历史层数膨胀）。
+    #[test]
+    fn freehand_points_share_history_payload() {
+        let mut obj = Object {
+            kind: Kind::Freehand {
+                pts: Arc::new(vec![Point::new(0.0, 0.0), Point::new(10.0, 0.0)]),
+            },
+            style: Style::new([0, 0, 0, 255], 2.0),
+        };
+        let snapshot = obj.clone();
+        let (Kind::Freehand { pts }, Kind::Freehand { pts: snap }) = (&obj.kind, &snapshot.kind) else {
+            panic!("应仍是手绘")
+        };
+        assert!(Arc::ptr_eq(pts, snap), "未编辑时应共享同一份点列");
+        let (first_before, len_before) = (snap[0], snap.len());
+
+        obj.kind.translate(5.0, 5.0);
+        let Kind::Freehand { pts } = &obj.kind else {
+            panic!("应仍是手绘")
+        };
+        assert!(!Arc::ptr_eq(pts, snap), "编辑后应各自持有一份（写时拷贝）");
+        assert_eq!((snap[0], snap.len()), (first_before, len_before), "历史快照不应被污染");
+        assert_eq!(pts[0], Point::new(5.0, 5.0), "新对象应已平移");
+    }
+}

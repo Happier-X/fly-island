@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { msiNames } from "./msi-version.mjs";
 
-const REPO = "flyl1u/fly-island";
+const REPO = "Happier-X/fly-island";
 const CONFIG = "src-tauri/tauri.conf.json";
 const BUNDLE_DIR = "src-tauri/target/release/bundle/nsis";
 const MSI_DIR = "src-tauri/target/release/bundle/msi";

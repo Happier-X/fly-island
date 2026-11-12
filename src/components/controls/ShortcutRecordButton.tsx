@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
+import "./ShortcutRecordButton.css";
 
 /** The parts of a key event a shortcut is named from. */
 export type ShortcutKeys = Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">;
