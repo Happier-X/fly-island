@@ -1,6 +1,6 @@
 [package]
 name = "focusd-island"
-version = "3.1.0"
+version = "3.2.0"
 description = "A compact floating island shell for Windows."
 authors = ["you"]
 edition = "2021"
@@ -35,6 +35,8 @@ mailparse = "0.17"
 native-tls = "0.2"
 pollster = "0.4"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+# Read-only access to Cindy's local session database (agent_status/cindy).
+rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
