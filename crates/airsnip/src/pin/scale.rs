@@ -103,20 +103,23 @@ fn box_axis(src: &[u8], n: usize, m: usize, dst: &mut [u8]) {
 /// straight RGBA → 每通道预乘（×a/255）→ 乘窗口透明度 alpha 系数 → BGRA。
 /// 透明度在 premultiplied 域乘法，RGB 自动按比例收缩，无黑边。
 pub(super) fn to_bgra_premul(pixmap: &Pixmap, alpha: u8) -> Vec<u8> {
-    let a = alpha as u16;
     let mut out = Vec::with_capacity(pixmap.data().len());
     for px in pixmap.data().chunks_exact(4) {
-        let r = px[0] as u16; // 理论上是 premultiplied，这里先乘透明度系数
-        let g = px[1] as u16;
-        let b = px[2] as u16;
-        let pa = px[3] as u16;
-        let ka = a * pa / 255; // 合成后的真实 alpha
-        out.push((b * ka / 255) as u8);
-        out.push((g * ka / 255) as u8);
-        out.push((r * ka / 255) as u8);
-        out.push(ka as u8);
+        out.extend_from_slice(&bgra_premul_px(px, alpha));
     }
     out
+}
+
+/// 单个 premultiplied RGBA 像素 → 叠加窗口透明度后的 BGRA（框选带重绘复用同一套换算）。
+pub(super) fn bgra_premul_px(px: &[u8], alpha: u8) -> [u8; 4] {
+    let a = alpha as u16;
+    let ka = a * px[3] as u16 / 255; // 合成后的真实 alpha
+    [
+        (px[2] as u16 * ka / 255) as u8,
+        (px[1] as u16 * ka / 255) as u8,
+        (px[0] as u16 * ka / 255) as u8,
+        ka as u8,
+    ]
 }
 
 /// straight RGBA → premultiplied RGBA（贴图入库时调用，抵消失真来源）。

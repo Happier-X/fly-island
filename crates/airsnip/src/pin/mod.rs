@@ -4,7 +4,7 @@
 //! 覆盖层线程经 `from_payload` 跨线程传递裁剪图（GlobalAlloc 载荷）。
 //!
 //! 文件分工：`window` 窗口状态与上屏、`wndproc` 消息分发、`border` 边框烘焙、
-//! `menu` 右键菜单、`clipboard` 剪贴板读图、`scale` 像素变换、`dib` DIB 辅助。
+//! `menu` 右键菜单、`select` 框选取字、`clipboard` 剪贴板读图、`scale` 像素变换、`dib` DIB 辅助。
 
 mod border;
 pub mod clipboard; // tests 用
@@ -12,6 +12,7 @@ mod dib;
 mod edit;
 mod menu;
 mod scale;
+mod select;
 mod window;
 mod wndproc;
 mod zoom;

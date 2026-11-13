@@ -12,6 +12,7 @@ use windows::core::{PCWSTR, w};
 use super::border::{self, BORDER_PAD};
 use super::dib::create_dib;
 use super::scale;
+use super::select::{BAND_COLOR, BAND_EDGE_ALPHA, BAND_FILL_ALPHA, Select};
 use super::zoom::MAX_SIDE;
 
 const WINDOW_CLASS: PCWSTR = w!("airsnip.pin");
@@ -42,6 +43,8 @@ pub(super) struct PinWindow {
     /// 按下时光标位置 / 窗口左上角（拖动增量）。
     pub(super) drag_cursor: (i32, i32),
     pub(super) win_origin: (i32, i32),
+    /// 框选取字（PIN-OCR）：None = 未进入框选态。
+    pub(super) select: Option<Select>,
 }
 
 impl Drop for PinWindow {
@@ -125,6 +128,7 @@ pub(super) fn spawn(
             dragging: false,
             drag_cursor: (0, 0),
             win_origin: (x, y),
+            select: None,
         };
         win.rebind()?;
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(Box::new(win)) as isize);
@@ -226,6 +230,58 @@ impl PinWindow {
         scale::extract_content(&self.scaled, self.pad, self.scale())
     }
 
+    /// 框选取字：重绘 `dirty` 区域（窗口客户区坐标），先还原成贴图底色，再叠加选区带。
+    /// 只做这一块的像素，避免每次鼠标移动都全图重合成（滚轮精修才是全图）。
+    pub(super) fn paint_band(&mut self, dirty: (i32, i32, i32, i32), band: Option<(i32, i32, i32, i32)>) {
+        if self.dib_bits.is_null() {
+            return;
+        }
+        let (dw, dh) = (self.dib_w as i32, self.dib_h as i32);
+        let x0 = dirty.0.max(0);
+        let y0 = dirty.1.max(0);
+        let x1 = dirty.0.saturating_add(dirty.2).min(dw).min(self.scaled.width() as i32);
+        let y1 = dirty.1.saturating_add(dirty.3).min(dh).min(self.scaled.height() as i32);
+        if x1 <= x0 || y1 <= y0 {
+            return;
+        }
+        let sw = self.scaled.width() as usize;
+        {
+            let data = self.scaled.data();
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let si = (y as usize * sw + x as usize) * 4;
+                    let px = scale::bgra_premul_px(&data[si..si + 4], self.alpha);
+                    let di = (y as usize * dw as usize + x as usize) * 4;
+                    // SAFETY: DIB 由 rebind 按 dw×dh 分配，di 落在缓冲内（x/y 已按尺寸钳过）。
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(px.as_ptr(), self.dib_bits.add(di), 4);
+                    }
+                }
+            }
+        }
+        if let Some(b) = band {
+            let (bx, by, bw, bh) = b;
+            if bw > 0 && bh > 0 {
+                for y in by.max(y0)..(by.saturating_add(bh)).min(y1) {
+                    for x in bx.max(x0)..(bx.saturating_add(bw)).min(x1) {
+                        let edge = x == bx || y == by || x == bx + bw - 1 || y == by + bh - 1;
+                        let (color, alpha) = if edge {
+                            (BAND_COLOR, BAND_EDGE_ALPHA)
+                        } else {
+                            (BAND_COLOR, BAND_FILL_ALPHA)
+                        };
+                        let di = (y as usize * dw as usize + x as usize) * 4;
+                        // SAFETY: 同上，di 落在 DIB 范围内；只改本窗口自己的位图。
+                        unsafe {
+                            blend_over(std::slice::from_raw_parts_mut(self.dib_bits.add(di), 4), color, alpha);
+                        }
+                    }
+                }
+            }
+        }
+        self.present();
+    }
+
     /// UpdateLayeredWindow 提交当前 DIB 到窗口位置。
     fn present(&self) {
         unsafe {
@@ -262,4 +318,13 @@ impl PinWindow {
             );
         }
     }
+}
+
+/// 把颜色按 alpha（0-255）叠到 premultiplied BGRA 像素上（src-over）。
+fn blend_over(px: &mut [u8], color: [u8; 3], alpha: u16) {
+    let inv = 255 - alpha;
+    px[0] = ((px[0] as u16 * inv + color[2] as u16 * alpha) / 255) as u8;
+    px[1] = ((px[1] as u16 * inv + color[1] as u16 * alpha) / 255) as u8;
+    px[2] = ((px[2] as u16 * inv + color[0] as u16 * alpha) / 255) as u8;
+    px[3] = ((px[3] as u16 * inv + 255 * alpha) / 255) as u8;
 }

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! 贴图窗口消息分发（PIN-3/4）：拖动、滚轮缩放、Ctrl+滚轮透明度、
-//! 双击/Esc 关闭、右键菜单入口。
+//! 贴图窗口消息分发（PIN-3/4、PIN-OCR）：拖动、滚轮缩放、Ctrl+滚轮透明度、
+//! 双击/Esc 关闭、右键菜单入口、框选取字。
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, ReleaseCapture, SetCapture, VK_CONTROL, VK_SNAPSHOT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetKeyState, ReleaseCapture, SetCapture, VK_CONTROL, VK_MENU, VK_SNAPSHOT,
+};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use super::dib::pin_from;
@@ -19,6 +21,11 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
         // 用 GetCursorPos 屏幕坐标而非客户区坐标：窗口移动会改变鼠标相对客户区位置，
         // 按客户区增量计算会与窗口移动互相反馈 → 拖动抖动（M2b 实测缺陷）。
         WM_LBUTTONDOWN => {
+            // 框选取字（PIN-OCR）：已进入框选态，或按住 Alt 直接拖（等同右键菜单入口）
+            if win.select.is_some() || unsafe { GetKeyState(VK_MENU.0 as i32) } < 0 {
+                win.select_down(point(lparam));
+                return LRESULT(0);
+            }
             win.dragging = true;
             win.drag_cursor = unsafe { cursor_pos() };
             let rect = unsafe { window_rect(hwnd) };
@@ -27,6 +34,11 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             LRESULT(0)
         }
         WM_MOUSEMOVE => {
+            // 框选拖动中：只更新选区，不移动窗口
+            if win.select.is_some_and(|s| s.dragging) {
+                win.select_move(point(lparam));
+                return LRESULT(0);
+            }
             if win.dragging && wparam.0 as u32 & 0x1 != 0 {
                 // MK_LBUTTON
                 let (cx, cy) = unsafe { cursor_pos() };
@@ -37,21 +49,53 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             LRESULT(0)
         }
         WM_LBUTTONUP => {
+            // 框选松手：撤掉选区带并立即识别（零面积 = 当次作废，不弹气泡）
+            if win.select.is_some() {
+                if let Some((pixmap, at)) = win.finish_select() {
+                    super::select::post_request(&pixmap, at);
+                }
+                return LRESULT(0);
+            }
             win.dragging = false;
             let _ = unsafe { ReleaseCapture() };
             LRESULT(0)
         }
-        // 双击关闭（PIN-4）
+        // 拖动中鼠标捕获被抢走（Alt+Tab 等）：撤掉框选态，避免卡在十字光标上
+        WM_CAPTURECHANGED => {
+            if win.select.is_some_and(|s| s.dragging) {
+                win.cancel_select();
+            }
+            LRESULT(0)
+        }
+        // 贴图失去激活（点了别的窗口）：未拖完的框选态一并撤掉，不留十字光标
+        WM_ACTIVATE => {
+            if (wparam.0 & 0xFFFF) == 0 && win.select.is_some() {
+                win.cancel_select();
+            }
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        }
+        // 双击关闭（PIN-4）；框选态下的双击不关窗口
         WM_LBUTTONDBLCLK => {
+            if win.select.is_some() {
+                return LRESULT(0);
+            }
             let _ = unsafe { post_close(hwnd) };
             LRESULT(0)
         }
-        // 右键菜单（PIN-4）
+        // 右键菜单（PIN-4）；框选态下右键 = 取消框选
         WM_RBUTTONUP => {
+            if win.select.is_some() {
+                win.cancel_select();
+                return LRESULT(0);
+            }
             super::menu::on_context_menu(win);
             LRESULT(0)
         }
+        // 框选态下不改缩放：显示坐标到原图坐标的换算在中途变化会让选区跳动
         WM_MOUSEWHEEL => {
+            if win.select.is_some() {
+                return LRESULT(0);
+            }
             let delta = (wparam.0 >> 16) as u16 as i16;
             let ctrl = unsafe { GetKeyState(VK_CONTROL.0 as i32) } < 0;
             if ctrl {
@@ -61,6 +105,17 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
                 win.rescale_preview(1.0 + delta as f32 / 1200.0);
             }
             LRESULT(0)
+        }
+        // 框选态：光标是十字（WM_SETCURSOR 在每次鼠标移动时到达）
+        WM_SETCURSOR => {
+            if win.select.is_some() {
+                let _ = unsafe {
+                    let cursor = LoadCursorW(None, IDC_CROSS).unwrap_or_default();
+                    SetCursor(Some(cursor))
+                };
+                return LRESULT(1);
+            }
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
         }
         WM_TIMER => {
             if wparam.0 as usize == super::zoom::TIMER_FINAL {
@@ -72,6 +127,13 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
         // Esc 关闭不受 Alt 影响（Alt+Esc 罕见，一并处理无害）
         WM_SYSKEYDOWN | WM_KEYDOWN => {
             let vk = wparam.0 as u32;
+            // 框选态（PIN-OCR）：Esc 退出框选，其它键不响应（避免空格进入编辑、方向键挪窗）
+            if win.select.is_some() {
+                if vk == 0x1B {
+                    win.cancel_select();
+                }
+                return LRESULT(0);
+            }
             // 空格：进入标注编辑（ADR 0028，issue #56）。只取 WM_KEYDOWN 的首次按下
             // （lparam bit30=0，避开自动重复）且无 Alt（避开 Alt+Space 系统菜单）
             if msg == WM_KEYDOWN && vk == 0x20 && (lparam.0 as u32 >> 30) & 1 == 0 {
@@ -158,6 +220,14 @@ unsafe fn cursor_pos() -> (i32, i32) {
         let _ = GetCursorPos(&mut pt);
         (pt.x, pt.y)
     }
+}
+
+/// 客户区坐标（鼠标消息的 lparam 拆包）。
+fn point(lparam: LPARAM) -> (i32, i32) {
+    (
+        (lparam.0 & 0xFFFF) as u16 as i16 as i32,
+        ((lparam.0 >> 16) & 0xFFFF) as u16 as i16 as i32,
+    )
 }
 
 /// 当前按下的修饰键（MOD_ALT=1 / MOD_CONTROL=2 / MOD_SHIFT=4 / MOD_WIN=8）。
