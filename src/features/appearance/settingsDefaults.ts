@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS: IslandSettings = {
   opacity: 100,
   collapsedScale: 1, // Any other scale resamples the island's text and 1px lines.
   expandedScale: 1,
-  marginY: 0,
+  marginY: 10,
   positionLocked: false,
   islandMonitor: "primary",
   islandCornerRadius: DEFAULT_ISLAND_CORNER_RADIUS,

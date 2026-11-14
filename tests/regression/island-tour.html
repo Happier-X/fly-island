@@ -13,6 +13,8 @@
           linear-gradient(90deg, #f3f4f6 0 50%, #1c2230 50% 100%) top / 100% 46px no-repeat,
           linear-gradient(90deg, #ffffff 0 50%, #10141d 50% 100%);
       }
+      /* Native windows start 10 DIP below the work-area top; model that offset here. */
+      #root .stage { padding-top: 10px; }
       #results { position: fixed; bottom: 8px; left: 12px; max-height: 40vh; overflow: auto; margin: 0; padding: 8px 12px; font: 12px/1.6 monospace; color: #d3eddf; background: rgba(10, 14, 20, 0.86); border-radius: 8px; white-space: pre-wrap; }
     </style>
   </head>

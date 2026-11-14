@@ -31,7 +31,7 @@
 按界面区域分文件放在 `docs/design/`，改哪块就只改那一份（多个会话并行时不在同一个文件上冲突）：
 
 - [翻译界面](docs/design/translation.md)
-- [灵动岛：顶边贴合与视觉规范](docs/design/island.md)
+- [灵动岛：悬浮胶囊与视觉规范](docs/design/island.md)
 - [设置](docs/design/settings.md)
 - [AI Agent：会话标题与 Agent 页](docs/design/agent.md)
 - [待办](docs/design/todos.md)

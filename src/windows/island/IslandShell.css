@@ -1,13 +1,8 @@
 .island {
-  /*
-   * The island's motion: springs, sampled with linear() from a damped spring (from rest, so a late
-   * first frame never shows as a jump). Opening (560ms) settles with a 0.8% overshoot, like the
-   * island catching itself; closing (380ms) is critically damped, quicker and without a bounce.
-   * Each state names the motion that brings the island into it (.island--expanded below).
-   * The native stage shrinks 600ms after a resize (STAGE_SHRINK_DELAY in island/geometry.rs),
-   * after either has finished.
-   */
-  --island-spring-open: linear(0, 0.0335, 0.1145, 0.2201, 0.3345, 0.4474, 0.5522, 0.6455, 0.7259, 0.7931, 0.8479, 0.8917, 0.9257, 0.9516, 0.9708, 0.9846, 0.9941, 1.0005, 1.0044, 1.0066, 1.0076, 1.0077, 1.0073, 1.0066, 1.0055, 1.0043, 1.003, 1.0015, 1);
+  /* Width, height and all four radii share one non-overshooting motion. CSS retargets
+     an interrupted transition from its current shape, including rapid open/close.
+     The native stage waits 600ms before shrinking, beyond either transition. */
+  --island-spring-open: cubic-bezier(0.22, 0.8, 0.25, 1);
   --island-spring-close: linear(0, 0.067, 0.2057, 0.3589, 0.5005, 0.6204, 0.7168, 0.7917, 0.8486, 0.8909, 0.922, 0.9446, 0.9609, 0.9725, 0.9808, 0.9866, 0.9908, 0.9942, 0.9972, 1);
   --island-motion: var(--island-spring-close);
   --island-motion-duration: 380ms;
@@ -22,28 +17,22 @@
   --glass-pointer-x: 50%;
   --glass-pointer-y: 18%;
   --glass-page-accent: 116, 214, 255;
-  /*
-   * Island corner radii, all scaled from the expanded bottom radius in the appearance
-   * settings (stageStyle.ts) with the ratios of the 30 / 12 / 14 px design (collapsed 12, 2026-11-11).
-   * Rust scales its hit-test corners the same way (island/state.rs).
-   */
+  /* Inner panels keep their continuous corners. The outer shell uses circular arcs
+     in both states so the capsule can morph without switching corner-shape. */
   --island-radius: calc(var(--island-corner-radius-size, 42) * 1px);
-  --island-radius-collapsed: calc(var(--island-radius) * 12 / 30);
+  --island-radius-collapsed: 19px;
   /* Inner panels sit 20px inside the expanded island, so this keeps their corners concentric. */
   --island-panel-radius: max(8px, calc(var(--island-radius) - 20px));
   /* A box inside a panel with the usual 16px padding (inner = outer - padding). */
   --island-card-radius: max(var(--corner-xs), calc(var(--island-panel-radius) - 16px));
   /* The shape's own corners, at the scale of its state (the panels inside are scaled already). */
-  --island-shape-radius: calc(var(--island-radius) * var(--island-expanded-scale));
+  --island-shape-radius: calc(30px * var(--island-expanded-scale));
   --island-shape-radius-collapsed: calc(var(--island-radius-collapsed) * var(--island-collapsed-scale));
   /* The 1px rim of the expanded island (.island::after); the collapsed bar has none. */
   --island-rim: transparent;
-  /*
-   * The soft squircle (default) or round, from the appearance settings (stageStyle.ts). Every layer
-   * that inherits the island's radius, and the inner panels, take the same shape so the rims, glass
-   * and panels stay concentric; Rust hit-tests the same curve (island/passthrough.rs).
-   */
-  corner-shape: var(--island-corner-shape, round);
+  /* The surface, rim and glass follow these same circular corners; native hit testing
+     uses the same outline (island/passthrough.rs). */
+  corner-shape: round;
   position: relative;
   flex: 0 0 auto;
   color: var(--color-text);
@@ -69,13 +58,12 @@
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
-  corner-shape: var(--island-corner-shape, round);
+  corner-shape: round;
 }
 
 /*
- * The expanded island's rim: a hairline that keeps a black island apart from a dark window
- * behind it. Its own layer rather than an inset shadow on .island, so the attached island can
- * fade it out towards the screen edge (IslandTopEdge.css).
+ * The expanded island's complete rim keeps the black panel apart from dark windows.
+ * A separate layer follows all four animated corners without covering the content.
  */
 .island::after {
   content: "";
@@ -83,7 +71,7 @@
   inset: 0;
   z-index: 3;
   border-radius: inherit;
-  corner-shape: var(--island-corner-shape, round);
+  corner-shape: round;
   box-shadow: inset 0 0 0 1px var(--island-rim);
   pointer-events: none;
 }
@@ -144,7 +132,7 @@
   display: block;
   overflow: hidden;
   border-radius: inherit;
-  corner-shape: var(--island-corner-shape, round);
+  corner-shape: round;
   pointer-events: none;
 }
 
@@ -180,7 +168,7 @@
 .island__glass::after {
   inset: 0;
   border-radius: inherit;
-  corner-shape: var(--island-corner-shape, round);
+  corner-shape: round;
   background:
     linear-gradient(112deg, rgba(116, 214, 255, 0.1), transparent 16% 82%, rgba(255, 156, 224, 0.08)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 22% 82%, rgba(20, 40, 52, 0.08));
@@ -192,7 +180,7 @@
   inset: 1px;
   border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
   border-radius: inherit;
-  corner-shape: var(--island-corner-shape, round);
+  corner-shape: round;
   box-shadow:
     inset 0 0 14px rgba(var(--glass-page-accent), var(--glass-inner-accent-alpha)),
     inset 0 0 2px rgba(255, 255, 255, 0.24);
@@ -218,7 +206,7 @@
 .island--collapsed {
   width: calc(var(--collapsed-island-width) * var(--island-collapsed-scale));
   height: calc(38px * var(--island-collapsed-scale));
-  border-radius: 0 0 var(--island-shape-radius-collapsed) var(--island-shape-radius-collapsed);
+  border-radius: var(--island-shape-radius-collapsed);
   /* The island is a surface, not a link: only its small buttons show the hand. */
   cursor: default;
   background:
@@ -300,26 +288,17 @@
 
 .island--expanded {
   --island-motion: var(--island-spring-open);
-  --island-motion-duration: 560ms;
+  --island-motion-duration: 480ms;
   --island-rim: var(--color-white-a08);
   width: calc(560px * var(--island-expanded-scale));
   height: calc(var(--expanded-island-height, 306px) * var(--island-expanded-scale));
-  border-radius: 0 0 var(--island-shape-radius) var(--island-shape-radius);
+  border-radius: var(--island-shape-radius);
   cursor: default;
 }
 
 /* Liquid glass draws its own rim (the refraction border). */
 .island--appearance-liquidGlass.island--expanded {
   --island-rim: transparent;
-}
-
-/* Away from the top edge the island floats: a full pill collapsed, evenly rounded expanded. */
-.island--detached.island--collapsed {
-  border-radius: var(--island-shape-radius-collapsed);
-}
-
-.island--detached.island--expanded {
-  border-radius: var(--island-shape-radius);
 }
 
 /*
@@ -399,13 +378,6 @@
   transition:
     opacity 240ms ease-out 120ms,
     transform 420ms var(--island-spring-open) 80ms;
-}
-
-/* Translation simply appears open: the tall page used to drop down from the bar, which read as
-   a rush downwards (2026-11-11, owner). Closing it still animates. */
-.island--translation.island--expanded,
-.island--translation.island--expanded .island__expanded {
-  transition: none;
 }
 
 .island__content {

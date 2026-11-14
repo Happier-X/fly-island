@@ -30,6 +30,7 @@ import { useIslandShelf } from "./useIslandShelf";
 import { useIslandHover } from "./useIslandHover";
 import { useIslandTranslation } from "./useIslandTranslation";
 import { useMessageView } from "./useMessageView";
+import { useTrayLanguage } from "./useTrayLanguage";
 import { useSettingsPageHeight } from "./useSettingsPageHeight";
 // Must stay the last import: IslandApp.css overrides the feature styles above.
 import "./IslandApp.css";
@@ -43,6 +44,7 @@ const NO_TODOS: TodoItem[] = [];
  * there rather than here, so parallel changes do not all meet in this file.
  */
 export function IslandApp() {
+  useTrayLanguage();
   const t = useTranslation();
   const navigation = useIslandNavigation();
   const { mode, isTucked, page, setPage, collapseIsland, tuckIsland, revealIsland, minimizeToEdge, openIslandPage, toggleClipboardHistory } = navigation;
@@ -185,7 +187,7 @@ export function IslandApp() {
         nativeGlassState={nativeGlassState}
         isTucked={isTucked}
         positionLocked={settings.positionLocked}
-        isDetached={isPositionDetached || settings.marginY > 0}
+        isDetached={isPositionDetached}
         showTitle={settings.showTitle}
         showCollapsedText={settings.showCollapsedText}
         collapsedTaskTitle={collapsedTaskTitle}

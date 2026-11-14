@@ -113,6 +113,7 @@ pub fn run() {
             clipboard_history;
             translation;
             screenshot;
+            tray;
             settings_window
         ))
         .build(context)

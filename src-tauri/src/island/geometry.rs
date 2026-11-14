@@ -14,13 +14,13 @@ use super::state::{IslandPosition, IslandWindowState, MonitorFollow};
 
 pub(super) const STAGE_WINDOW_WIDTH: f64 = 820.0;
 pub(super) const STAGE_WINDOW_HEIGHT: f64 = 460.0;
-pub(super) const DEFAULT_MARGIN_Y: f64 = 0.0;
+pub(super) const DEFAULT_MARGIN_Y: f64 = 10.0;
 pub(super) const DEFAULT_COLLAPSED_SCALE: f64 = 0.89;
 pub(super) const DEFAULT_EXPANDED_SCALE: f64 = 0.91;
 pub(super) const MIN_COLLAPSED_ISLAND_WIDTH: f64 = 280.0;
 pub(super) const COLLAPSED_ISLAND_WIDTH: f64 = 340.0;
 pub(super) const COLLAPSED_ISLAND_HEIGHT: f64 = 38.0;
-pub(super) const COLLAPSED_RADIUS: f64 = 12.0;
+pub(super) const COLLAPSED_RADIUS: f64 = COLLAPSED_ISLAND_HEIGHT / 2.0;
 pub(super) const EXPANDED_ISLAND_WIDTH: f64 = 560.0;
 pub(super) const DEFAULT_EXPANDED_ISLAND_HEIGHT: f64 = 306.0;
 pub(super) const MIN_EXPANDED_ISLAND_HEIGHT: f64 = 220.0;

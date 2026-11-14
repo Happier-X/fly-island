@@ -2,11 +2,8 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getIslandTopAttachment, listenIslandTopAttachment } from "./api.ts";
 import "./IslandTopEdge.css";
 
-// Rust decides whether the island touches the top edge, because only it knows the
-// monitor bounds and the drop snap. The answer lives on the root element, next to
-// `inputModality`, so IslandTopEdge.css can shape the island without threading a
-// prop through App. Without Tauri the attribute stays unset and the class-based
-// docked / detached look applies.
+// Keep the native attachment signal for positioning diagnostics. Attachment no
+// longer changes the silhouette: the capsule always keeps its four round corners.
 function applyTopEdge(attached: boolean) {
   document.documentElement.dataset.islandTopEdge = attached ? "attached" : "detached";
 }

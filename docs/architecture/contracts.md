@@ -63,6 +63,7 @@
 
 - 窗口 label：`main`、`translation`、`settings`；前端分发参数为 `?window=translation`、`?window=settings`。
 - Tauri 命令：以 `lib.rs` 中 `generate_handler!` 列表为准，命令名即 Rust 函数名。
+- 托盘语言命令 `set_tray_language`：参数 `{ locale: "zh-CN" | "en" }`，主窗口首次加载及应用语言变化时同步；沿用 `focusd-island-locale` 与现有系统语言检测，不另存原生语言设置。托盘创建时先用中文，主窗口加载后应用解析出的语言。
 - 应用标识 `com.focusd.island`，凭据服务名 `com.focusd.island.qq-mail`、`com.focusd.island.translation`。
 - 注册表值：`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `FocuSD Island`。
 - 旧版本写入的 Agent 钩子（2026-11-12 起不再安装）：`~/.claude/settings.json` 里带 `focusd-agent-` 签名的条目、`~/.codex/config.toml` 里 `# BEGIN/END FocuSD Agent Status Hooks` 之间的托管块。新版首次启动时只删这些，用户手写的内容保留，删完在应用数据目录写下 `legacy-agent-hooks-removed.flag`（同一份目录下已有同名文件时不再动那两个配置文件）。

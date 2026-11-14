@@ -57,6 +57,50 @@ fn custom_position_survives_tuck_and_reveal() {
 }
 
 #[test]
+fn custom_position_is_preserved_on_negative_coordinate_monitors_at_every_dpi() {
+    for dpi in [1.0, 1.25, 1.5, 2.0] {
+        let mut island = state(IslandMode::Collapsed, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
+        let position = IslandPosition { x: -2300, y: -1080 };
+        island.custom_position = Some(position);
+        let normal_y = -1440 + (DEFAULT_MARGIN_Y * dpi).round() as i32;
+        let tucked_y = -1440 - ((COLLAPSED_ISLAND_HEIGHT - TUCKED_VISIBLE_EDGE_HEIGHT) * dpi).round() as i32;
+        for mode in [IslandMode::Collapsed, IslandMode::Expanded] {
+            island.mode = mode;
+            assert_eq!(resolve_stage_position(island, 200, normal_y, tucked_y), (position.x, position.y));
+            island.is_tucked = true;
+            assert_eq!(resolve_stage_position(island, 200, normal_y, tucked_y), (position.x, tucked_y));
+            island.is_tucked = false;
+            assert_eq!(resolve_stage_position(island, 200, normal_y, tucked_y), (position.x, position.y));
+        }
+    }
+}
+
+#[test]
+fn capsule_hit_region_matches_round_shell_at_every_dpi_and_scale() {
+    for dpi in [1.0, 1.25, 1.5, 2.0] {
+        for scale in [0.75, 1.0, 1.4] {
+            for mode in [IslandMode::Collapsed, IslandMode::Expanded] {
+                let island = state(mode, scale, DEFAULT_EXPANDED_ISLAND_HEIGHT);
+                let (width, height) = mode.base_size(island.collapsed_width, island.expanded_height);
+                let (width, height) = (width * scale * dpi, height * scale * dpi);
+                let radius = island.bottom_corner_radius() * scale * dpi;
+                let contains = |x, y| point_in_notch(x, y, 0.0, 0.0, width, height, radius, radius, island.corner_shape);
+                assert!(contains(width / 2.0, 0.0));
+                assert!(contains(width / 2.0, height));
+                assert!(contains(0.0, height / 2.0));
+                assert!(!contains(0.0, 0.0));
+                assert!(!contains(width, height));
+                assert!(!contains(-1.0, height / 2.0));
+                assert!(!contains(width / 2.0, -1.0));
+                if matches!(mode, IslandMode::Collapsed) {
+                    assert_eq!(radius * 2.0, height);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn notch_has_flat_top_and_rounded_bottom_at_all_scales() {
     for scale in [0.75, DEFAULT_COLLAPSED_SCALE, 1.0, 1.4, 2.1] {
         for mode in [IslandMode::Collapsed, IslandMode::Expanded] {
@@ -79,11 +123,17 @@ fn notch_has_flat_top_and_rounded_bottom_at_all_scales() {
 }
 
 #[test]
-fn default_notch_stays_at_top_when_expanding() {
+fn default_capsule_keeps_its_margin_when_expanding_and_revealing() {
     for mode in [IslandMode::Collapsed, IslandMode::Expanded] {
-        let state = state(mode, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
-        assert_eq!(state.margin_y, 0.0);
-        assert_eq!(resolve_stage_position(state, 550, 0, -28), (550, 0));
+        let mut state = state(mode, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
+        assert_eq!(state.margin_y, 10.0);
+        assert!(!state.top_attached);
+        assert_eq!(state.corner_shape, CornerShape::Round);
+        assert_eq!(resolve_stage_position(state, 550, 10, -28), (550, 10));
+        state.is_tucked = true;
+        assert_eq!(resolve_stage_position(state, 550, 10, -28), (550, -28));
+        state.is_tucked = false;
+        assert_eq!(resolve_stage_position(state, 550, 10, -28), (550, 10));
     }
 }
 
@@ -124,10 +174,10 @@ fn compact_messages_and_mail_reader_keep_the_correct_cursor_boundary() {
 }
 
 #[test]
-fn detached_island_rounds_top_corners() {
+fn capsule_rounds_top_corners_even_when_flush_with_the_screen() {
     for mode in [IslandMode::Collapsed, IslandMode::Expanded] {
         let mut detached = state(mode, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
-        assert_eq!(detached.top_corner_radius(), 0.0);
+        assert_eq!(detached.top_corner_radius(), mode.corner_radius());
         detached.top_attached = false;
         assert!(detached.top_corner_radius() > 0.0);
         let (width, height) =
@@ -150,7 +200,7 @@ fn detached_island_rounds_top_corners() {
         assert!(contains(80.0 + width / 2.0, 0.0));
         assert!(!contains(79.0, 0.0));
         detached.top_attached = true;
-        assert_eq!(detached.top_corner_radius(), 0.0);
+        assert_eq!(detached.top_corner_radius(), mode.corner_radius());
     }
 }
 
@@ -219,23 +269,21 @@ fn hex_tint_parser_rejects_invalid_values() {
 }
 
 #[test]
-fn corner_radius_setting_scales_every_hit_test_radius() {
-    let mut expanded = state(IslandMode::Expanded, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
-    let mut collapsed = state(IslandMode::Collapsed, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
-    expanded.top_attached = false;
-    collapsed.top_attached = false;
-    assert_eq!(expanded.bottom_corner_radius(), EXPANDED_RADIUS);
-    assert_eq!(collapsed.bottom_corner_radius(), COLLAPSED_RADIUS);
-    // Floating, the top corners match the bottom ones.
-    assert_eq!(expanded.top_corner_radius(), EXPANDED_RADIUS);
-    assert_eq!(collapsed.top_corner_radius(), COLLAPSED_RADIUS);
-
-    expanded.corner_radius = 20.0;
-    collapsed.corner_radius = 20.0;
-    assert_eq!(expanded.bottom_corner_radius(), 20.0);
-    assert!((collapsed.bottom_corner_radius() - COLLAPSED_RADIUS * 20.0 / 30.0).abs() < 1e-9);
-    assert_eq!(expanded.top_corner_radius(), 20.0);
-    assert!((collapsed.top_corner_radius() - COLLAPSED_RADIUS * 20.0 / 30.0).abs() < 1e-9);
+fn legacy_corner_radius_does_not_change_round_shell_hit_radii() {
+    for radius in [16.0, 20.0, 30.0, 42.0, 48.0] {
+        for attached in [false, true] {
+            let mut expanded = state(IslandMode::Expanded, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
+            let mut collapsed = state(IslandMode::Collapsed, 1.0, DEFAULT_EXPANDED_ISLAND_HEIGHT);
+            expanded.corner_radius = radius;
+            collapsed.corner_radius = radius;
+            expanded.top_attached = attached;
+            collapsed.top_attached = attached;
+            assert_eq!(expanded.bottom_corner_radius(), 30.0);
+            assert_eq!(expanded.top_corner_radius(), 30.0);
+            assert_eq!(collapsed.bottom_corner_radius(), 19.0);
+            assert_eq!(collapsed.top_corner_radius(), 19.0);
+        }
+    }
 }
 
 #[test]

@@ -36,7 +36,6 @@ export function IslandPreview({ settings }: { settings: IslandSettings }) {
   const islandClass = [
     "island-preview__island",
     glass && "island-preview__island--glass",
-    settings.marginY > 0 && "island-preview__island--detached",
   ].filter(Boolean).join(" ");
 
   return (

@@ -11,6 +11,7 @@ import "../../src/styles/base.css";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../../src/i18n";
 import { IslandApp } from "../../src/windows/island/IslandApp";
 import { trackIslandTopEdge } from "../../src/windows/island/topEdge";
+import { checkCapsuleMotion } from "./islandShapeChecks";
 import { TOUR_CLIPBOARD, TOUR_LRC, TOUR_MAIL, TOUR_QQ_ITEMS, TOUR_SESSIONS, TOUR_SHELF, TOUR_TODOS, tourMediaState, type TourMedia } from "./islandTourMocks";
 
 const query = new URLSearchParams(location.search);
@@ -124,13 +125,13 @@ function strays() {
     const inCornerX = Math.min(rect.left - box.left, box.right - rect.right);
     const inCornerY = box.bottom - rect.bottom;
     if (inCornerX < radius && inCornerY < radius) {
-      // The island's corner, |x|^n + |y|^n <= r^n with n = 2^1.6 (about 3), from the corner's centre.
+      // The outer shell uses circular arcs; inner panels keep continuous corners.
       const dx = radius - inCornerX;
       const dy = radius - inCornerY;
       const own = (Number.parseFloat(getComputedStyle(element).borderBottomLeftRadius) || 0) * scale;
       // The element's own corner pulls its outermost point in by about 0.16 of its radius on each axis.
       const pull = own * 0.16;
-      if ((dx - pull) ** 3 + (dy - pull) ** 3 > radius ** 3 && getComputedStyle(element).backgroundColor !== "rgba(0, 0, 0, 0)") out.push(`${name} past the corner`);
+      if (Math.max(0, dx - pull) ** 2 + Math.max(0, dy - pull) ** 2 > radius ** 2 && getComputedStyle(element).backgroundColor !== "rgba(0, 0, 0, 0)") out.push(`${name} past the corner`);
     }
   }
   return out;
@@ -147,8 +148,10 @@ if (!automated) {
     const panel = () => document.querySelector<HTMLElement>(".island__expanded")!;
     const collapsed = island().getBoundingClientRect();
     const collapsedRadius = Number.parseFloat(getComputedStyle(island()).borderBottomLeftRadius);
-    check(collapsed.height === 38 && collapsedRadius >= 16 && getComputedStyle(island()).borderTopLeftRadius === "0px",
-      `收起的岛贴着顶边：上边是平的，下面两个角是大圆角（${collapsed.height}px / ${collapsedRadius}px / ${getComputedStyle(island()).borderTopLeftRadius}）`);
+    check(collapsed.height === 38 && collapsedRadius === collapsed.height / 2 && getComputedStyle(island()).borderTopLeftRadius === `${collapsedRadius}px`,
+      `收起的岛为对称胶囊：高度${collapsed.height}px，四角半径${collapsedRadius}px`);
+    check(interaction.marginY === 10, "原生默认顶部间距为10 DIP");
+    await checkCapsuleMotion(check, settle);
     const bar = document.querySelector<HTMLElement>(".island__collapsed")!;
     const barItems = [...bar.querySelectorAll<HTMLElement>("button, .island__pulse")].map((item) => item.getBoundingClientRect()).filter((rect) => rect.width > 0);
     check(barItems.every((rect) => rect.left >= collapsed.left + 10 && rect.right <= collapsed.right - 10), "收起的岛上的内容离两侧圆角有距离");
@@ -201,10 +204,11 @@ if (!automated) {
       .reduce((sum, value) => sum + parseFloat(value), 0);
     const panelScale = panel().getBoundingClientRect().width / panel().offsetWidth;
     const tipTop = dotBox.bottom - (parseFloat(tip.bottom) + tipHeight) * panelScale;
-    check(dock.a > 1.3 && dock.f < -2 && getComputedStyle(dots[1]).transform === "none"
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    check((reduced ? dock.a === 1 && dock.f === 0 : dock.a > 1.3 && dock.f < -2) && getComputedStyle(dots[1]).transform === "none"
       && dots[1].getBoundingClientRect().width === dotBox.width && tip.opacity === "1"
       && tipTop >= island().getBoundingClientRect().top,
-      `键盘聚焦也会放大上浮并显示名称，命中区域不动，名称不会被屏幕顶边裁切（${dock.a}, ${dock.f}, ${tipTop.toFixed(1)}px）`);
+      `键盘聚焦显示名称并遵守减少动态效果设置，命中区域不动，名称不会被屏幕顶边裁切（${dock.a}, ${dock.f}, ${tipTop.toFixed(1)}px）`);
     dots[1].blur();
     const tiles = [...document.querySelectorAll<HTMLElement>(".shelf-item")].map((tile) => tile.getBoundingClientRect());
     const list = document.querySelector<HTMLElement>(".shelf-list")!;

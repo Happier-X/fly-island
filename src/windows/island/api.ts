@@ -3,6 +3,12 @@ import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/eve
 import type { IslandCornerShape, IslandMonitor } from "../../features/appearance/types";
 import type { IslandPosition } from "./storage";
 import type { IslandMode, NativeGlassState } from "./types";
+import type { LocaleCode } from "../../i18n";
+
+/** Syncs the resolved app language to src-tauri/src/tray.rs. */
+export function setTrayLanguage(locale: LocaleCode): Promise<void> {
+  return invoke<void>("set_tray_language", { locale });
+}
 
 // Mirrors TOP_ATTACHMENT_CHANGED_EVENT in src-tauri/src/island/top_edge.rs.
 export const TOP_ATTACHMENT_CHANGED_EVENT = "island-top-attachment-changed";

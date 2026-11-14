@@ -66,7 +66,8 @@ impl MonitorFollow {
 /// Exponent of the squircle corner: CSS superellipse(k) draws |x|^(2^k) + |y|^(2^k) = 1.
 const SQUIRCLE_EXPONENT: f64 = 3.031_433_133_020_796; // 2^1.6
 
-/// The island's corner shape from the appearance settings, as CSS draws it with `corner-shape`.
+/// CSS corner geometry. Squircle remains accepted for the legacy interaction argument;
+/// the island shell now uses Round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CornerShape {
     Round,
@@ -113,8 +114,7 @@ pub(crate) struct IslandWindowState {
     pub(super) glass_enabled: bool,
     pub(super) glass_intensity: f64,
     pub(super) glass_tint: (u8, u8, u8),
-    /// Expanded bottom corner radius from the appearance settings. The other corner
-    /// radii keep their default ratios to it, matching IslandShell.css.
+    /// Legacy appearance radius retained for IPC compatibility; shell hit radii are fixed.
     pub(super) corner_radius: f64,
     pub(super) corner_shape: CornerShape,
     pub(super) monitor_follow: MonitorFollow,
@@ -131,23 +131,14 @@ impl IslandWindowState {
             && !self.position_locked
     }
 
-    /// How much the corner radius setting enlarges or shrinks the default radii.
-    fn corner_radius_factor(self) -> f64 {
-        self.corner_radius / EXPANDED_RADIUS
-    }
-
+    /// Legacy appearance radii still arrive over IPC, but no longer size the round shell.
     pub(super) fn bottom_corner_radius(self) -> f64 {
-        self.mode.corner_radius() * self.corner_radius_factor()
+        self.mode.corner_radius()
     }
 
-    /// Flat at the top edge; away from it the island floats, rounded evenly all round
-    /// (`.island--detached` in IslandShell.css).
+    /// The shell stays rounded even when snapped near the top or tucked above it.
     pub(super) fn top_corner_radius(self) -> f64 {
-        if self.top_attached {
-            0.0
-        } else {
-            self.bottom_corner_radius()
-        }
+        self.bottom_corner_radius()
     }
 
     pub(super) fn active_scale(self) -> f64 {
@@ -177,13 +168,13 @@ impl Default for IslandWindowState {
             custom_position: None,
             is_dragging: false,
             position_locked: false,
-            top_attached: true,
+            top_attached: false,
             glass_enabled: false,
             glass_intensity: 72.0,
             glass_tint: (47, 47, 55),
             corner_radius: EXPANDED_RADIUS,
             // The front end's default; it reports the setting with the first interaction sync.
-            corner_shape: CornerShape::Squircle,
+            corner_shape: CornerShape::Round,
             monitor_follow: MonitorFollow::Primary,
             followed_monitor: None,
         }

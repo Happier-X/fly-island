@@ -124,8 +124,9 @@ pub fn set_island_interaction(
         if let Some(corner_radius) = corner_radius {
             state.corner_radius = corner_radius.clamp(MIN_CORNER_RADIUS, MAX_CORNER_RADIUS);
         }
-        if let Some(corner_shape) = corner_shape.as_deref().and_then(CornerShape::from_value) {
-            state.corner_shape = corner_shape;
+        if corner_shape.as_deref().and_then(CornerShape::from_value).is_some() {
+            // Keep accepting the legacy shape argument, but the shell is always round.
+            state.corner_shape = CornerShape::Round;
         }
         if let Some(monitor_follow) = monitor_follow.as_deref().and_then(MonitorFollow::from_value) {
             state.monitor_follow = monitor_follow;

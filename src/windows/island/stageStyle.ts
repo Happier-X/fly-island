@@ -22,7 +22,7 @@ export function getIslandStageStyle(
     "--island-expanded-scale-target": settings.expandedScale,
     "--collapsed-island-width": `${collapsedIslandWidth}px`,
     "--expanded-island-height": `${expandedIslandHeight}px`,
-    // Unitless; IslandShell.css derives the collapsed, detached and inner panel radii from it.
+    // Inner continuous-corner panels; the outer capsule has fixed 19 / 30 DIP round radii.
     "--island-corner-radius-size": settings.islandCornerRadius,
     // The corner-shape of the island and every layer that inherits its radius (IslandShell.css).
     "--island-corner-shape": cornerShapeCss(settings.islandCornerShape),
