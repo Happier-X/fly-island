@@ -46,14 +46,14 @@ foreach ($lic in @(
 
 [void]$sb.AppendLine("## 图标与美术资源")
 [void]$sb.AppendLine()
-[void]$sb.AppendLine('界面图标位于 `assets/icons/ui/`，统一取自 **Material Symbols**（Apache-2.0）；应用图标与 README 头图为项目自绘。两类资源均与 GPL-3.0-only 兼容。')
+[void]$sb.AppendLine('界面图标位于 `assets/icons/lucide/`，取自宿主项目已在用的 **Lucide**（ISC）；应用图标与 README 头图为项目自绘。两类资源均与 GPL-3.0-only 兼容。')
 [void]$sb.AppendLine()
-[void]$sb.AppendLine("### Material Symbols（Apache-2.0）")
+[void]$sb.AppendLine("### Lucide（ISC）")
 [void]$sb.AppendLine()
-[void]$sb.AppendLine("- 来源：https://github.com/google/material-design-icons（``symbols/web/*/materialsymbolsoutlined``）")
-[void]$sb.AppendLine("- 许可证：Apache-2.0，https://www.apache.org/licenses/LICENSE-2.0")
-$iconCount = @(Get-ChildItem (Join-Path $root "assets/icons/ui") -Recurse -Filter *.svg).Count
-[void]$sb.AppendLine('- 使用范围：`assets/icons/ui/` 下全部 ' + $iconCount + ' 个 SVG（`toolbar/*` / `status/*` / `panel/*`）。仅去掉 `width`/`height`、给 `<path>` 补 `fill="currentColor"`，图形未做其他修改。')
+[void]$sb.AppendLine("- 来源：https://lucide.dev/，由 `scripts/sync-screenshot-icons.mjs` 从 `lucide-react` 导出")
+[void]$sb.AppendLine("- 许可证：ISC，全文见 `assets/icons/lucide/LICENSE`")
+$iconCount = @(Get-ChildItem (Join-Path $root "assets/icons/lucide") -Filter *.svg).Count
+[void]$sb.AppendLine('- 使用范围：`assets/icons/lucide/` 下全部 ' + $iconCount + ' 个 SVG。导出时把图元写成 `<path>`，描边在渲染时展开。')
 [void]$sb.AppendLine()
 [void]$sb.AppendLine("### 本项目自绘")
 [void]$sb.AppendLine()

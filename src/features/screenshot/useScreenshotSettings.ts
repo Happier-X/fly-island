@@ -25,6 +25,7 @@ function normalize(settings: ScreenshotSettings): ScreenshotSettings {
     hiddenToolbar: Array.isArray(settings.hiddenToolbar) ? settings.hiddenToolbar : [],
     ocrLanguage: settings.ocrLanguage?.trim() || OCR_LANG_AUTO,
     uiScale: UI_SCALES.includes(settings.uiScale as (typeof UI_SCALES)[number]) ? settings.uiScale : "auto",
+    autoSave: settings.autoSave === true,
     enabled: settings.enabled ?? true,
   };
 }

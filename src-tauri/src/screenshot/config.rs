@@ -50,6 +50,9 @@ pub struct ScreenshotSettings {
     /// 覆盖层界面缩放：`auto` / `100` / `125` / `150` / `175` / `200`。
     #[serde(default = "default_ui_scale")]
     pub ui_scale: String,
+    /// 截图完成后同时把图片写进保存目录（默认关）。
+    #[serde(default)]
+    pub auto_save: bool,
 }
 
 /// 覆盖层内的快捷键：10 个工具切换键 + 长截图 / OCR 功能键。
@@ -143,6 +146,7 @@ impl Default for ScreenshotSettings {
             hidden_toolbar: Vec::new(),
             ocr_language: default_ocr_language(),
             ui_scale: default_ui_scale(),
+            auto_save: false,
         }
     }
 }
@@ -225,6 +229,7 @@ impl ScreenshotSettings {
                 ..Default::default()
             },
             ui_scale: parse_ui_scale(&self.ui_scale),
+            auto_save: self.auto_save,
             ..Default::default()
         }
     }

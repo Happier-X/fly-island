@@ -174,6 +174,8 @@ pub struct SavePrefs {
     pub last_ext: Option<String>,
     /// 上次保存的目录（下次对话框初始位置；目录已不存在时回退默认目录）。
     pub last_dir: Option<String>,
+    /// 复制完成时同时写入图片文件（默认关）：比手动另存为更接近 PixPin 的自动保存。
+    pub auto_save: bool,
 }
 
 /// 根配置。所有字段带默认值，旧配置文件缺字段时自动补齐。
@@ -208,6 +210,8 @@ pub struct Config {
     pub last_save_ext: Option<String>,
     /// 上次保存的目录（OUT-2，运行时记忆）：保存对话框下次的初始位置。
     pub last_save_dir: Option<String>,
+    /// 截图完成后自动写入图片文件（默认关；EXT-2）。
+    pub auto_save: bool,
     /// 长截图拼接高度上限（像素，LNG-7，默认 30000）。
     pub longshot_max_height: u32,
     /// 启动后自动检查更新（SYS-7，默认开）。关闭后只能从关于页手动检查。
@@ -236,6 +240,7 @@ impl Default for Config {
             name_style: NameStyle::DateTime,
             last_save_ext: None,
             last_save_dir: None,
+            auto_save: false,
             longshot_max_height: 30000,
             auto_check_update: true,
             skipped_version: None,

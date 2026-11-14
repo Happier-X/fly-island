@@ -14,8 +14,8 @@ use std::sync::OnceLock;
 
 use tiny_skia::{Paint, Pixmap, Transform};
 
-/// 图标内容区占按钮边长的比例，其余作为光学留白。
-const LIVE: f32 = 0.76;
+/// 26px 原生按钮中使用 16px 的 Lucide 坐标框，与岛上 16px/1.5px 描边一致。
+const LIVE: f32 = 16.0 / 26.0;
 
 /// 已解析的图标几何，按 `Icon` 顺序缓存：首次绘制时解析一次，之后零开销。
 fn glyphs() -> &'static [svg::SvgIcon] {
@@ -23,28 +23,14 @@ fn glyphs() -> &'static [svg::SvgIcon] {
     CACHE.get_or_init(|| Icon::ALL.iter().map(|i| svg::parse(i.source())).collect())
 }
 
-/// 个别图标的光学缩放：结构上必然更重的图标（如实心油漆桶）可略缩小，
-/// 让它的视觉重量与邻居接近，而不必改素材。
-/// 字号加减号紧贴字号数字，需比标准活动区再小一号。
-fn optical_scale(icon: Icon) -> f32 {
-    match icon {
-        Icon::Save => 0.92,
-        // 垃圾桶结构密集（盖 + 桶身 + 两条竖线），不缩小会比邻居重得多
-        Icon::Delete => 0.85,
-        // 扫描框 + 三行文字，结构比相邻的 pin / longshot 密得多，略缩以对齐视觉重量
-        Icon::Ocr => 0.9,
-        _ => 1.0,
-    }
-}
-
 /// 把图标绘制到像素图：内容居中于 `(cx, cy)` 的正方形活动区，边长 `size`（已含 DPI 缩放）。
 pub fn draw(pixmap: &mut Pixmap, icon: Icon, cx: f32, cy: f32, size: f32, color: [u8; 4]) {
     let g = &glyphs()[icon as usize];
-    let [x0, y0, x1, y1] = g.bounds;
-    let side = (x1 - x0).max(y1 - y0).max(1.0);
-    let k = size * LIVE * optical_scale(icon) / side;
-    let bx = (x0 + x1) * 0.5;
-    let by = (y0 + y1) * 0.5;
+    debug_assert!(g.bounds.iter().all(|v| v.is_finite()));
+    // 保留 Lucide 的原始 24×24 坐标；按墨水包围盒归一化会把短横线
+    // 放大成粗杠，也会令相邻图标的绝对描边不一致。
+    let k = size * LIVE / 24.0;
+    let (bx, by) = (12.0, 12.0);
     // 先按 k 缩放，再平移到目标中心
     let transform = Transform::from_translate(cx - bx * k, cy - by * k).pre_scale(k, k);
     let mut paint = Paint::default();
@@ -103,8 +89,8 @@ mod tests {
         for &icon in Icon::ALL {
             let (ink, _) = render(icon, 26);
             assert!(
-                (0.05..=0.48).contains(&ink),
-                "{icon:?} 墨水覆盖率 {ink:.3} 超出 5%～48%"
+                (0.015..=0.30).contains(&ink),
+                "{icon:?} 墨水覆盖率 {ink:.3} 超出 Lucide 线框范围 1.5%～30%"
             );
         }
     }

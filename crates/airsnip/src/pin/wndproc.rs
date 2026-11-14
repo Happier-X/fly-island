@@ -21,6 +21,10 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
         // 用 GetCursorPos 屏幕坐标而非客户区坐标：窗口移动会改变鼠标相对客户区位置，
         // 按客户区增量计算会与窗口移动互相反馈 → 拖动抖动（M2b 实测缺陷）。
         WM_LBUTTONDOWN => {
+            // 锁定后仍在目标下方，但拖动/框选/进入编辑都不能开始（右键解锁）
+            if win.locked() {
+                return LRESULT(0);
+            }
             // 框选取字（PIN-OCR）：已进入框选态，或按住 Alt 直接拖（等同右键菜单入口）
             if win.select.is_some() || unsafe { GetKeyState(VK_MENU.0 as i32) } < 0 {
                 win.select_down(point(lparam));
@@ -44,7 +48,7 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
                 let (cx, cy) = unsafe { cursor_pos() };
                 let nx = win.win_origin.0 + (cx - win.drag_cursor.0);
                 let ny = win.win_origin.1 + (cy - win.drag_cursor.1);
-                let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), nx, ny, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE) };
+                let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), nx, ny, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER) };
             }
             LRESULT(0)
         }
@@ -76,7 +80,7 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
         }
         // 双击关闭（PIN-4）；框选态下的双击不关窗口
         WM_LBUTTONDBLCLK => {
-            if win.select.is_some() {
+            if win.select.is_some() || win.locked() {
                 return LRESULT(0);
             }
             let _ = unsafe { post_close(hwnd) };
@@ -91,18 +95,30 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             super::menu::on_context_menu(win);
             LRESULT(0)
         }
-        // 框选态下不改缩放：显示坐标到原图坐标的换算在中途变化会让选区跳动
         WM_MOUSEWHEEL => {
             if win.select.is_some() {
                 return LRESULT(0);
             }
             let delta = (wparam.0 >> 16) as u16 as i16;
             let ctrl = unsafe { GetKeyState(VK_CONTROL.0 as i32) } < 0;
+            let alt = unsafe { GetKeyState(VK_MENU.0 as i32) } < 0;
             if ctrl {
                 win.adjust_alpha(if delta > 0 { ALPHA_STEP } else { -ALPHA_STEP });
-            } else {
-                // 预览缩放（最近邻，快）+ 静止后精修
-                win.rescale_preview(1.0 + delta as f32 / 1200.0);
+            } else if !win.locked() {
+                // Alt 为 1% 精调；普通滚轮 10%，按步数相加避免每格倍率漂移
+                let next = super::operations::wheel_scale(win.scale(), delta, alt);
+                win.rescale_to_preview(next);
+            }
+            LRESULT(0)
+        }
+        // 中键恢复原始大小（PixPin 贴图同款习惯）
+        WM_MBUTTONDOWN => {
+            // 已有的可配置中键边框绑定优先，不能被新默认动作吞掉。
+            let (bk, bm) = super::border_key();
+            if bk == 0x04 && held_modifiers() == bm {
+                let _ = unsafe { notify_border_toggled() };
+            } else if held_modifiers() == 0 && !win.locked() && win.select.is_none() {
+                win.reset_zoom();
             }
             LRESULT(0)
         }
@@ -136,13 +152,15 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             }
             // 空格：进入标注编辑（ADR 0028，issue #56）。只取 WM_KEYDOWN 的首次按下
             // （lparam bit30=0，避开自动重复）且无 Alt（避开 Alt+Space 系统菜单）
-            if msg == WM_KEYDOWN && vk == 0x20 && (lparam.0 as u32 >> 30) & 1 == 0 {
-                super::request_edit(hwnd);
+            let repeated = (lparam.0 as u32 >> 30) & 1 != 0;
+            if win.operation_key(vk, held_modifiers(), repeated, msg == WM_SYSKEYDOWN) {
                 return LRESULT(0);
             }
             if vk == 0x1B {
                 let _ = unsafe { post_close(hwnd) };
-            } else if let Some((dx, dy)) = crate::app::hotkey::arrow_step(vk, held_modifiers() & 4 != 0) {
+            } else if let Some((dx, dy)) = crate::app::hotkey::arrow_step(vk, held_modifiers() & 4 != 0)
+                && !win.locked()
+            {
                 // 方向键微调窗口位置（PIN-1）：1px，Shift 5px
                 let rect = unsafe { window_rect(hwnd) };
                 let _ = unsafe {
@@ -153,7 +171,7 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
                         rect.top + dy,
                         0,
                         0,
-                        SWP_NOSIZE | SWP_NOACTIVATE,
+                        SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER,
                     )
                 };
             } else if let (bk, bm) = super::border_key()
@@ -177,8 +195,8 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             }
             LRESULT(0)
         }
-        // 鼠标中键 / 侧键当边框快捷键（ADR 0019）：与键盘同一套对比
-        WM_MBUTTONDOWN | WM_XBUTTONDOWN => {
+        // 侧键当边框快捷键（ADR 0019）：中键已在上面用于复位，这里只收侧键
+        WM_XBUTTONDOWN => {
             if let Some(vk) = crate::app::mouse::message_vk(msg, wparam.0)
                 && let (bk, bm) = super::border_key()
                 && bk == vk
@@ -186,7 +204,7 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
             {
                 let _ = unsafe { notify_border_toggled() };
             }
-            LRESULT(1) // XBUTTON 已处理
+            LRESULT(1)
         }
         WM_CLOSE => {
             let _ = unsafe { DestroyWindow(hwnd) };

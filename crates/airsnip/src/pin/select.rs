@@ -7,11 +7,9 @@
 //! 纯函数便于单测（缩放、非 1.0 缩放、越界、零面积）。
 
 use tiny_skia::Pixmap;
-use windows::Win32::Foundation::{GlobalFree, LPARAM, WPARAM};
-use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock};
 use windows::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture};
 use windows::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, IDC_ARROW, IDC_CROSS, LoadCursorW, MB_ICONERROR, MB_OK, PostMessageW, SetCursor,
+    IDC_ARROW, IDC_CROSS, LoadCursorW, SetCursor,
 };
 use windows::core::PCWSTR;
 
@@ -263,36 +261,7 @@ impl PinWindow {
 /// 把识别请求交给主线程（与覆盖层 OCR 同一个消息与载荷格式）：
 /// `[u32 w][u32 h][i32 x][i32 y][RGBA]`，主线程弹气泡并后台识别。
 pub(super) fn post_request(pixmap: &Pixmap, at: (i32, i32)) {
-    let (w, h) = (pixmap.width(), pixmap.height());
-    let len = w as usize * h as usize * 4;
-    // SAFETY: 分配 / 锁定 / 拷贝 / 投递都在本函数内成对完成；载荷由主线程解析后释放，
-    // 找不到主窗口时在这里释放，不会泄漏。
-    unsafe {
-        let Ok(hg) = GlobalAlloc(GMEM_MOVEABLE, 16 + len) else {
-            crate::app::message_box(None, "识别文字需要的内存分配失败。", MB_OK | MB_ICONERROR);
-            return;
-        };
-        let ptr = GlobalLock(hg);
-        if ptr.is_null() {
-            let _ = GlobalFree(Some(hg));
-            return;
-        }
-        *(ptr as *mut u32) = w;
-        *((ptr as *mut u32).add(1)) = h;
-        let pos = (ptr as *mut u8).add(8) as *mut i32;
-        *pos = at.0;
-        *pos.add(1) = at.1;
-        std::ptr::copy_nonoverlapping(pixmap.data().as_ptr(), (ptr as *mut u8).add(16), len);
-        let _ = GlobalUnlock(hg);
-        match FindWindowW(crate::app::WINDOW_CLASS, None) {
-            Ok(main) => {
-                let _ = PostMessageW(Some(main), crate::app::WM_OCR_REQUEST, WPARAM(hg.0 as usize), LPARAM(0));
-            }
-            Err(_) => {
-                let _ = GlobalFree(Some(hg));
-            }
-        }
-    }
+    crate::app::payload::post(crate::app::WM_OCR_REQUEST, pixmap, at, "识别文字");
 }
 
 fn set_cursor(id: PCWSTR) {

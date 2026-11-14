@@ -63,7 +63,7 @@ pub fn render(pixmap: &mut Pixmap, bar: &Toolbar, state: &State, p: &Palette) {
             Action::Tool(tool) => {
                 let active = tool == state.tool;
                 if active {
-                    rounded_rect(pixmap, *r, 5.0, p.accent_soft, None);
+                    rounded_rect(pixmap, *r, ui.f(5.0), p.accent_soft, None);
                 }
                 let color = if tool == Tool::Highlight {
                     // 荧光笔图标：颜色跟主题（浅色主题用暗金，否则看不清楚），激活时更浓

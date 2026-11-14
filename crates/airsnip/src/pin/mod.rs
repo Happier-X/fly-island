@@ -11,6 +11,7 @@ pub mod clipboard; // tests 用
 mod dib;
 mod edit;
 mod menu;
+mod operations;
 mod scale;
 mod select;
 mod window;

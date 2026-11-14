@@ -3,6 +3,8 @@
 //! 编码调用方负责放到后台线程执行（OUT-2）。
 
 pub mod recent;
+mod quick_save;
+pub use quick_save::save_unique;
 
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
@@ -296,6 +298,19 @@ mod tests {
         let d = base_name(NameStyle::Date);
         assert!(d.starts_with("airsnip-"), "{d}");
         assert_eq!(d.len(), "airsnip-20241231".len(), "{d}");
+    }
+
+    /// 快速保存 / 自动保存：同名文件不覆盖，依次追加 -1、-2（EXT-2）。
+    #[test]
+    fn save_unique_never_overwrites() {
+        let pixmap = Pixmap::new(4, 4).unwrap();
+        let dir = std::env::temp_dir().join(format!("airsnip-quick-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let first = save_unique(&pixmap, Some(&dir), "png", crate::settings::NameStyle::Date).expect("首次保存");
+        let second = save_unique(&pixmap, Some(&dir), "png", crate::settings::NameStyle::Date).expect("再次保存");
+        assert_ne!(first, second, "同名文件应换名而不是覆盖");
+        assert!(first.exists() && second.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// save_file 只接受三种扩展名：其余报错，避免内容与扩展名不符（OUT-2）。

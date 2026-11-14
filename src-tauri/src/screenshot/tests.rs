@@ -186,6 +186,17 @@ fn airsnip_config_carries_the_overlay_settings() {
 }
 
 #[test]
+fn auto_save_defaults_off_and_reaches_airsnip() {
+    let settings: ScreenshotSettings = serde_json::from_str(r#"{"enabled":true}"#).unwrap();
+    assert!(!settings.auto_save, "旧设置没有这一项时不应突然开始写文件");
+    let settings = ScreenshotSettings {
+        auto_save: true,
+        ..Default::default()
+    };
+    assert!(settings.to_airsnip_config().auto_save);
+}
+
+#[test]
 fn defaults_match_airsnip_when_nothing_was_touched() {
     let config = ScreenshotSettings::default().to_airsnip_config();
     let defaults = airsnip::settings::ToolKeys::default();

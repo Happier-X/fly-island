@@ -25,7 +25,9 @@ mod objedit;
 mod opts;
 mod pick;
 mod pin_edit;
+mod pixel_sample;
 mod recapture;
+mod screen_selection;
 mod selection;
 mod setup;
 pub(crate) mod shape;
@@ -74,6 +76,7 @@ pub struct Overlay {
     /// 界面缩放（按光标所在显示器 DPI，CAP-5）：工具栏、手柄、尺寸提示与光标随之缩放。
     pub ui: ui::Ui,
     pub selection: Option<SelRect>,
+    sample: Option<pixel_sample::Sample>,
     phase: Phase,
     drag: Option<Drag>,
     /// 标注文档（对象列表 + 撤销/重做，EDT-1/EDT-2/EDT-7）。

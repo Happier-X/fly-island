@@ -37,23 +37,38 @@ pub fn run(
     let Some(outcome) = window::run(x, y, w, h, hinstance, max_height, palette, ui_scale, save) else {
         return; // 取消或失败（窗口内已提示）
     };
-    let window::Outcome { pixmap, save_as } = outcome;
-    // 输出：复制 + 保存（与普通截图 Enter / Ctrl+S 行为一致，OUT-1/OUT-2）
-    std::thread::spawn(move || {
-        if let Err(e) = crate::output::copy_to_clipboard(&pixmap) {
-            crate::app::message_box(None, &format!("复制失败：{e}"), MB_OK | MB_ICONERROR);
+    let window::Outcome {
+        pixmap,
+        save_as,
+        after,
+    } = outcome;
+    // 完成后的去向由用户决定（LNG-8）：OCR / 贴图只处理结果本身，不再顺手复制保存。
+    match after {
+        window::After::Ocr => {
+            crate::app::payload::post(crate::app::WM_OCR_REQUEST, &pixmap, (x, y), "识别文字");
         }
-        // 另存为：用户已选好路径与格式，不再额外往默认目录写一份
-        let path = match save_as {
-            Some(path) => path,
-            None => {
-                let dir = crate::output::default_save_dir();
-                let _ = std::fs::create_dir_all(&dir);
-                dir.join(crate::output::timestamped_filename("png"))
-            }
-        };
-        if let Err(e) = crate::output::save_file(&pixmap, &path) {
-            crate::app::message_box(None, &format!("保存失败：{e}"), MB_OK | MB_ICONERROR);
+        window::After::Pin => {
+            crate::app::payload::post(crate::app::WM_PIN_FROM_EDITOR, &pixmap, (x, y), "贴图");
         }
-    });
+        window::After::CopySave => {
+            // 输出：复制 + 保存（与普通截图 Enter / Ctrl+S 行为一致，OUT-1/OUT-2）
+            std::thread::spawn(move || {
+                if let Err(e) = crate::output::copy_to_clipboard(&pixmap) {
+                    crate::app::message_box(None, &format!("复制失败：{e}"), MB_OK | MB_ICONERROR);
+                }
+                // 另存为：用户已选好路径与格式，不再额外往默认目录写一份
+                let path = match save_as {
+                    Some(path) => path,
+                    None => {
+                        let dir = crate::output::default_save_dir();
+                        let _ = std::fs::create_dir_all(&dir);
+                        dir.join(crate::output::timestamped_filename("png"))
+                    }
+                };
+                if let Err(e) = crate::output::save_file(&pixmap, &path) {
+                    crate::app::message_box(None, &format!("保存失败：{e}"), MB_OK | MB_ICONERROR);
+                }
+            });
+        }
+    }
 }

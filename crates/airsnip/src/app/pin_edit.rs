@@ -101,6 +101,7 @@ impl App {
                 name_style: self.config.name_style,
                 last_ext: self.config.last_save_ext.clone(),
                 last_dir: self.config.last_save_dir.clone(),
+                auto_save: self.config.auto_save,
             },
             ui_scale: self.config.ui_scale,
             pin_edit: Some(crate::overlay::PinEdit {

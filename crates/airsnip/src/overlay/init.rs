@@ -95,6 +95,7 @@ impl Overlay {
             // 界面缩放：手动倍率或按光标所在显示器的 DPI + 分辨率自动（CAP-5）
             ui: super::ui::Ui::resolve(ui_scale),
             selection,
+            sample: None,
             first_paint: true,
             phase: Phase::Adjusting,
             drag: None,

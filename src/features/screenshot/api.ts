@@ -18,6 +18,8 @@ export type ScreenshotSettings = {
   ocrLanguage: string;
   /** `auto` / `100` / `125` / `150` / `175` / `200` */
   uiScale: string;
+  /** 截图完成后同时把图片写进保存目录。 */
+  autoSave: boolean;
 };
 
 /** 覆盖层内的快捷键：10 个工具切换键 + 长截图 / OCR 功能键。 */
@@ -71,6 +73,7 @@ export const DEFAULT_SCREENSHOT_SETTINGS: ScreenshotSettings = {
   hiddenToolbar: [],
   ocrLanguage: OCR_LANG_AUTO,
   uiScale: "auto",
+  autoSave: false,
 };
 
 /** 工具栏上一组可隐藏的元素（结构与文案都由 AirSnip 提供）。 */

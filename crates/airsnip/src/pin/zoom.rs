@@ -3,7 +3,7 @@
 //! 静止 120ms 后由 WM_TIMER 精修为双线性/区域平均（清晰）。窗口静止时无任何重绘。
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    HWND_TOPMOST, KillTimer, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetTimer, SetWindowPos,
+    HWND_TOPMOST, KillTimer, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW, SetTimer, SetWindowPos,
 };
 
 use super::dib::window_center;
@@ -28,12 +28,26 @@ impl PinWindow {
         }
     }
 
+    /// 按目标倍率缩放（滚轮按步数累加用）：预览路径同上，避免与当前倍率相乘。
+    pub(super) fn rescale_to_preview(&mut self, target: f32) {
+        let factor = target / self.scale();
+        self.rescale_preview(factor);
+    }
+
     /// 精修：双线性/区域平均重采样（同尺寸也重绘，换质量）。
     pub(super) fn finalize_preview(&mut self) {
         unsafe {
             let _ = KillTimer(Some(self.hwnd()), TIMER_FINAL);
         }
         self.scale_to(self.scale(), false);
+    }
+
+    /// 中键：恢复 100%，并取消尚未执行的预览精修。
+    pub(super) fn reset_zoom(&mut self) {
+        unsafe {
+            let _ = KillTimer(Some(self.hwnd()), TIMER_FINAL);
+        }
+        self.scale_to(1.0, false);
     }
 
     /// 重采样到目标缩放（保持窗口中心不动）。
@@ -62,7 +76,7 @@ impl PinWindow {
                 center.1 - h as i32 / 2,
                 w as i32,
                 h as i32,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW,
             );
         }
         let _ = self.rebind();

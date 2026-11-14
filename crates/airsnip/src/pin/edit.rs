@@ -5,7 +5,7 @@
 use tiny_skia::Pixmap;
 use windows::Win32::Foundation::RECT;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowRect, HWND_TOPMOST, SW_HIDE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    GetWindowRect, SW_HIDE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
     SetWindowPos, ShowWindow,
 };
 
@@ -34,12 +34,12 @@ impl PinWindow {
             if visible {
                 let _ = SetWindowPos(
                     self.hwnd(),
-                    Some(HWND_TOPMOST),
+                    None,
                     0,
                     0,
                     0,
                     0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER,
                 );
             }
         }
@@ -65,12 +65,12 @@ impl PinWindow {
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd(),
-                Some(HWND_TOPMOST),
+                None,
                 cx - off,
                 cy - off,
                 w,
                 h,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                SWP_NOACTIVATE | windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER | SWP_SHOWWINDOW,
             );
         }
         self.rebind()

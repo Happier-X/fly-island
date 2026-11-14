@@ -12,6 +12,8 @@ export type SettingsScreenshotText = {
   saveDirDefault: string;
   saveDirReset: string;
   chooseDir: string;
+  autoSave: string;
+  autoSaveHint: string;
   colorsTitle: string;
   colorsHint: string;
   colors: string;
@@ -56,6 +58,8 @@ export const zhCN: SettingsScreenshotText = {
   saveDirDefault: "系统图片文件夹下的 airsnip 目录",
   saveDirReset: "恢复默认",
   chooseDir: "选择",
+  autoSave: "截图后自动保存",
+  autoSaveHint: "复制截图时同时按上面的格式和目录存一份文件；截图窗口里按 Ctrl+Shift+S 也能直接保存、不弹对话框。",
   colorsTitle: "标注颜色",
   colorsHint: "覆盖层工具栏上的 5 个色块，改成常用的颜色即可。",
   colors: "色板",
@@ -130,6 +134,8 @@ export const en: SettingsScreenshotText = {
   saveDirDefault: "The airsnip folder inside Pictures",
   saveDirReset: "Use default",
   chooseDir: "Choose",
+  autoSave: "Save after capture",
+  autoSaveHint: "Also writes a file in the format and folder above when you copy; Ctrl+Shift+S in the capture window saves without a dialog.",
   colorsTitle: "Annotation colors",
   colorsHint: "The five swatches on the overlay toolbar; swap them for the colors you use.",
   colors: "Swatches",

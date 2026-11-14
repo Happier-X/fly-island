@@ -40,7 +40,22 @@ pub fn parse(src: &str) -> SvgIcon {
             FillRule::Winding
         };
         if let Some(path) = build_path(d) {
-            paths.push((path, rule));
+            // Lucide resources inherit one stroke from the root. Expand it once at
+            // load time; the normal renderer can then keep its fast fill-only path.
+            let stroke = src.contains("stroke=\"currentColor\"");
+            if stroke {
+                let style = tiny_skia::Stroke {
+                    width: 2.25,
+                    line_cap: tiny_skia::LineCap::Round,
+                    line_join: tiny_skia::LineJoin::Round,
+                    ..Default::default()
+                };
+                if let Some(outline) = path.stroke(&style, 1.0) {
+                    paths.push((outline, rule));
+                }
+            } else {
+                paths.push((path, rule));
+            }
         }
     }
 

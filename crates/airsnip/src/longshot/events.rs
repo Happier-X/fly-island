@@ -7,12 +7,18 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 
 use super::bar::Button;
 use super::present::{ctrl_down, redraw, win_from};
-use super::window::{HK_ENTER, HK_ESC, HK_SAVE, HK_UNDO, TIMER_ID, Win};
+use super::window::{After, HK_ENTER, HK_ESC, HK_SAVE, HK_UNDO, TIMER_ID, Win};
 
 /// 完成：先补抓一帧（用户滚动后立刻按 Enter 时，最后一屏还没被定时拍捕获），再收尾。
 fn finish(win: &mut Win) {
+    finish_after(win, After::CopySave);
+}
+
+/// 收尾并按所选去向处理拼接结果（复制保存 / 文字识别 / 贴图，LNG-8）。
+fn finish_after(win: &mut Win, after: After) {
     win.session.tick();
     win.session.finished = true;
+    win.after = after;
     win.done = true;
 }
 
@@ -92,6 +98,8 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
                     Some(Button::Undo) => win.session.undo(),
                     // 另存为对话框是模态的，期间 WM_TIMER 仍会进来：靠 `done` 避免提前关窗
                     Some(Button::SaveAs) => save_as(win, hwnd),
+                    Some(Button::Ocr) => finish_after(win, After::Ocr),
+                    Some(Button::Pin) => finish_after(win, After::Pin),
                     Some(Button::Done) => finish(win),
                     Some(Button::Cancel) => {
                         win.session.cancelled = true;

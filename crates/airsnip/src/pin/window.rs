@@ -204,12 +204,12 @@ impl PinWindow {
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,
-                Some(HWND_TOPMOST),
+                None,
                 cx - noff,
                 cy - noff,
                 w as i32,
                 h as i32,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW,
             );
         }
         let _ = self.rebind();

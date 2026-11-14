@@ -107,7 +107,7 @@ fn icon_badge(pixmap: &mut Pixmap, b: &Bubble, r: SelRect, icon: Icon, on: bool,
         icon,
         (r.x + r.w / 2) as f32,
         (r.y + r.h / 2) as f32,
-        r.w as f32 * icon_scale(icon),
+        ui.f(26.0),
         if on || hot { p.accent } else { p.icon_dim },
     );
 }
@@ -144,17 +144,3 @@ fn draw_switch(pixmap: &mut Pixmap, b: &Bubble, track: SelRect, on: bool, hovere
     );
 }
 
-/// 图标在点击区里的实际边长系数。
-///
-/// 按墨水覆盖率对齐：`Pin` 14.8% 天生偏轻，`Cross` 25.4% 偏重
-/// （实测见 `assets/icons/ui/README.md`）。用同一系数画，图钉会明显比关闭小一号。
-///
-/// 另：线框图标比同字号的中文视觉重量轻很多（用户反馈「图标比文字小」），
-/// 所以整体往大里调——图标盒子 ≈ 正文的 1.3 倍。
-fn icon_scale(icon: Icon) -> f32 {
-    match icon {
-        Icon::Pin => 0.90,
-        Icon::Cross => 0.82,
-        _ => 0.82,
-    }
-}

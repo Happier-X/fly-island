@@ -83,6 +83,10 @@ impl super::Overlay {
         let r = self.expand_for_objects(r);
         let r = self.expand_for_selected(r);
         let r = self.expand_for_hint(r);
+        let r = match self.sample {
+            Some(s) if intersect_rect(s.rect, r).is_some() => union_rect(Some(r), Some(s.rect)).unwrap_or(r),
+            _ => r,
+        };
         let (w, h) = (self.display.width() as i32, self.display.height() as i32);
         let x0 = r.x.clamp(0, w);
         let y0 = r.y.clamp(0, h);
@@ -211,6 +215,9 @@ impl super::Overlay {
             && intersect_rect(expand_rect(hint.rect, 2), region).is_some()
         {
             super::cancel_hint::draw(&mut self.display, hint, self.ui);
+        }
+        if self.sample.is_some_and(|s| intersect_rect(s.rect, region).is_some()) {
+            self.draw_sample();
         }
         self.present_region(region);
     }

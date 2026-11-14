@@ -38,3 +38,4 @@
 - [剪贴板历史](docs/design/clipboard.md)
 - [文件中转](docs/design/file-shelf.md)
 - [音乐页](docs/design/music.md)
+- [截图：图标与界面规范](docs/design/screenshot.md)

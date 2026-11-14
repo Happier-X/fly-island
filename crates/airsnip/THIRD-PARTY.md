@@ -165,13 +165,13 @@ AirSnip 自身以 **GPL-3.0-only** 发布。以下是随程序一同分发的第
 - ISC: https://opensource.org/license/isc-license-txt
 ## 图标与美术资源
 
-界面图标位于 `assets/icons/ui/`，统一取自 **Material Symbols**（Apache-2.0）；应用图标与 README 头图为项目自绘。两类资源均与 GPL-3.0-only 兼容。
+界面图标位于 `assets/icons/lucide/`，取自 fly-island 已在用的 **Lucide**（ISC）；应用图标与 README 头图为项目自绘。两类资源均与 GPL-3.0-only 兼容。
 
-### Material Symbols（Apache-2.0）
+### Lucide（ISC）
 
-- 来源：https://github.com/google/material-design-icons（`symbols/web/*/materialsymbolsoutlined`）
-- 许可证：Apache-2.0，https://www.apache.org/licenses/LICENSE-2.0
-- 使用范围：`assets/icons/ui/` 下全部 21 个 SVG（`toolbar/*` / `status/*` / `panel/*`）。仅去掉 `width`/`height`、给 `<path>` 补 `fill="currentColor"`，图形未做其他修改。
+- 来源：https://lucide.dev/，通过宿主项目的 `lucide-react` 依赖，由 `scripts/sync-screenshot-icons.mjs` 导出
+- 许可证：ISC，全文见 `assets/icons/lucide/LICENSE`
+- 使用范围：`assets/icons/lucide/` 下全部 25 个 SVG。导出时把 `<line>` / `<circle>` / `<rect>` 等图元写成 `<path>`，描边在渲染时按 Lucide 的 2 倍单位网格展开，图形未做其他修改。
 
 ### 本项目自绘
 

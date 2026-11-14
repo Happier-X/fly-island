@@ -52,6 +52,18 @@ fn unregister_hotkeys(hwnd: HWND) {
     }
 }
 
+/// 拼接完成后对结果做什么。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum After {
+    /// 复制到剪贴板并按设置保存（默认，与普通截图一致）。
+    #[default]
+    CopySave,
+    /// 只做文字识别（LNG-8）。
+    Ocr,
+    /// 只贴到屏幕上（LNG-8）。
+    Pin,
+}
+
 /// 执行窗口运行时状态。
 /// 字段为 `pub(super)`：绘制/上屏在 `present` 模块中实现（控制单文件规模）。
 pub(super) struct Win {
@@ -78,6 +90,8 @@ pub(super) struct Win {
     pub(super) done: bool,
     /// 用户通过「另存为」选定的路径（None = 未另存，完成后走自动保存）。
     pub(super) save_as: Option<std::path::PathBuf>,
+    /// 完成后处理结果的方式（复制保存 / OCR / 贴图）。
+    pub(super) after: After,
     /// 保存偏好快照（文件名模板 / 上次格式 / 上次目录）。
     pub(super) save: crate::settings::SavePrefs,
 }
@@ -101,6 +115,8 @@ pub struct Outcome {
     pub pixmap: tiny_skia::Pixmap,
     /// 用户通过「另存为」选定的路径；`None` 时由调用方自动保存到默认目录。
     pub save_as: Option<std::path::PathBuf>,
+    /// 完成后要做的事。
+    pub after: After,
 }
 
 /// 启动长截图执行并阻塞到完成/取消。完成后返回拼接结果；取消返回 None。
@@ -196,6 +212,7 @@ pub fn run(
             dirty: true,
             done: false,
             save_as: None,
+            after: After::default(),
             save,
         });
         let raw = Box::into_raw(win);
@@ -224,6 +241,7 @@ pub fn run(
             (*raw).session.result().ok().map(|pixmap| Outcome {
                 pixmap,
                 save_as: (*raw).save_as.take(),
+                after: (*raw).after,
             })
         } else {
             None

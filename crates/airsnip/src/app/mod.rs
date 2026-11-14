@@ -7,6 +7,7 @@ mod actions;
 pub mod autostart;
 mod bubble;
 pub mod filedlg;
+pub(crate) mod payload;
 pub(crate) mod hotkey;
 pub(crate) mod mouse;
 pub mod open;

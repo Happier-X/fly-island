@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "../../i18n";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
 import { SettingsRow } from "../../components/settings/SettingsRow";
+import { SettingsToggleRow } from "../../components/settings/SettingsToggleRow";
 import { SelectControl } from "../../components/controls/SelectControl";
 import { ShortcutRecordButton, type ShortcutKeys } from "../../components/controls/ShortcutRecordButton";
 import { ShortcutResetButton } from "../../components/controls/ShortcutResetButton";
@@ -191,6 +192,14 @@ export function ScreenshotSettingsSection({
               </button>
             </div>
           }
+        />
+        <SettingsToggleRow
+          title={text.autoSave}
+          description={text.autoSaveHint}
+          checked={settings.autoSave}
+          onChange={(autoSave) => {
+            if (settings.enabled) save({ autoSave });
+          }}
         />
       </SettingsGroup>
 

@@ -17,8 +17,8 @@ use crate::theme::Palette;
 
 /// 状态条高度基准值（物理像素）。
 const BAR_H_BASE: f32 = 40.0;
-/// 状态条最小宽度基准值（四个按钮 + 一行完整提示文字）。
-const BAR_MIN_W_BASE: f32 = 470.0;
+/// 状态条最小宽度基准值（六个按钮 + 一行完整提示文字）。
+const BAR_MIN_W_BASE: f32 = 560.0;
 /// 状态条最大宽度基准值。
 const BAR_MAX_W_BASE: f32 = 760.0;
 /// 按钮边长基准值。
@@ -37,6 +37,10 @@ pub enum Button {
     Undo,
     /// 另存为（弹出系统对话框，自选路径与格式）。
     SaveAs,
+    /// 对拼接结果做文字识别（LNG-8）。
+    Ocr,
+    /// 把拼接结果贴到屏幕上（LNG-8）。
+    Pin,
     /// 完成。
     Done,
     /// 取消。
@@ -85,10 +89,10 @@ pub fn layout(vp_x: i32, vp_w: u32, vp_y: i32, vp_h: u32, screen_h: i32, ui: Ui)
     } else {
         (vp_y - bar_h - margin).max(0)
     };
-    // 按钮从右往左排：取消、完成、另存为、撤销（命中区高度用整条高，点偏上下也能命中）
+    // 按钮从右往左排：取消、完成、另存为、OCR、贴图、撤销（命中区高度用整条高，点偏上下也能命中）
     let mut hits = Vec::new();
     let mut bx = bar_w - pad - btn;
-    for b in [Button::Cancel, Button::Done, Button::SaveAs, Button::Undo] {
+    for b in [Button::Cancel, Button::Done, Button::SaveAs, Button::Ocr, Button::Pin, Button::Undo] {
         hits.push((
             SelRect {
                 x: bx,
@@ -141,12 +145,14 @@ pub fn render(pixmap: &mut Pixmap, bar: &Bar, state: &State, p: &Palette) {
         let (glyph, color) = match button {
             Button::Undo => (Icon::Undo, if state.can_undo { p.icon } else { p.icon_dim }),
             Button::SaveAs => (Icon::Save, p.icon),
+            Button::Ocr => (Icon::Ocr, p.icon),
+            Button::Pin => (Icon::Pin, p.icon),
             Button::Done => (Icon::Check, p.icon),
             Button::Cancel => (Icon::Cross, p.icon),
         };
         let cx = r.x as f32 + r.w as f32 / 2.0;
         let cy = r.y as f32 + r.h as f32 / 2.0;
-        icon::draw(pixmap, glyph, cx, cy, r.w.min(r.h) as f32, color);
+        icon::draw(pixmap, glyph, cx, cy, ui.f(26.0), color);
     }
 
     // 中间提示文字（像素数不再显示：右侧预览窗已给出拼接结果，LNG-3）
@@ -154,8 +160,7 @@ pub fn render(pixmap: &mut Pixmap, bar: &Bar, state: &State, p: &Palette) {
         "滚轮滚动 · Enter 完成 · Ctrl+S 另存为"
     } else {
         state.hint
-    };
-    let tx = ui.px(PAD_BASE) as f32;
+    };    let tx = ui.px(PAD_BASE) as f32;
     let spec = dwrite::FontSpec::new(ui.f(FONT_BASE));
     let (tw, th) = dwrite::measure(text, &spec);
     let ty = (h as f32 - th) / 2.0;
@@ -186,18 +191,20 @@ mod tests {
         let (bar_h, btn, pad, gap) = (ui.px(BAR_H_BASE), ui.px(BTN_BASE), ui.px(PAD_BASE), ui.px(4.0));
         let cy = bar_h / 2; // 客户区坐标（窗口 = 状态条矩形）
         let at = |i: i32| bar.rect.w - pad - i * (btn + gap) - btn / 2;
-        // 右侧四个按钮：取消在最右，向左依次完成、另存为、撤销
+        // 右侧六个按钮：取消在最右，向左依次完成、另存为、OCR、贴图、撤销
         assert_eq!(bar.hit(at(0), cy), Some(Button::Cancel));
         assert_eq!(bar.hit(at(1), cy), Some(Button::Done));
         assert_eq!(bar.hit(at(2), cy), Some(Button::SaveAs));
-        assert_eq!(bar.hit(at(3), cy), Some(Button::Undo));
+        assert_eq!(bar.hit(at(3), cy), Some(Button::Ocr));
+        assert_eq!(bar.hit(at(4), cy), Some(Button::Pin));
+        assert_eq!(bar.hit(at(5), cy), Some(Button::Undo));
         // 左侧空白（原模式按钮位置）无命中
         assert_eq!(bar.hit(pad + btn / 2, cy), None);
         // 中间空白无命中
         assert_eq!(bar.hit(bar.rect.w / 2, cy), None);
     }
 
-    /// 提示文字在最窄状态下也能完整放下（四个按钮不能把文字挤没）。
+    /// 提示文字在最窄状态下也能完整放下（六个按钮不能把文字挤没）。
     #[test]
     fn hint_text_fits_min_width() {
         let ui = base();

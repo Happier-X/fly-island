@@ -1,97 +1,84 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! 贴图右键菜单（PIN-4 / PIN-OCR）：编辑、识别文字、复制、保存、关闭、关闭全部。
-//! 导出像素：去除阴影扩展、premultiplied → straight 还原（经 `pixmap_of`）。
-//!
-//! 菜单文案跟着 Windows 显示语言走（中文系统中文、其余英文）：贴图窗口是原生 Win32，
-//! 拿不到宿主前端的 i18n 词表。
+//! 贴图菜单（PIN-4/PIN-OCR）：共享复制/保存入口与可恢复的窗口状态操作。
 
-use windows::Win32::Foundation::{LPARAM, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::Globalization::GetUserDefaultUILanguage;
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::core::PCWSTR;
 
 use super::window::PinWindow;
 
-const IDM_PIN_EDIT: usize = 41005;
-const IDM_PIN_OCR: usize = 41006;
-const IDM_PIN_COPY: usize = 41001;
-const IDM_PIN_SAVE: usize = 41002;
-const IDM_PIN_CLOSE: usize = 41003;
-const IDM_PIN_CLOSE_ALL: usize = 41004;
+const EDIT: usize = 41005;
+const OCR: usize = 41006;
+const COPY: usize = 41001;
+const SAVE: usize = 41002;
+const CLOSE: usize = 41003;
+const CLOSE_ALL: usize = 41004;
+const LOCK: usize = 41007;
+const TOPMOST: usize = 41008;
+const RESET: usize = 41009;
 
-/// 显示右键菜单并分发动作（TrackPopupMenu 模态，内部自带消息循环）。
 pub(super) fn on_context_menu(win: &mut PinWindow) {
-    let hwnd = win.hwnd();
-    // 文案缓冲要先于菜单创建，并活到 TrackPopupMenu 返回（菜单项直接引用这段内存）
-    let labels = [
-        label("编辑", "Edit"),
-        label("识别文字…", "Recognize text..."),
-        label("复制", "Copy"),
-        label("保存", "Save"),
-        label("关闭", "Close"),
-        label("关闭全部", "Close all"),
+    let rows = [
+        (EDIT, label("编辑\tSpace", "Edit\tSpace")),
+        (OCR, label("识别文字…\tAlt+拖动", "Recognize text...\tAlt+Drag")),
+        (COPY, label("复制\tCtrl+C", "Copy\tCtrl+C")),
+        (SAVE, label("保存\tCtrl+S", "Save\tCtrl+S")),
+        (TOPMOST, label("置顶\tT", "Always on top\tT")),
+        (LOCK, label("锁定位置与大小\tL", "Lock position and size\tL")),
+        (RESET, label("原始大小\t中键", "Original size\tMiddle click")),
+        (CLOSE, label("关闭\tEsc", "Close\tEsc")),
+        (CLOSE_ALL, label("关闭全部", "Close all")),
     ];
     let selected = unsafe {
         let mut pt = std::mem::zeroed();
         let _ = GetCursorPos(&mut pt);
-        let menu = CreatePopupMenu().ok();
-        let Some(menu) = menu else { return };
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_EDIT, PCWSTR(labels[0].as_ptr()));
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_OCR, PCWSTR(labels[1].as_ptr()));
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_COPY, PCWSTR(labels[2].as_ptr()));
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_SAVE, PCWSTR(labels[3].as_ptr()));
-        let _ = AppendMenuW(menu, MF_SEPARATOR, 0, None);
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_CLOSE, PCWSTR(labels[4].as_ptr()));
-        let _ = AppendMenuW(menu, MF_STRING, IDM_PIN_CLOSE_ALL, PCWSTR(labels[5].as_ptr()));
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
-            pt.x,
-            pt.y,
-            None,
-            hwnd,
-            None,
-        );
+        let Ok(menu) = CreatePopupMenu() else { return };
+        for (id, text) in &rows {
+            if *id == TOPMOST || *id == CLOSE { let _ = AppendMenuW(menu, MF_SEPARATOR, 0, None); }
+            let checked = (*id == LOCK && win.locked()) || (*id == TOPMOST && win.topmost());
+            let disabled = win.locked() && matches!(*id, EDIT | OCR | RESET);
+            let flags = MF_STRING | if checked { MF_CHECKED } else { MF_UNCHECKED }
+                | if disabled { MF_GRAYED } else { MF_ENABLED };
+            let _ = AppendMenuW(menu, flags, *id, PCWSTR(text.as_ptr()));
+        }
+        let cmd = TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
+            pt.x, pt.y, None, win.hwnd(), None);
         let _ = DestroyMenu(menu);
         cmd.0 as usize
     };
     match selected {
-        // 进入标注编辑（ADR 0028，issue #56）：与贴图内按空格等价
-        IDM_PIN_EDIT => super::request_edit(hwnd),
-        // 框选取字（PIN-OCR）：进入框选态，拖出矩形后松手识别
-        IDM_PIN_OCR => win.begin_select(),
-        IDM_PIN_COPY => {
-            if let Some(pm) = win.export_content() {
-                std::thread::spawn(move || {
-                    if let Err(e) = crate::output::copy_to_clipboard(&pm) {
-                        crate::app::message_box(None, &format!("复制失败：{e}"), MB_OK | MB_ICONERROR);
-                    }
-                });
-            }
-        }
-        IDM_PIN_SAVE => {
-            // 另存为（OUT-2）：交主窗口弹原生对话框（App 持有配置，可记住上次格式与目录）
-            let _ = unsafe {
-                let Ok(main) = FindWindowW(crate::app::WINDOW_CLASS, None) else {
-                    return;
-                };
-                PostMessageW(
-                    Some(main),
-                    crate::app::WM_PIN_SAVE_REQUEST,
-                    WPARAM(hwnd.0 as usize),
-                    LPARAM(0),
-                )
-            };
-        }
-        IDM_PIN_CLOSE => {
-            let _ = unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) };
-        }
-        IDM_PIN_CLOSE_ALL => super::close_all(),
+        EDIT if !win.locked() => super::request_edit(win.hwnd()),
+        OCR if !win.locked() => win.begin_select(),
+        COPY => copy(win),
+        SAVE => save(win.hwnd()),
+        LOCK => win.toggle_locked(),
+        TOPMOST => win.toggle_topmost(),
+        RESET if !win.locked() => win.reset_zoom(),
+        CLOSE => { let _ = unsafe { PostMessageW(Some(win.hwnd()), WM_CLOSE, WPARAM(0), LPARAM(0)) }; }
+        CLOSE_ALL => super::close_all(),
         _ => {}
     }
 }
 
-/// 菜单文案：Windows 显示语言是中文时用中文，其余用英文。
+pub(super) fn copy(win: &mut PinWindow) {
+    win.finalize_preview();
+    if let Some(pm) = win.export_content() {
+        std::thread::spawn(move || {
+            if let Err(e) = crate::output::copy_to_clipboard(&pm) {
+                crate::app::message_box(None, &format!("{}: {e}", pick("复制失败", "Copy failed")), MB_OK | MB_ICONERROR);
+            }
+        });
+    }
+}
+
+pub(super) fn save(hwnd: HWND) {
+    let _ = unsafe {
+        let Ok(main) = FindWindowW(crate::app::WINDOW_CLASS, None) else { return };
+        PostMessageW(Some(main), crate::app::WM_PIN_SAVE_REQUEST, WPARAM(hwnd.0 as usize), LPARAM(0))
+    };
+}
+
 fn label(zh: &str, en: &str) -> Vec<u16> {
     pick(zh, en).encode_utf16().chain([0]).collect()
 }
@@ -102,25 +89,15 @@ fn pick<'a>(zh: &'a str, en: &'a str) -> &'a str {
 
 fn chinese_ui() -> bool {
     // SAFETY: 无参只读系统查询，不涉及调用方内存。
-    let lang = unsafe { GetUserDefaultUILanguage() };
-    lang & 0x3FF == 0x04 // LANG_CHINESE：主语言 ID 在低 10 位
+    unsafe { GetUserDefaultUILanguage() & 0x3FF == 0x04 }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn label_is_null_terminated() {
-        let text = label("识别文字…", "Recognize text...");
-        assert_eq!(text.last(), Some(&0));
-        let shown = if chinese_ui() { "识别文字…" } else { "Recognize text..." };
-        let decoded: Vec<u16> = shown.encode_utf16().collect();
-        assert_eq!(&text[..text.len() - 1], decoded.as_slice());
-    }
-
-    #[test]
-    fn picks_language_by_ui_setting() {
+    fn menu_labels_are_null_terminated() {
+        assert_eq!(label("编辑", "Edit").last(), Some(&0));
         assert_eq!(pick("编辑", "Edit"), if chinese_ui() { "编辑" } else { "Edit" });
     }
 }

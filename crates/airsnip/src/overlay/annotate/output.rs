@@ -124,11 +124,15 @@ impl super::super::Overlay {
     }
 
     /// Enter / Ctrl+C：复制到剪贴板并关闭（OUT-1）。
+    /// 开了「自动保存」时同时按设置的格式与目录写一份文件（EXT-2）。
     pub(in crate::overlay) fn on_copy(&mut self) {
         if let Some(sel) = self.selection {
             let Some(cropped) = self.baked_selection(sel) else {
                 return;
             };
+            if self.save.auto_save {
+                self.write_file_async(cropped.clone());
+            }
             std::thread::spawn(move || {
                 if let Err(e) = output::copy_to_clipboard(&cropped) {
                     crate::app::message_box(None, &format!("复制失败：{e}"), MB_OK | MB_ICONERROR);
@@ -139,6 +143,37 @@ impl super::super::Overlay {
         unsafe {
             let _ = PostMessageW(Some(self.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
         }
+    }
+
+    /// Ctrl+Shift+S：快速保存——不弹对话框，直接写进设置里的目录（EXT-2）。
+    /// 目录为空时用默认目录；写失败才提示，成功就安静地结束这次截图。
+    pub(in crate::overlay) fn on_quick_save(&mut self) {
+        let Some(sel) = self.selection else {
+            return;
+        };
+        let Some(cropped) = self.baked_selection(sel) else {
+            return;
+        };
+        self.write_file_async(cropped);
+        self.cancelled = false;
+        self.close();
+    }
+
+    /// 后台写文件；成功不提示（截图流程里弹窗反而打断），失败必须提示。
+    fn write_file_async(&self, pixmap: tiny_skia::Pixmap) {
+        let ext = self.save.last_ext.as_deref().unwrap_or("png").to_string();
+        let dir = self
+            .save
+            .last_dir
+            .as_ref()
+            .map(std::path::PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty());
+        let style = self.save.name_style;
+        std::thread::spawn(move || {
+            if let Err(e) = output::save_unique(&pixmap, dir.as_deref(), &ext, style) {
+                crate::app::message_box(None, &format!("保存失败：{e}"), MB_OK | MB_ICONERROR);
+            }
+        });
     }
 
     /// Ctrl+S / 工具栏保存按钮：弹原生另存为对话框，按所选格式保存（OUT-2）。

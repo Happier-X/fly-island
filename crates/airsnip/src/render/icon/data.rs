@@ -17,7 +17,7 @@ macro_rules! icon_table {
             /// 嵌入的 SVG 源文本。
             pub fn source(self) -> &'static str {
                 match self {
-                    $(Icon::$name => include_str!(concat!("../../../assets/icons/ui/", $path)),)*
+                    $(Icon::$name => include_str!(concat!("../../../assets/icons/lucide/", $path)),)*
                 }
             }
         }
@@ -26,32 +26,32 @@ macro_rules! icon_table {
 
 icon_table! {
     // 覆盖层工具栏（EDT-7 / EDT-1 / EDT-4 / PIN-1 / M4 / OUT-1 / OUT-2）
-    Rect => "toolbar/rect.svg",
-    Arrow => "toolbar/arrow.svg",
-    Text => "toolbar/text.svg",
-    Highlight => "toolbar/highlight.svg",
-    Blur => "toolbar/blur.svg",
-    Glow => "toolbar/glow.svg",
-    Number => "toolbar/number.svg",
+    Rect => "rect.svg",
+    Arrow => "arrow.svg",
+    Text => "text.svg",
+    Highlight => "highlight.svg",
+    Blur => "blur.svg",
+    Glow => "glow.svg",
+    Number => "number.svg",
     // EDT-13/14/15 新增工具的图标（当前为占位几何形状，待替换为 Material Symbols）
-    Line => "toolbar/line.svg",
-    Ellipse => "toolbar/ellipse.svg",
-    Freehand => "toolbar/freehand.svg",
-    Fill => "toolbar/fill.svg",
-    Undo => "toolbar/undo.svg",
-    Redo => "toolbar/redo.svg",
-    Pin => "toolbar/pin.svg",
-    Longshot => "toolbar/longshot.svg",
-    Ocr => "toolbar/ocr.svg",
-    Copy => "toolbar/copy.svg",
-    Save => "toolbar/save.svg",
-    Bold => "toolbar/bold.svg",
-    Italic => "toolbar/italic.svg",
-    Minus => "toolbar/minus.svg",
-    Plus => "toolbar/plus.svg",
+    Line => "line.svg",
+    Ellipse => "ellipse.svg",
+    Freehand => "freehand.svg",
+    Fill => "fill.svg",
+    Undo => "undo.svg",
+    Redo => "redo.svg",
+    Pin => "pin.svg",
+    Longshot => "longshot.svg",
+    Ocr => "ocr.svg",
+    Copy => "copy.svg",
+    Save => "save.svg",
+    Bold => "bold.svg",
+    Italic => "italic.svg",
+    Minus => "minus.svg",
+    Plus => "plus.svg",
     // 长截图状态条（M4）
-    Check => "status/check.svg",
-    Cross => "status/cross.svg",
+    Check => "check.svg",
+    Cross => "cross.svg",
     // 设置面板行内按钮（SYS-2）
-    Delete => "panel/delete.svg",
+    Delete => "delete.svg",
 }
