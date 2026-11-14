@@ -12,7 +12,7 @@ import { I18nProvider, LOCALE_STORAGE_KEY } from "../../src/i18n";
 import { IslandApp } from "../../src/windows/island/IslandApp";
 import { trackIslandTopEdge } from "../../src/windows/island/topEdge";
 import { checkCapsuleMotion } from "./islandShapeChecks";
-import { TOUR_CLIPBOARD, TOUR_LRC, TOUR_MAIL, TOUR_QQ_ITEMS, TOUR_SESSIONS, TOUR_SHELF, TOUR_TODOS, tourMediaState, type TourMedia } from "./islandTourMocks";
+import { TOUR_CLIPBOARD, TOUR_LRC, TOUR_MAIL, TOUR_QQ_ITEMS, TOUR_SHELF, TOUR_TODOS, tourMediaState, type TourMedia } from "./islandTourMocks";
 
 const query = new URLSearchParams(location.search);
 const automated = query.has("test");
@@ -38,8 +38,8 @@ localStorage.setItem("focusd-island-detached-settings", "false");
 localStorage.setItem("focusd-island-todos", JSON.stringify(empty ? [] : TOUR_TODOS));
 localStorage.setItem("focusd-island-qq-notification-access-requested", "true");
 // Lyrics are looked up online unless ?lyrics=0; the mock answers for 晴天 only.
-// ?cover=1 shows the song's cover on the collapsed island; ?priority=lyrics,agent,todo reorders it,
-// ?layout=music,text,mail,shelf,agents arranges it; ?scale=0.85…1.2 sets the expanded size.
+// ?cover=1 shows the song's cover on the collapsed island; ?priority=lyrics,todo reorders it,
+// ?layout=music,text,mail,shelf,notifications arranges it; ?scale=0.85…1.2 sets the expanded size.
 localStorage.setItem("focusd-island-settings", JSON.stringify({
   ...(query.get("scale") ? { expandedScale: Number(query.get("scale")) } : {}),
   lyricsOnline: query.get("lyrics") !== "0",
@@ -48,9 +48,11 @@ localStorage.setItem("focusd-island-settings", JSON.stringify({
   ...(query.get("layout") ? { collapsedLayout: query.get("layout")!.split(",") } : {}),
 }));
 if (query.has("detached")) localStorage.setItem("focusd-island-position", JSON.stringify({ x: 300, y: 60 }));
+localStorage.setItem("focusd-island-cindy-notifications-seen", JSON.stringify({ watermark: Date.now() - 3_600_000 }));
 
 let revision = 0;
 let windowDrags = 0;
+let focusCalls = 0;
 let interaction: Record<string, unknown> = {};
 mockIPC((command, payload) => {
   const args = (payload ?? {}) as Record<string, unknown>;
@@ -59,10 +61,18 @@ mockIPC((command, payload) => {
     case "get_default_todo_save_directory": return "D:\\Notes";
     case "get_clipboard_history": return empty ? { ...TOUR_CLIPBOARD, items: [] } : TOUR_CLIPBOARD;
     case "get_file_shelf": return { items: empty ? [] : TOUR_SHELF };
-    case "list_agent_sessions": return empty ? [] : TOUR_SESSIONS;
     case "agent_window_in_front": return false;
+    case "focus_agent_window": focusCalls += 1; return true;
     case "list_plugin_views": return { views: [], status: [] };
-    case "get_agent_status": return { cindy: { phase: empty ? "idle" : "running", updatedAt: Date.now() }, updatedAt: Date.now(), statusPath: empty ? "" : "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db" };
+    case "get_cindy_notifications": return {
+      items: empty ? [] : [
+        { kind: "question", key: "question:tour:1", at: Date.now() - 60_000 },
+        { kind: "done", key: "done:tour:2", at: Date.now() - 300_000 },
+      ],
+      databasePath: "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db",
+      checkedAt: Date.now(),
+      error: null,
+    };
     case "get_media_state":
     case "media_play_pause":
     case "media_next":
@@ -155,6 +165,11 @@ if (!automated) {
     const bar = document.querySelector<HTMLElement>(".island__collapsed")!;
     const barItems = [...bar.querySelectorAll<HTMLElement>("button, .island__pulse")].map((item) => item.getBoundingClientRect()).filter((rect) => rect.width > 0);
     check(barItems.every((rect) => rect.left >= collapsed.left + 10 && rect.right <= collapsed.right - 10), "收起的岛上的内容离两侧圆角有距离");
+    const notificationBadge = () => document.querySelector<HTMLButtonElement>(".island-notification-count");
+    check(notificationBadge()?.textContent === "2" && notificationBadge()?.getAttribute("aria-label")?.includes("2"),
+      "收起的岛显示 Cindy 未处理通知数量，并说明有几条");
+    await act(async () => { notificationBadge()!.click(); });
+    check(focusCalls === 1 && !notificationBadge(), "点击角标把 Cindy 的窗口拿到前台，随后不再显示");
 
     await click(".island__open-button");
     check(island().classList.contains("island--expanded"), "点击后展开");
@@ -221,7 +236,6 @@ if (!automated) {
       [".dot-button--music", "音乐"],
       [".dot-button--clipboard", "剪贴板"],
       [".dot-button--shelf", "文件中转"],
-      [".island__agent-button", "AI Agent"],
       [".island-message-button", "消息"],
       [".dot-button--translation", "翻译"],
       [".island-settings-button", "设置"],
@@ -230,8 +244,8 @@ if (!automated) {
       await click(selector);
       const found = strays();
       check(found.length === 0, `${name}页：内容都在岛的圆角形状里${found.length ? `（${found.join("、")}）` : ""}`);
-      // Pages may reach a little into the island's 20px side padding (the Agent list does, for
-      // its hover highlight), never closer than 8px to the island's edge.
+      // Pages may reach a little into the island's 20px side padding, never closer than 8px to
+      // the island's edge.
       const edge = island().getBoundingClientRect();
       const tight = [...document.querySelectorAll<HTMLElement>(".island__content *")].filter((element) => {
         const rect = element.getBoundingClientRect();
@@ -248,15 +262,15 @@ if (!automated) {
     await click(".settings-sidebar__item[data-category='messages']");
     const tall = panel().offsetHeight;
     check(short >= 340 && short < tall && tall <= 560, `设置页的高度跟着打开的那一页走（待办 ${short}px，消息 ${tall}px）`);
-    // Appearance → Collapsed island: three items in order, moved with the arrow keys on a handle.
+    // Appearance → Collapsed island: two items in order, moved with the arrow keys on a handle.
     await click(".settings-sidebar__item[data-category='appearance']");
     const priority = () => [...document.querySelectorAll<HTMLElement>(".reorder-list__item")].map((item) => item.dataset.reorderId);
-    check(priority().join() === "agent,lyrics,todo", "外观页列出收起时的显示顺序：Agent 任务、歌词、待办");
+    check(priority().join() === "lyrics,todo", "外观页列出收起时的显示顺序：歌词、待办");
     await act(async () => {
       document.querySelector<HTMLElement>(".reorder-list__handle")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     });
     const savedPriority = JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}").collapsedPriority as string[] | undefined;
-    check(priority().join() === "lyrics,agent,todo" && savedPriority?.join() === "lyrics,agent,todo", "按方向键调整顺序并保存");
+    check(priority().join() === "todo,lyrics" && savedPriority?.join() === "todo,lyrics", "按方向键调整顺序并保存");
     // Appearance → On the island: the music waveform moved left of the text sits on the
     // collapsed island's left.
     const barOrder = () => [...document.querySelectorAll<HTMLElement>(".island__collapsed > *")].map((element) => element.classList[0]).join();
@@ -266,7 +280,7 @@ if (!automated) {
       });
     }
     const savedLayout = JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}").collapsedLayout as string[] | undefined;
-    check(savedLayout?.join() === "music,text,mail,shelf,agents" && barOrder().startsWith("music-wave-button,island__open-button"),
+    check(savedLayout?.join() === "music,text,mail,shelf,notifications" && barOrder().startsWith("music-wave-button,island__open-button"),
       `岛上的排列：音乐波形移到文字左边，收起的岛也跟着变（${barOrder()}）`);
     await click(".settings-sidebar__item[data-category='general']");
     const lockSwitch = () => [...document.querySelectorAll<HTMLElement>(".settings-row")]

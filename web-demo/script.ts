@@ -13,7 +13,6 @@ export const PAGE_BUTTONS: Record<IslandPage, string> = {
   qq: ".island-message-button",
   // A page capsule since the translate button became one; the header button before that.
   translation: ".dot-button--translation, .island-translate-button",
-  agents: ".island__agent-button",
   settings: ".island-settings-button",
 };
 
@@ -112,14 +111,6 @@ export const segments: Segment[] = [
       await actor.key(".island__content textarea", "Enter");
       await actor.rest();
       await actor.wait(1800);
-    },
-  },
-  {
-    page: "agents",
-    async run(actor) {
-      await enter(actor, "agents");
-      await actor.rest();
-      await actor.wait(2400);
       // The middle of the top bar tucks the island away, as on the desktop.
       await actor.click(".island__collapse-target");
       await actor.rest();

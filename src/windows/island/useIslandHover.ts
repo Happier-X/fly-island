@@ -13,19 +13,13 @@ type IslandHoverOptions = {
   /** Game mode keeps the island quiet. */
   quiet: boolean;
   hasMessagePreview: boolean;
-  /** The island names a running agent, so opening it shows the Agent page. */
-  namesAgent: boolean;
   openEnabledPage: (page: IslandPage) => void;
 };
 
 /** Opening the island by hovering it, tucked or not, and the panel preview; returns the tucked island's hover handler. */
-export function useIslandHover({ settings, navigation, quiet, hasMessagePreview, namesAgent, openEnabledPage }: IslandHoverOptions) {
+export function useIslandHover({ settings, navigation, quiet, hasMessagePreview, openEnabledPage }: IslandHoverOptions) {
   const { mode, page, isTucked, isPeeking, collapseIsland, revealIsland, peekIsland, retractsAfterPeek, resumePeek } = navigation;
-  // While the island names a running agent, opening it shows the Agent page.
-  const openCurrentPage = useCallback(
-    () => openEnabledPage(namesAgent ? "agents" : page),
-    [namesAgent, openEnabledPage, page],
-  );
+  const openCurrentPage = useCallback(() => openEnabledPage(page), [openEnabledPage, page]);
   useHoverExpand({
     enabled: settings.expandTrigger === "hover" && !quiet,
     delayMs: settings.hoverExpandDelayMs,

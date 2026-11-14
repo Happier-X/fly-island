@@ -33,7 +33,7 @@
 - [翻译界面](docs/design/translation.md)
 - [灵动岛：悬浮胶囊与视觉规范](docs/design/island.md)
 - [设置](docs/design/settings.md)
-- [AI Agent：会话标题与 Agent 页](docs/design/agent.md)
+- [Cindy 通知](docs/design/notifications.md)
 - [待办](docs/design/todos.md)
 - [剪贴板历史](docs/design/clipboard.md)
 - [文件中转](docs/design/file-shelf.md)

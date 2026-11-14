@@ -5,6 +5,17 @@ import { normalizeOrder } from "../../utils/order.ts";
 import { AUTO_COLLAPSE_SECONDS, COLLAPSED_ITEMS, COLLAPSED_SLOTS, PAGE_DOTS, SHELF_CLEANUP_DAYS, oneOf } from "./settingsLimits.ts";
 import type { IslandSettings, LegacyIslandSettings } from "./types";
 
+/**
+ * `collapsedLayout` as saved: the last slot was called `agents` before it showed Cindy
+ * notifications, and keeps its place in an existing arrangement.
+ */
+function normalizeCollapsedLayout(value: unknown) {
+  const migrated = Array.isArray(value)
+    ? value.map((slot) => (slot === "agents" ? "notifications" : slot))
+    : value;
+  return normalizeOrder(migrated, COLLAPSED_SLOTS);
+}
+
 /** Todos, tucking and opening, module switches, the file shelf and lyrics. */
 export function normalizeBehaviorSettings(settings: LegacyIslandSettings | null | undefined) {
   const autoTuck = settings?.autoTuck === true;
@@ -24,8 +35,6 @@ export function normalizeBehaviorSettings(settings: LegacyIslandSettings | null 
     // Module switches: anything but an explicit false keeps the module on.
     todoEnabled: settings?.todoEnabled !== false,
     musicEnabled: settings?.musicEnabled !== false,
-    agentStatusEnabled: settings?.agentStatusEnabled !== false,
-    agentTitleEnabled: settings?.agentTitleEnabled !== false,
     shelfEnabled: settings?.shelfEnabled !== false,
     translationEnabled: settings?.translationEnabled !== false,
     shelfAutoCleanupDays: oneOf(SHELF_CLEANUP_DAYS, settings?.shelfAutoCleanupDays, DEFAULT_SETTINGS.shelfAutoCleanupDays),
@@ -33,7 +42,7 @@ export function normalizeBehaviorSettings(settings: LegacyIslandSettings | null 
     mailEnabled: settings?.mailEnabled !== false,
     collapsedPriority: normalizeOrder(settings?.collapsedPriority, COLLAPSED_ITEMS),
     collapsedShowCover: settings?.collapsedShowCover === true,
-    collapsedLayout: normalizeOrder(settings?.collapsedLayout, COLLAPSED_SLOTS),
+    collapsedLayout: normalizeCollapsedLayout(settings?.collapsedLayout),
     pageOrder: normalizeOrder(settings?.pageOrder, PAGE_DOTS),
   } satisfies Partial<IslandSettings>;
 }

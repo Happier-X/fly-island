@@ -1,12 +1,5 @@
 // The ranges and choices island settings are kept within, and the fallbacks they rest on.
-import type { AgentSessionGroup, AgentSessionSort, CollapsedItem, CollapsedSlot, PageDot } from "./types";
-
-export const AGENT_SESSION_SORTS: readonly AgentSessionSort[] = ["status", "recent", "firstSeen"];
-export const AGENT_SESSION_GROUPS: readonly AgentSessionGroup[] = ["project", "none"];
-/** Choices for how far back the Agent page lists sessions, in hours. */
-export const AGENT_SESSION_HOURS = [1, 2, 6, 24] as const;
-/** How long a page opened for an agent alert stays, in seconds. */
-export const AGENT_ALERT_SECONDS = [3, 5, 8, 15, 30] as const;
+import type { CollapsedItem, CollapsedSlot, PageDot } from "./types";
 
 // Bottom corner radius of the expanded island; every other island radius scales from it
 // (IslandShell.css). 1.4x a 30px corner, for Apple's continuous corner (cornerShape.ts); the
@@ -20,10 +13,6 @@ export const DEFAULT_AUTO_TUCK_RETRACT_DELAY_MS = 500;
 export const DEFAULT_MAX_PANEL_HEIGHT = 490;
 // Rows the clipboard page shows before it scrolls: a short page, the rest a scroll away.
 export const DEFAULT_CLIPBOARD_VISIBLE_ROWS = 4;
-export const DEFAULT_AGENT_VISIBLE_ROWS = 2;
-export const MIN_AGENT_VISIBLE_ROWS = 2;
-// Five sessions is the tallest Agent page the native window accepts (627px of 656px).
-export const MAX_AGENT_VISIBLE_ROWS = 5;
 // File shelf cap; matches MAX_ITEMS in src-tauri/src/file_shelf/store.rs.
 export const DEFAULT_SHELF_ITEMS = 100;
 /**
@@ -54,10 +43,10 @@ export function normalizeExpandedScale(value: unknown) {
   return Math.round(Math.min(MAX_EXPANDED_SCALE, Math.max(MIN_EXPANDED_SCALE, scale)) * 100) / 100;
 }
 
-/** The collapsed island's items, in their default order: a running agent, then lyrics, then todos. */
-export const COLLAPSED_ITEMS: readonly CollapsedItem[] = ["agent", "lyrics", "todo"];
+/** The collapsed island's items, in their default order: lyrics, then todos. */
+export const COLLAPSED_ITEMS: readonly CollapsedItem[] = ["lyrics", "todo"];
 /** The collapsed island's layout as it always was: the text, then the icons on its right. */
-export const COLLAPSED_SLOTS: readonly CollapsedSlot[] = ["text", "mail", "shelf", "music", "agents"];
+export const COLLAPSED_SLOTS: readonly CollapsedSlot[] = ["text", "mail", "shelf", "music", "notifications"];
 /** The header's page dots in their default order; translation joined last (2026-11-11). */
 export const PAGE_DOTS: readonly PageDot[] = ["todo", "music", "clipboard", "shelf", "translation"];
 

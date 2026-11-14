@@ -32,8 +32,8 @@ type MusicPlayerPanelProps = {
 };
 
 /**
- * The music page, drawn straight on the island like the Agent page rather than in a card of its
- * own. The song's cover, title and artist sit at the top; under them the lyrics, when there are
+ * The music page, drawn straight on the island rather than in a card of its own.
+ * The song's cover, title and artist sit at the top; under them the lyrics, when there are
  * any, then a progress bar with elapsed and remaining time and the transport. Without lyrics the
  * cover grows and takes their room. The cover's colours glow softly beneath it, and its accent
  * tints the progress fill and the equalizer. Nothing playing shows its own quiet page (MusicIdle),

@@ -1,15 +1,10 @@
 // The website demo's content, in Chinese and English. Everything here is made up: the song and its
-// lyrics, the Agent sessions, the messages and the files. The tour (tour.ts) types and clicks the
+// lyrics, the Cindy notifications, the messages and the files. The tour (tour.ts) types and clicks the
 // strings under `tour`.
 export type DemoLanguage = "zh" | "en";
 
 export const demoData = {
   zh: {
-    sessions: [
-      { title: "重做官网首页", cwd: "D:\\Projects\\fly-island-website", message: "正在把真实的小岛放进官网…" },
-      { title: "修复剪贴板图片预览", cwd: "D:\\Projects\\fly-island", message: "已修复，回归页全部通过。" },
-      { title: "整理 3.1 发布说明", cwd: "D:\\Projects\\fly-island", message: "草稿写好了，要我按版本号提交吗？" },
-    ],
     todos: ["整理 3.1 的需求", "回复设计评审邮件", "给官网换上新截图"],
     clips: [
       { text: "pnpm tauri build --no-bundle" },
@@ -42,11 +37,6 @@ export const demoData = {
     },
   },
   en: {
-    sessions: [
-      { title: "Redesign the website hero", cwd: "D:\\Projects\\fly-island-website", message: "Putting the real island on the website…" },
-      { title: "Fix clipboard image previews", cwd: "D:\\Projects\\fly-island", message: "Fixed. Every regression page passes." },
-      { title: "Draft the 3.1 release notes", cwd: "D:\\Projects\\fly-island", message: "The draft is ready. Commit it under the version tag?" },
-    ],
     todos: ["Scope the 3.1 release", "Reply to the design review", "New screenshots for the website"],
     clips: [
       { text: "pnpm tauri build --no-bundle" },

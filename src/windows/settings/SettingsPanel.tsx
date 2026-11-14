@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppearanceSettingsPage } from "./AppearanceSettingsPage";
 import { DEFAULT_SETTINGS_CATEGORY, type SettingsCategory } from "./categories";
 import { GeneralSettingsPage } from "./GeneralSettingsPage";
-import { AgentSettingsPage } from "./AgentSettingsPage";
-import { AgentSourceSettingsPage } from "./AgentSourceSettingsPage";
+import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
 import { ClipboardSettingsPage } from "./ClipboardSettingsPage";
 import { ScreenshotSettingsPage } from "./ScreenshotSettingsPage";
 import { LayoutEditor } from "./LayoutEditor";
@@ -112,8 +111,7 @@ export function SettingsPanel({
       {category === "clipboard" && <ClipboardSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "screenshot" && <ScreenshotSettingsPage settings={settings} />}
       {category === "music" && <MusicSettingsPage settings={settings} onSettingsChange={setSettings} />}
-      {category === "agents" && <AgentSettingsPage settings={settings} onSettingsChange={setSettings} />}
-      {category === "agentSource" && <AgentSourceSettingsPage />}
+      {category === "notifications" && <NotificationsSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "about" && <AboutSettingsPage />}
     </LayoutEditor>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClipboardList, Database, Info, Languages, ListTodo, MessageCircle, MessagesSquare, Music, Palette, Scan, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Bell, ClipboardList, Info, Languages, ListTodo, MessageCircle, Music, Palette, Scan, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { SETTINGS_GROUPS, type SettingsCategory } from "./categories";
 import "./SettingsSidebar.css";
@@ -13,15 +13,13 @@ const CATEGORY_ICONS: Record<SettingsCategory, LucideIcon> = {
   clipboard: ClipboardList,
   screenshot: Scan,
   translation: Languages,
-  agents: MessagesSquare,
-  agentSource: Database,
+  notifications: Bell,
   about: Info,
 };
 
 /**
  * The settings page list: icon and name per page, the groups set apart by a gap rather than
- * headings (with nine pages, headings were more to read than the list itself), About last, right
- * after the AI Agent pages.
+ * headings (with nine pages, headings were more to read than the list itself), About last.
  */
 export function SettingsSidebar({
   category,

@@ -1,7 +1,7 @@
 // First-launch settings, and what older versions showed for fields they did not have yet.
 import { DEFAULT_LYRICS_SETTINGS } from "../media/lyrics/lyricsSettings.ts";
 import {
-  DEFAULT_AGENT_VISIBLE_ROWS, DEFAULT_AUTO_TUCK_RETRACT_DELAY_MS, DEFAULT_CLIPBOARD_VISIBLE_ROWS, DEFAULT_HOVER_COLLAPSE_DELAY_MS,
+  DEFAULT_AUTO_TUCK_RETRACT_DELAY_MS, DEFAULT_CLIPBOARD_VISIBLE_ROWS, DEFAULT_HOVER_COLLAPSE_DELAY_MS,
   DEFAULT_HOVER_EXPAND_DELAY_MS, DEFAULT_ISLAND_CORNER_RADIUS, DEFAULT_MAX_PANEL_HEIGHT, DEFAULT_SHELF_ITEMS, DEFAULT_TASK_TEXT_COLOR,
   COLLAPSED_ITEMS, COLLAPSED_SLOTS, PAGE_DOTS,
 } from "./settingsLimits.ts";
@@ -25,25 +25,6 @@ export const DEFAULT_SETTINGS: IslandSettings = {
   islandCornerShape: "squircle",
   maxPanelHeight: DEFAULT_MAX_PANEL_HEIGHT,
   clipboardVisibleRows: DEFAULT_CLIPBOARD_VISIBLE_ROWS,
-  agentVisibleRows: DEFAULT_AGENT_VISIBLE_ROWS,
-  agentSessionView: "list",
-  agentSessionSort: "status",
-  agentSessionGroup: "none",
-  agentArchiveMotion: "slide",
-  agentCardEffects: "off",
-  agentSessionHours: 2,
-  agentHideFinished: false,
-  // Off unless asked for: the age alone keeps finished rows short.
-  agentShowElapsed: false,
-  agentShowModel: true,
-  agentAlertCompleted: true,
-  agentAlertFailed: true,
-  agentAlertWaiting: true,
-  // Only a finished task or a question pops up (docs/design/agent.md): a start is
-  // the user's own doing, and a wait already announced is not announced again.
-  agentAlertStarted: "off",
-  agentAlertSeconds: 5,
-  agentRemindSeconds: 0,
   taskTextColor: DEFAULT_TASK_TEXT_COLOR,
   pulseColor: "#3ae489",
   pulseBrightness: 100,
@@ -69,8 +50,11 @@ export const DEFAULT_SETTINGS: IslandSettings = {
   tuckedHoverAction: "reveal",
   todoEnabled: true,
   musicEnabled: true,
-  agentStatusEnabled: true,
-  agentTitleEnabled: true,
+  cindyNotificationsEnabled: true,
+  cindyNotifyDone: true,
+  cindyNotifyQuestion: true,
+  cindyNotifyScheduled: true,
+  cindyNotifyError: true,
   collapsedPriority: [...COLLAPSED_ITEMS],
   collapsedShowCover: false,
   collapsedLayout: [...COLLAPSED_SLOTS],

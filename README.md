@@ -69,7 +69,7 @@ fly-island 把分散在不同窗口中的高频操作放到一个可折叠、可
 
 - **快捷翻译**：默认按 `Alt+C` 打开翻译窗口。首次使用时配置 DeepSeek API 密钥，密钥保存在 Windows 凭据管理器。提交翻译时，原文会发送到 DeepSeek API；可选择自动识别、中译英或英译中。按 `Tab` 可填入最新剪贴板文本。
 
-- **AI 状态灯**：直接显示 [Cindy](https://cindy.app/) 里的会话——正在跑、停下来等你回答、刚做完，小岛上点一下就把 Cindy 拿到前面。只读 Cindy 自己的本地数据库，不装钩子、不改 Cindy 的任何设置；Cindy 没开时不显示。详见 [AI Agent 状态说明](docs/agent-status.md)。
+- **Cindy 通知**：Cindy 做完任务、停下来等你回答、跑完定时或后台任务、或者出错时，收起的岛上出现数字角标，点一下就把 [Cindy](https://cindy.app/) 的窗口拿到前面。只读 Cindy 自己的本地数据库，不装钩子、不改 Cindy 的任何设置。详见 [Cindy 通知说明](docs/cindy-notifications.md)。
 
 - **剪贴板历史**：可在设置中关闭记录、调整图片捕获和历史数量，并录制唤出快捷键。历史记录保存在本机应用数据目录。
 

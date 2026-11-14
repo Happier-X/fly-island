@@ -45,10 +45,10 @@ mockIPC((command, payload) => {
     case "get_launch_at_startup": return false;
     case "get_default_todo_save_directory": return "";
     case "get_clipboard_history": return { settings: { enabled: true, captureImages: true, maxItems: 100, shortcut: "Ctrl+X", shortcutEnabled: true }, items: [] };
-    // The island polls these every second; null would end the run when the checks take longer.
-    case "list_agent_sessions": return [];
+    // The island polls notifications; null would end the run when the checks take longer.
+    case "get_cindy_notifications": return { items: [], databasePath: "", checkedAt: 0, error: null };
+    case "agent_window_in_front": return false;
     case "list_plugin_views": return { views: [], status: [] };
-    case "get_agent_status": return { cindy: { phase: "idle", updatedAt: 0 }, updatedAt: 0, statusPath: "" };
     // Same values as MediaState::empty() in src-tauri/src/media_control/session.rs.
     case "get_media_state": return { available: false, audioActive: false, audioPeak: 0, playbackStatus: "unavailable", title: null, artist: null, album: null, thumbnail: null, positionMs: 0, durationMs: 0, canSeek: false, canNext: false, canPrevious: false, shuffleActive: null, canShuffle: false, repeatMode: "unknown", canRepeat: false, volume: -1, sourceApp: null, activeSessionId: null, sessions: [], updatedAt: 0 };
     case "get_audio_level": return { active: false, peak: 0, updatedAt: 0 };

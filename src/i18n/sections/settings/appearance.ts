@@ -13,21 +13,15 @@ export type SettingsAppearanceText = {
     label: string;
     collapsed: string;
     expanded: string;
-    /**
-     * Sample Agent sessions: one waiting for the user (also the collapsed bar's title) with the
-     * reply under it, one done. Their states and times come from the Agent page's own strings.
-     */
-    sessions: {
-      needs: { project: string; title: string };
-      reply: string;
-      done: { project: string; title: string };
-    };
+    /** Sample content in the drawings: the collapsed bar's text and three todos. */
+    collapsedText: string;
+    todos: { one: string; two: string; three: string };
   };
   /** The "Collapsed island" group: what its text shows first, and the song's cover. */
   collapsedIsland: {
     title: string;
     priorityFooter: string;
-    items: Record<"agent" | "lyrics" | "todo", { name: string; hint: string }>;
+    items: Record<"lyrics" | "todo", { name: string; hint: string }>;
     /** The drag handle of one item; arrow keys on it move the item too. */
     moveLabel: (name: string) => string;
     showCover: string;
@@ -36,7 +30,7 @@ export type SettingsAppearanceText = {
       title: string;
       footer: string;
       reset: string;
-      slots: Record<"text" | "mail" | "shelf" | "music" | "agents", string>;
+      slots: Record<"text" | "mail" | "shelf" | "music" | "notifications", string>;
       textSample: string;
       moveLabel: (name: string) => string;
     };
@@ -57,17 +51,13 @@ export const zhCN: SettingsAppearanceText = {
     label: "按当前设置画出的岛屿",
     collapsed: "折叠",
     expanded: "展开",
-    sessions: {
-      needs: { project: "fly-island", title: "设置页切换动画" },
-      reply: "加好了，三页都带过渡",
-      done: { project: "api-server", title: "修复登录超时" },
-    },
+    collapsedText: "剩余 2 个待办",
+    todos: { one: "整理本周的发布说明", two: "修复设置页的滚动跳动", three: "回访邀请测试的用户" },
   },
   collapsedIsland: {
     title: "收起的岛",
     priorityFooter: "几样同时有内容时，收起的岛显示排在最前面的那一样。拖动调整顺序。",
     items: {
-      agent: { name: "AI Agent 任务", hint: "正在运行的会话标题" },
       lyrics: { name: "歌词", hint: "播放时的当前一句，没有歌词时显示歌名" },
       todo: { name: "待办", hint: "开始做的待办；没开始时，剩余数量排在最后" },
     },
@@ -78,7 +68,7 @@ export const zhCN: SettingsAppearanceText = {
       title: "岛上的排列",
       footer: "按住图标左右拖动，放在文字左边的会显示在岛的左侧。灰色的是还没打开的功能，位置会保留。",
       reset: "恢复默认",
-      slots: { text: "文字", mail: "新邮件", shelf: "置物架文件数", music: "音乐波形", agents: "Agent 会话数" },
+      slots: { text: "文字", mail: "新邮件", shelf: "置物架文件数", music: "音乐波形", notifications: "Cindy 通知" },
       textSample: "收起时的文字",
       moveLabel: (name) => `移动"${name}"，可以拖动或按左右方向键`,
     },
@@ -99,17 +89,13 @@ export const en: SettingsAppearanceText = {
     label: "The island with the current settings",
     collapsed: "Collapsed",
     expanded: "Expanded",
-    sessions: {
-      needs: { project: "fly-island", title: "Settings page transition" },
-      reply: "Done: the outline is in notes",
-      done: { project: "api-server", title: "Fix the login timeout" },
-    },
+    collapsedText: "2 todos left",
+    todos: { one: "Draft this week's release notes", two: "Fix the settings page scroll jump", three: "Follow up with beta users" },
   },
   collapsedIsland: {
     title: "Collapsed island",
     priorityFooter: "When several have something to show, the collapsed island shows the first. Drag to reorder.",
     items: {
-      agent: { name: "AI Agent task", hint: "The running session's title" },
       lyrics: { name: "Lyrics", hint: "The current line while a song plays, or its title" },
       todo: { name: "Todos", hint: "The todo you started; until then, the count left comes last" },
     },
@@ -120,7 +106,7 @@ export const en: SettingsAppearanceText = {
       title: "On the island",
       footer: "Hold an icon and drag it left or right; icons left of the text sit on the island's left. Grey ones are switched off and keep their place.",
       reset: "Reset",
-      slots: { text: "Text", mail: "New mail", shelf: "Shelf files", music: "Music waveform", agents: "Agent sessions" },
+      slots: { text: "Text", mail: "New mail", shelf: "Shelf files", music: "Music waveform", notifications: "Cindy notifications" },
       textSample: "Collapsed text",
       moveLabel: (name) => `Move "${name}": drag, or press the left and right arrow keys`,
     },

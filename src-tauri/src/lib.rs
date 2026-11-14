@@ -1,4 +1,4 @@
-mod agent_status;
+mod cindy_notifications;
 mod clipboard_history;
 mod file_shelf;
 mod island;
@@ -71,7 +71,7 @@ pub fn run() {
             if let Err(error) = file_shelf::init(app.handle()) {
                 eprintln!("failed to initialize the file shelf: {error}");
             }
-            if let Err(error) = agent_status::clean_up_legacy_hooks(app.handle()) {
+            if let Err(error) = cindy_notifications::clean_up_legacy_hooks(app.handle()) {
                 eprintln!("failed to remove the legacy agent hooks: {error}");
             }
             if let Err(error) = mail::init(app.handle()) {
@@ -107,7 +107,7 @@ pub fn run() {
             qq_notifications;
             island;
             system;
-            agent_status;
+            cindy_notifications;
             media_control;
             lyrics;
             clipboard_history;

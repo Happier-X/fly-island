@@ -1,5 +1,5 @@
 import { HEX_COLOR_PATTERN } from "../../utils/color.ts";
-import { normalizeAgentSettings } from "./normalizeAgentSettings.ts";
+import { normalizeNotificationSettings } from "./normalizeNotificationSettings.ts";
 import { normalizeBehaviorSettings } from "./normalizeBehaviorSettings.ts";
 import { normalizeLayoutSettings } from "./normalizeLayoutSettings.ts";
 import { DEFAULT_SETTINGS } from "./settingsDefaults.ts";
@@ -77,7 +77,7 @@ export function normalizeSettings(
   return {
     ...DEFAULT_SETTINGS,
     ...normalizeLayoutSettings(settings),
-    ...normalizeAgentSettings(settings),
+    ...normalizeNotificationSettings(settings),
     ...normalizeBehaviorSettings(settings),
   };
 }

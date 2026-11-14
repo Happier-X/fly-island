@@ -12,32 +12,17 @@ export type ExpandTrigger = "click" | "hover";
 export type MinimizeAction = "tray" | "tuck";
 /** What resting the pointer on an island tucked to the edge does: slide it out, or open its panel too. */
 export type TuckedHoverAction = "reveal" | "expand";
-/** How the Agent page shows sessions: flat rows, two-line cards framed in their light, or one-line rows. */
-export type AgentSessionView = "list" | "cards" | "compact";
-/**
- * Agent page order: what needs the user first (red, green, grey), the newest write first,
- * or the session the island saw first last (an order that stays put while sessions write).
- */
-export type AgentSessionSort = "status" | "recent" | "firstSeen";
-/** Agent page headings: one per project, or none. */
-export type AgentSessionGroup = "project" | "none";
-/** How an archived session leaves the Agent page: sliding out, or dissolving into dust in its light's colour. */
-export type AgentArchiveMotion = "slide" | "dissolve";
-/** Light effects on the Agent page's cards and compact rows: none, the sparkle band, or a gradient wash. */
-export type AgentCardEffects = "off" | "sparkle" | "gradient";
-/** Which session starts open the Agent page: every turn, a new session's first turn only, or none. */
-export type AgentAlertStarted = "everyTurn" | "newSession" | "off";
 /** What double-clicking a file shelf entry does. */
 export type ShelfDoubleClick = "open" | "reveal";
-/** What the collapsed island can show in its text: a running agent, the lyric line, a todo. */
-export type CollapsedItem = "agent" | "lyrics" | "todo";
+/** What the collapsed island can show in its text: the lyric line, or a todo. */
+export type CollapsedItem = "lyrics" | "todo";
 /**
  * What sits on the collapsed island, in the order the user arranged it (Appearance → Collapsed
- * island): the text (pulse, cover and the agent, lyric or todo line) and the status icons —
- * the new-mail badge, files on the shelf, the music waveform, running Agent sessions (or the tuck
+ * island): the text (pulse, cover and the lyric or todo line) and the status icons —
+ * the new-mail badge, files on the shelf, the music waveform, Cindy notifications (or the tuck
  * dot). Icons before the text sit on its left.
  */
-export type CollapsedSlot = "text" | "mail" | "shelf" | "music" | "agents";
+export type CollapsedSlot = "text" | "mail" | "shelf" | "music" | "notifications";
 /** The page dots in the expanded island's header, which the user can drag into any order. */
 export type PageDot = "todo" | "music" | "clipboard" | "shelf" | "translation";
 
@@ -60,30 +45,6 @@ export type IslandSettings = {
   maxPanelHeight: number;
   /** Clipboard history rows the expanded clipboard page shows before it scrolls. */
   clipboardVisibleRows: number;
-  /** Agent sessions the expanded Agent page shows before it scrolls. */
-  agentVisibleRows: number;
-  agentSessionView: AgentSessionView;
-  agentSessionSort: AgentSessionSort;
-  agentSessionGroup: AgentSessionGroup;
-  agentArchiveMotion: AgentArchiveMotion;
-  agentCardEffects: AgentCardEffects;
-  /** How far back (hours) the Agent page lists sessions; one of AGENT_SESSION_HOURS. */
-  agentSessionHours: number;
-  /** List only running or waiting sessions on the Agent page. */
-  agentHideFinished: boolean;
-  /** Show how long a session's current (or last) turn has run. */
-  agentShowElapsed: boolean;
-  agentShowModel: boolean;
-  /** Open the Agent page when a session finishes, fails or waits for the user. */
-  agentAlertCompleted: boolean;
-  agentAlertFailed: boolean;
-  agentAlertWaiting: boolean;
-  /** Open it when a session starts working: every turn, only a new session's first, or never. */
-  agentAlertStarted: AgentAlertStarted;
-  /** How long a page opened for an alert stays, in seconds; one of AGENT_ALERT_SECONDS. */
-  agentAlertSeconds: number;
-  /** A session still waiting on the user pops up once more after this many seconds; 0: never. */
-  agentRemindSeconds: number;
   taskTextColor: string;
   pulseColor: string;
   pulseBrightness: number;
@@ -119,7 +80,12 @@ export type IslandSettings = {
    */
   todoEnabled: boolean;
   musicEnabled: boolean;
-  agentStatusEnabled: boolean;
+  /** Cindy notifications: the collapsed island's count and all background reads stop when off. */
+  cindyNotificationsEnabled: boolean;
+  cindyNotifyDone: boolean;
+  cindyNotifyQuestion: boolean;
+  cindyNotifyScheduled: boolean;
+  cindyNotifyError: boolean;
   shelfEnabled: boolean;
   /** Off hides the island's translate button and releases the global translation shortcut. */
   translationEnabled: boolean;
@@ -146,9 +112,7 @@ export type IslandSettings = {
   /** Lyrics shown this many ms later (positive) or earlier than the position Windows reports. */
   lyricsOffsetMs: number;
   mailEnabled: boolean;
-  /** Show the running agent's icon and session title on the collapsed island. */
-  agentTitleEnabled: boolean;
-  /** Which of the agent, the lyric line and a todo the collapsed island shows first when several could. */
+  /** Which of the lyric line and a todo the collapsed island shows first when both have something. */
   collapsedPriority: CollapsedItem[];
   /** The playing song's cover on the collapsed island. */
   collapsedShowCover: boolean;

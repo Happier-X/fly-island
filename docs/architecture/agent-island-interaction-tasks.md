@@ -1,6 +1,6 @@
 # Agent 岛上交互：实测记录
 
-> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/agent-status.md](../agent-status.md) 和 [docs/design/agent.md](../design/agent.md) 为准。
+> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/cindy-notifications.md](../cindy-notifications.md) 和 [docs/design/notifications.md](../design/notifications.md) 为准。
 
 
 方案见 [agent-island-interaction.md](agent-island-interaction.md)。实测得出的结论写进下面的「实测记录」，并同步修改方案文档里受影响的部分。

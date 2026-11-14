@@ -44,9 +44,8 @@ export function useIslandFeatures({
     qq: qqEnabled,
     wechat: wechatEnabled,
     qqMail: settings.mailEnabled,
-    agents: settings.agentStatusEnabled,
     translation: settings.translationEnabled && settings.translationTarget === "island",
-  }), [clipboardEnabled, qqEnabled, settings.agentStatusEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled]);
+  }), [clipboardEnabled, qqEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled]);
 
   useEffect(() => {
     const next = resolveIslandPage(page, features);

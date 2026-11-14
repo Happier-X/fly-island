@@ -19,10 +19,7 @@ import { useCollapsedTodo } from "./useCollapsedTodo";
 import { useGameMode } from "./useGameMode";
 import { useIslandKeyboard } from "./useIslandKeyboard";
 import { useIslandFeatures } from "./useIslandFeatures";
-import { useIslandAgentAlerts } from "./useIslandAgentAlerts";
-import { useIslandAgents } from "./useIslandAgents";
-import { AgentArrangeButton } from "../../features/agent-status/AgentArrangeButton";
-import { useAgentIndicator } from "./useAgentIndicator";
+import { useIslandNotifications } from "./useIslandNotifications";
 import { useIslandNavigation } from "./useIslandNavigation";
 import { useIslandTodos } from "./useIslandTodos";
 import { useIslandTucking } from "./useIslandTucking";
@@ -58,8 +55,7 @@ export function IslandApp() {
   const { qqNotifications, wechatReminders, qqMail, hasMessagePreview } = notices;
   // The output level shows only on the collapsed island (its waveform).
   const media = useMediaState(settings.musicEnabled, mode === "collapsed");
-  const { agentStatus, agentSessions, listedAgentSessions, activeAgentSessionCount, unseenAgentSessions, agentRemoval, agentSession } =
-    useIslandAgents(settings);
+  const { notificationCount, openCindy } = useIslandNotifications(settings, game.quiet);
   const { todos, activeTodoId, todoPageMode, notebookProps } = useIslandTodos({ settings, collapseIsland });
 
   const songPlaying = settings.musicEnabled && media.mediaState.playbackStatus === "playing" && Boolean(media.mediaState.title);
@@ -70,7 +66,6 @@ export function IslandApp() {
       settings.todoEnabled ? activeTodoId : null,
       settings.todoEnabled ? settings : { ...settings, showIdleTodoCount: false },
       mode !== "collapsed" || isTucked || !settings.showCollapsedText || hasMessagePreview,
-      agentSession?.title ?? null,
       { lyricsPlaying: songPlaying, coverWanted: Boolean(cover) },
     );
   // The cover goes with the lyric line: when something ranked above lyrics is shown, it goes too.
@@ -98,16 +93,6 @@ export function IslandApp() {
     setMessageSource,
     openIslandPage,
   });
-  const { alertedSession, agentCardHeight } = useIslandAgentAlerts({
-    sessions: agentSessions,
-    unseen: unseenAgentSessions.keys,
-    settings,
-    enabled: features.agents && !game.quiet,
-    mode,
-    page,
-    openIslandPage,
-    collapseIsland,
-  });
   const { fileShelf, isShelfDropping } = useIslandShelf(settings, navigation);
   const expandedIslandHeight = getExpandedIslandHeight({
     page,
@@ -118,9 +103,6 @@ export function IslandApp() {
     isReadingMail: qqMail.wantsTallPanel,
     maxPanelHeight: settings.maxPanelHeight,
     clipboardVisibleRows: settings.clipboardVisibleRows,
-    agentVisibleRows: settings.agentVisibleRows,
-    agentSessionView: settings.agentSessionView,
-    agentAlertRowHeight: agentCardHeight,
     settingsContentHeight,
     shelfItems: fileShelf.items.length,
   });
@@ -151,7 +133,6 @@ export function IslandApp() {
     navigation,
     quiet: game.quiet,
     hasMessagePreview,
-    namesAgent: Boolean(agentSession),
     openEnabledPage,
   });
 
@@ -161,8 +142,6 @@ export function IslandApp() {
     toggleClipboardHistory,
     collapseIsland,
   );
-
-  const { agentVisualState, agentStatusLabel } = useAgentIndicator(agentStatus, settings, activeAgentSessionCount, t);
 
   const { openTranslator } = useIslandTranslation(
     settings.translationEnabled,
@@ -198,14 +177,13 @@ export function IslandApp() {
         lyricsSettings={settings}
         pageOrder={settings.pageOrder}
         onPageOrderChange={(pageOrder) => setSettings({ ...settings, pageOrder })}
-        agentSession={agentSession}
-        activeAgentSessionCount={activeAgentSessionCount}
+        notificationCount={notificationCount}
+        notificationLabel={notificationCount && notificationCount > 0 ? t.notifications.badge(notificationCount) : null}
         mediaState={media.mediaState}
-        agentVisualState={agentVisualState}
-        agentStatusLabel={agentStatusLabel}
         features={features}
         shelfCount={settings.shelfEnabled && settings.shelfShowCount ? fileShelf.items.length : null}
         onOpenPage={openEnabledPage}
+        onOpenNotifications={() => void openCindy()}
         onWindowDragStart={startIslandDrag}
         onCollapse={collapseIsland}
         onResetPosition={resetIslandPosition}
@@ -216,9 +194,6 @@ export function IslandApp() {
         onTuck={tuckIsland}
         onReveal={hoverTucked}
         onPageChange={setPage}
-        pageActions={page === "agents" && (
-          <AgentArrangeButton sort={settings.agentSessionSort} group={settings.agentSessionGroup} onChange={(patch) => setSettings({ ...settings, ...patch })} />
-        )}
       >
         <IslandPages
           page={page}
@@ -236,10 +211,6 @@ export function IslandApp() {
           openMessages={openMessages}
           media={media}
           clipboard={clipboard}
-          agentSessions={listedAgentSessions}
-          unseenAgentSessions={unseenAgentSessions}
-          agentRemoval={agentRemoval}
-          alertedSession={alertedSession}
           fileShelf={fileShelf}
           isShelfDropping={isShelfDropping}
           notebookProps={notebookProps}

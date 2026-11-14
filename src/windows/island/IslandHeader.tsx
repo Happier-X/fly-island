@@ -1,8 +1,7 @@
-import { useCallback, type ReactNode } from "react";
+import { useCallback } from "react";
 import { usePointerReorder } from "../../components/reorder/usePointerReorder";
 import type { PageDot } from "../../features/appearance/types";
-import { Bell, CircleDot, Minus, RotateCcw, Settings } from "lucide-react";
-import type { AgentVisualState } from "../../features/agent-status/status";
+import { Bell, Minus, RotateCcw, Settings } from "lucide-react";
 import type { MessageSource } from "../../features/messages/messagePreview";
 import { useTranslation } from "../../i18n";
 import { isPageEnabled, type IslandFeatures } from "./features";
@@ -17,8 +16,6 @@ type IslandHeaderProps = {
   onPageOrderChange: (order: PageDot[]) => void;
   showTitle: boolean;
   isDetached: boolean;
-  agentVisualState: AgentVisualState;
-  agentStatusLabel: string;
   qqNotificationCount: number;
   wechatPending: boolean;
   onPageChange: (page: IslandPage) => void;
@@ -31,13 +28,11 @@ type IslandHeaderProps = {
   /** False when minimizing tucks the island to the top edge instead. */
   minimizesToTray: boolean;
   onMinimize: () => void;
-  /** Buttons of the open page, first among the window actions. */
-  pageActions?: ReactNode;
 };
 
 /**
- * Header of the expanded island: agent status, page dots (translation among them), collapse
- * target and window actions.
+ * Header of the expanded island: page dots (translation among them), collapse target and
+ * window actions.
  */
 export function IslandHeader({
   page,
@@ -46,8 +41,6 @@ export function IslandHeader({
   onPageOrderChange,
   showTitle,
   isDetached,
-  agentVisualState,
-  agentStatusLabel,
   qqNotificationCount,
   wechatPending,
   onPageChange,
@@ -58,7 +51,6 @@ export function IslandHeader({
   onResetPosition,
   minimizesToTray,
   onMinimize,
-  pageActions,
 }: IslandHeaderProps) {
   const t = useTranslation();
   const messageBadgeLabel = t.messages.badge(qqNotificationCount, wechatPending);
@@ -78,38 +70,9 @@ export function IslandHeader({
   );
   const { containerRef: dotsRef, itemProps: dotProps, draggingId: draggingDot, wasDragged: wasDotDragged } =
     usePointerReorder(dots, reorderDots, "x");
-  const agentStatusIconClassName = [
-    "island__agent-status-icon",
-    `island__agent-status-icon--${agentVisualState}`,
-  ].join(" ");
-
   return (
     <header className="island__header">
       <div className="island__title">
-        {features.agents ? (
-          // The status light doubles as the way into the Agent page.
-          <button
-            className={`island__agent-button${page === "agents" ? " island__agent-button--active" : ""}`}
-            type="button"
-            data-tip={t.island.agentPage}
-            aria-label={`${agentStatusLabel} · ${t.agent.sessions.open}`}
-            aria-pressed={page === "agents"}
-            onClick={(event) => {
-              event.stopPropagation();
-              onPageChange("agents");
-            }}
-          >
-            <CircleDot className={agentStatusIconClassName} size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" />
-          </button>
-        ) : (
-          <CircleDot
-            className={agentStatusIconClassName}
-            size={16}
-            strokeWidth={1.5}
-            absoluteStrokeWidth
-            aria-label={agentStatusLabel}
-          />
-        )}
         {showTitle && <span>fly-island</span>}
       </div>
 
@@ -152,7 +115,6 @@ export function IslandHeader({
       />
 
       <div className="window-actions">
-        {pageActions}
         <button
           className={`icon-button island-settings-button${page === "settings" ? " island-settings-button--active" : ""}`}
           type="button"

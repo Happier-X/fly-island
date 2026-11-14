@@ -67,7 +67,7 @@ Expand the island to switch between tasks, music, clipboard, and messages. The s
 
 - **Quick translation** opens with **Alt+C** by default. Add a DeepSeek API key in the translator settings; it is stored in Windows Credential Manager. Text is sent to the DeepSeek API when you request a translation. Choose automatic detection or a direction, and press **Tab** in the input to paste the latest clipboard text.
 
-- **AI status light**: shows the sessions running in [Cindy](https://cindy.app/) — working, waiting on your answer, or just finished — and a click brings Cindy to the front. It only reads Cindy's own local database: no hooks, nothing changed in Cindy, and nothing shown while Cindy is closed. See the [AI Agent status guide (Chinese)](docs/agent-status.md).
+- **Cindy notifications**: when Cindy finishes a task, waits on your answer, completes a scheduled or background run, or fails, the collapsed island shows a count, and a click brings [Cindy](https://cindy.app/) to the front. It only reads Cindy's own local database: no hooks, nothing changed in Cindy. See the [Cindy notifications guide (Chinese)](docs/cindy-notifications.md).
 
 - **Clipboard history** captures text and, when enabled, images. Search, favorite, annotate, and copy entries from the clipboard panel. Configure capture settings, history limit, and global shortcut in Settings.
 

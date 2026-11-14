@@ -1,5 +1,4 @@
 import type { TodoItem } from "../../features/todos/types";
-import type { AgentSessionView } from "../../features/appearance/types";
 import { clamp } from "../../utils/number.ts";
 import { getCollapsedTextUnits, getTodoTitleLineCount } from "../../utils/text.ts";
 
@@ -93,29 +92,6 @@ export function getTodoVisualRows(todoList: TodoItem[]) {
     (total, todo) => total + getTodoTitleLineCount(todo.title),
     0,
   );
-}
-
-// Expanded island around an empty Agent session list: island padding, header and gap (86), less
-// the bottom padding (20) the list runs on through, then the list's top padding (4) and room
-// below the last row (8). Keep in step with AgentSessionsPanel.css.
-const AGENT_PAGE_CHROME_HEIGHT = 78;
-// Each view's row and the gap below it: the tallest flat row (78, a two-line reply in
-// AgentSessionsPanel.css; shorter replies and folded rows leave room for more sessions), a card
-// (62) or a compact row (34) in AgentSessionCard.css. Keep in step with those files.
-const AGENT_ROWS: Record<AgentSessionView, { height: number; gap: number }> = {
-  list: { height: 78, gap: 2 },
-  cards: { height: 62, gap: 6 },
-  compact: { height: 34, gap: 4 },
-};
-/** Expanded height that fits exactly `rows` Agent sessions, shown as `view`. */
-export function getAgentPageExpandedHeight(rows: number, view: AgentSessionView = "list") {
-  const { height, gap } = AGENT_ROWS[view];
-  return AGENT_PAGE_CHROME_HEIGHT + rows * (height + gap) - gap;
-}
-
-/** Expanded height around an alert's one-session card, whose row measured `rowHeight`. */
-export function getAgentAlertExpandedHeight(rowHeight: number) {
-  return AGENT_PAGE_CHROME_HEIGHT + rowHeight;
 }
 
 /** Expanded height that fits exactly `rows` clipboard history rows. */

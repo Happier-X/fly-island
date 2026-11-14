@@ -30,9 +30,9 @@ if (automated) localStorage.setItem("focusd-island-settings", JSON.stringify({ o
 else localStorage.removeItem("focusd-island-settings");
 localStorage.setItem("focusd-island-save-directory", "");
 localStorage.setItem("focusd-island-qq-notification-access-requested", "true");
-// Other pages in the same run leave their own agent settings behind; start from the defaults.
-localStorage.removeItem("focusd-island-agent-approval");
+// Other pages in the same run leave their own settings behind; start from the defaults.
 localStorage.removeItem("focusd-island-agent-sounds");
+localStorage.removeItem("focusd-island-cindy-notifications-seen");
 localStorage.removeItem("focusd-island-detached-settings");
 // The player order as the old Music page saved it.
 localStorage.setItem("focusd-island-music-sources", JSON.stringify([{ id: "Spotify.exe", label: "Spotify" }, { id: "QQMusic", label: "QQ音乐" }]));
@@ -95,8 +95,9 @@ if (!automated) {
       const maxRows = category === "general" ? 9 : 8;
       check(category === "messages" || rowCount <= maxRows, `${category}: the page keeps to a handful of rows (${rowCount})`);
     }
-    check(settingsCategoryFor("sounds") === "agents" && settingsCategoryFor("agentAlerts") === "agents" && settingsCategoryFor("agentApprovals") === "agents"
-      && settingsCategoryFor("shelf") === "clipboard", "Old names of merged pages open the page they became");
+    check(settingsCategoryFor("agents") === "notifications" && settingsCategoryFor("agentSource") === "notifications"
+      && settingsCategoryFor("sounds") === "notifications" && settingsCategoryFor("shelf") === "clipboard",
+      "Old names of merged pages open the page they became");
 
 
     const storedSettings = () => JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}") as { opacity?: number; carryOverIncompleteTodos?: boolean };
@@ -175,11 +176,6 @@ if (!automated) {
       && [...document.querySelectorAll<HTMLElement>(".settings-row")].find((row) => row.textContent?.includes("锁定小岛位置"))?.querySelector<HTMLInputElement>("[role='switch']")?.checked,
       "Locking the position is saved and stays on after changing pages");
 
-    const agentPolls = () => commands.filter(command => command === "get_agent_status").length;
-    const pollsAway = agentPolls();
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 1_200)); });
-    check(agentPolls() === pollsAway, "Agent status is not polled while its page is closed");
-
     await act(async () => {
       localStorage.setItem("focusd-island-settings-focus", JSON.stringify({ section: "savePath", requestedAt: Date.now() }));
       window.dispatchEvent(new StorageEvent("storage", { key: "focusd-island-settings-focus", newValue: "x", storageArea: localStorage }));
@@ -214,26 +210,37 @@ if (!automated) {
     check(saved.accounts?.some((account) => account.email === "new@example.edu.cn" && account.host === "imap.example.edu.cn"),
       "The typed server is saved with the mailbox");
 
-    // AI Agent has its own group: sessions and alerts on one page, where the data comes from on the other.
-    const agentGroup = [...document.querySelectorAll<HTMLElement>(".settings-sidebar__group")].find((group) => group.getAttribute("aria-label") === "AI Agent");
-    check([...(agentGroup?.querySelectorAll(".settings-sidebar__item") ?? [])].map((item) => item.textContent).join("|") === "会话与提醒|数据来源", "AI Agent is its own sidebar group with two pages: sessions and alerts, data source");
-    await openPage("agentSource");
+    // Cindy notifications: one page with the master switch, the four events, the sound and the
+    // data source, read from Cindy's own database.
+    await openPage("notifications");
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 80)); });
-    check(agentPolls() > pollsAway, "The data source page reads Cindy's database");
+    check(commands.filter(command => command === "get_cindy_notifications").length > 0, "The notifications page reads Cindy's database");
+    const notificationRow = (title: string) => [...document.querySelectorAll<HTMLElement>(".editor-panel .settings-row")].find((row) => row.querySelector(".settings-row__title")?.textContent === title);
+    const rowTitles = () => [...document.querySelectorAll<HTMLElement>(".editor-panel .settings-row__title")].map((title) => title.textContent);
+    check(["启用 Cindy 通知", "任务完成", "需要你回答", "定时与后台任务", "出错", "响提示音"].every((title) => rowTitles().includes(title)),
+      "Notifications are one page: the master switch, the four events and the sound");
+    const master = notificationRow("启用 Cindy 通知")?.querySelector<HTMLInputElement>("[role='switch']");
+    check(master?.checked, "Cindy notifications are on by default");
+    await act(async () => { master!.click(); });
+    check((JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}") as { cindyNotificationsEnabled?: boolean }).cindyNotificationsEnabled === false,
+      "Switching notifications off is saved");
+    await act(async () => { master!.click(); });
+    const errorSwitch = notificationRow("出错")?.querySelector<HTMLInputElement>("[role='switch']");
+    check(errorSwitch?.checked, "Each event has its own switch, on by default");
+    await act(async () => { errorSwitch!.click(); });
+    check((JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}") as { cindyNotifyError?: boolean }).cindyNotifyError === false,
+      "Switching one event off is saved");
+    const soundSwitch = notificationRow("响提示音")?.querySelector<HTMLInputElement>("[role='switch']");
+    check(soundSwitch?.checked, "Notification sounds are one switch, on by default");
+    await act(async () => { soundSwitch!.click(); });
+    check((JSON.parse(localStorage.getItem("focusd-island-agent-sounds") ?? "{}") as { enabled?: boolean }).enabled === false,
+      "Switching notification sounds off is saved in the existing key");
     const sourceGroup = [...document.querySelectorAll<HTMLElement>(".settings-group")].find((group) => group.textContent?.includes("数据来源"));
-    check(sourceGroup?.textContent?.includes("已读取 0 个会话") && sourceGroup.textContent.includes(CINDY_DATABASE),
-      "The data source page says how many sessions it read and where they came from");
+    check(sourceGroup?.textContent?.includes("读到 0 条通知") && sourceGroup.textContent.includes(CINDY_DATABASE),
+      "The data source says how many notifications are waiting and where they came from");
     check(!document.querySelector(".settings-link-button[data-command]") && !sourceGroup?.textContent?.includes("安装"),
       "Nothing to install: the island only reads that file");
-
-    await openPage("agents"); await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
-    const agentRow = (title: string) => [...document.querySelectorAll<HTMLElement>(".editor-panel .settings-row")].find((row) => row.querySelector(".settings-row__title")?.textContent === title);
-    check(!document.querySelector(".session-filter__form"), "Hide-session rules are no longer offered");
-    const soundSwitch = agentRow("AI Agent 音效")?.querySelector<HTMLInputElement>("[role='switch']");
-    check(soundSwitch?.checked, "Agent sounds are a single switch on the sessions page, on by default");
-    await act(async () => { soundSwitch!.click(); });
-    check((JSON.parse(localStorage.getItem("focusd-island-agent-sounds") ?? "{}") as { enabled?: boolean }).enabled === false, "Switching agent sounds off is saved");
-    check(!agentRow("在岛上允许或拒绝 Agent 的操作"), "Approving on the island is gone: Cindy asks in its own window");
+    check(!notificationRow("在岛上允许或拒绝 Agent 的操作"), "Approving on the island is gone: Cindy asks in its own window");
 
     // Settings → Music → Player order: the saved order, new players added after it, each one's
     // state, and moving a row saves the old format.

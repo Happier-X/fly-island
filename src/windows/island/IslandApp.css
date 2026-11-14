@@ -14,7 +14,6 @@
 
 .stage--font-pixel .island__brand,
 .stage--font-pixel .island__active-task,
-.stage--font-pixel .island__agent-session,
 .stage--font-pixel .island__todo-count {
   font-size: 14px;
   font-weight: 400;
@@ -167,8 +166,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .island__active-task,
-  .island__agent-session {
+  .island__active-task {
     animation: none;
   }
 

@@ -1,8 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Bot, Inbox } from "lucide-react";
-import { AgentProviderIcon } from "../../features/agent-status/AgentProviderIcon";
-import type { AgentSession } from "../../features/agent-status/session";
-import type { AgentVisualState } from "../../features/agent-status/status";
+import { Bell, Inbox } from "lucide-react";
 import type { CollapsedItem, CollapsedSlot } from "../../features/appearance/types";
 import type { MediaState } from "../../features/media/api";
 import { CollapsedLyric } from "../../features/media/CollapsedLyric";
@@ -16,7 +13,6 @@ import type { MailController } from "../../features/messages/mail/MailPanel";
 import type { QQNotificationsController } from "../../features/messages/qq-notifications/QQNotifications";
 import type { WeChatRemindersController } from "../../features/messages/wechat/WeChatReminders";
 import { useTranslation } from "../../i18n";
-import { collapsedOpenPage } from "./collapsedOpenPage";
 import type { IslandPage } from "./types";
 import { useWindowDragGesture } from "./useWindowDragGesture";
 import "./IslandCollapsedBar.css";
@@ -35,33 +31,33 @@ type IslandCollapsedBarProps = {
   collapsedLabel: string;
   collapsedTaskTitle: string | null;
   collapsedTodoCount: number | null;
-  /** Which of the agent, the lyric line and a todo the text shows (Settings → Appearance), if any. */
+  /** Which of the lyric line and a todo the text shows (Settings → Appearance), if any. */
   collapsedItem: CollapsedItem | null;
   /** Where the text and each status icon sit, left to right (Settings → Appearance). */
   collapsedLayout: readonly CollapsedSlot[];
   /** The playing song's cover, or null when it is not shown. */
   collapsedCover: string | null;
   lyricsSettings: LyricsSettings & { lyricsOffsetMs: number };
-  agentSession: AgentSession | null;
   /**
-   * Agent sessions still working, shown where the tuck dot was; null while the AI Agent switch
-   * is off, which keeps the tuck dot.
+   * Cindy notifications unhandled, shown where the tuck dot was; null while the Cindy
+   * notifications switch is off, which keeps the tuck dot.
    */
-  agentSessionCount: number | null;
+  notificationCount: number | null;
+  /** What the notification badge reads out; null when there is no badge. */
+  notificationLabel: string | null;
   mediaState: MediaState;
   /** False while music is switched off, which hides the waveform button. */
   showMusic: boolean;
   /** Files on the shelf, or null when the count is not shown. */
   shelfCount: number | null;
-  agentVisualState: AgentVisualState;
   onOpenPage: (page: IslandPage) => void;
   onOpenMessages: (source: MessageSource) => void;
-  /** Quick translation line; it takes the place of the agent or todo text while shown. */
+  onOpenNotifications: () => void;
   onWindowDragStart: () => void;
   onTuck: () => void;
 };
 
-/** The collapsed island: agent pulse, todo or message summary, mail badge, music button and tuck handle. */
+/** The collapsed island: todo or message summary, mail badge, music button, notification badge and tuck handle. */
 export function IslandCollapsedBar({
   qqMail,
   qqNotifications,
@@ -80,14 +76,14 @@ export function IslandCollapsedBar({
   collapsedLayout,
   collapsedCover,
   lyricsSettings,
-  agentSession,
-  agentSessionCount,
+  notificationCount,
+  notificationLabel,
   mediaState,
   showMusic,
   shelfCount,
-  agentVisualState,
   onOpenPage,
   onOpenMessages,
+  onOpenNotifications,
   onWindowDragStart,
   onTuck,
 }: IslandCollapsedBarProps) {
@@ -95,12 +91,6 @@ export function IslandCollapsedBar({
   const { didDragRef, prepareWindowDrag, handleWindowDragMove, cancelWindowDrag } =
     useWindowDragGesture(isTucked || positionLocked, onWindowDragStart);
   const isMusicPlaying = mediaState.playbackStatus === "playing";
-  const pulseClassName = [
-    "island__pulse",
-    `island__pulse--agent-${agentVisualState}`,
-  ].join(" ");
-  const shownAgent = collapsedItem === "agent" ? agentSession : null;
-  const openTarget = collapsedOpenPage(collapsedItem, Boolean(shownAgent), page);
 
   // The text and the status icons, placed in the order Settings → Appearance arranged.
   const slots: Record<CollapsedSlot, ReactNode> = {
@@ -131,27 +121,16 @@ export function IslandCollapsedBar({
                   if (opened === false) onOpenMessages(source);
                 });
               } else {
-                onOpenPage(openTarget);
+                onOpenPage(page);
               }
             }
           }}
         >
-          <span className={pulseClassName} />
+          <span className="island__pulse" />
           {collapsedCover && <img className="collapsed-cover" src={collapsedCover} alt="" draggable={false} />}
           <CollapsedMessageContent preview={preview} enabled={!isExpanded && !isTucked}>
             {showCollapsedText && showTitle && (
               <span className="island__brand">fly-island</span>
-            )}
-            {showCollapsedText && shownAgent && (
-              <span className="island__agent-session" key={`${shownAgent.label}:${shownAgent.title}`}>
-                {showTitle && <span className="island__agent-session-separator">·</span>}
-                {shownAgent.provider ? (
-                  <AgentProviderIcon provider={shownAgent.provider} size={16} />
-                ) : (
-                  <Bot className="island__agent-session-bot" size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" />
-                )}
-                <span className="island__agent-session-title">{shownAgent.title}</span>
-              </span>
             )}
             {showCollapsedText && collapsedItem === "lyrics" && (
               <CollapsedLyric mediaState={mediaState} lyricsSettings={lyricsSettings} active={!isExpanded} />
@@ -192,7 +171,7 @@ export function IslandCollapsedBar({
         onClick={() => onOpenPage("music")}
       />
       ),
-    agents: agentSessionCount === null ? (
+    notifications: notificationCount === null ? (
       <button
         className="island__quiet-button"
         type="button"
@@ -202,17 +181,18 @@ export function IslandCollapsedBar({
           onTuck();
         }}
       />
-      ) : agentSessionCount > 0 ? (
+      ) : notificationCount > 0 ? (
       <button
-        className="island-agent-count"
+        className="island-notification-count"
         type="button"
-        aria-label={t.agent.sessions.activeCount(agentSessionCount)}
+        aria-label={notificationLabel ?? undefined}
         onClick={(event) => {
           event.stopPropagation();
-          onOpenPage("agents");
+          onOpenNotifications();
         }}
       >
-        {agentSessionCount}
+        <Bell size={13} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" />
+        <span>{notificationCount > 99 ? "99+" : notificationCount}</span>
       </button>
       ) : null,
   };
@@ -224,7 +204,7 @@ export function IslandCollapsedBar({
       inert={isExpanded}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
-          onOpenPage(openTarget);
+          onOpenPage(page);
         }
       }}
     >

@@ -1,4 +1,3 @@
-import type { SessionRemoval } from "../../features/agent-status/useHiddenSessions";
 import type { ReactNode } from "react";
 import { MessagesPanel } from "../../features/messages/Messages";
 import type { useQQNotifications } from "../../features/messages/qq-notifications/QQNotifications";
@@ -10,9 +9,6 @@ import { openSettingsWindow } from "../settings/api";
 import { SettingsPanel } from "../settings/SettingsPanel";
 import "../settings/IslandSettingsPage.css";
 import { TranslationPanel } from "../../features/translation/TranslationPanel";
-import { AgentSessionsPanel } from "../../features/agent-status/AgentSessionsPanel";
-import type { AgentSessionSummary } from "../../features/agent-status/api";
-import type { UnseenSessions } from "../../features/agent-status/useUnseenSessions";
 import type { IslandSettings } from "../../features/appearance/types";
 import { ClipboardHistoryPanel } from "../../features/clipboard/ClipboardHistoryPanel";
 import type { useClipboardHistory } from "../../features/clipboard/useClipboardHistory";
@@ -21,14 +17,11 @@ import type { useMediaState } from "../../features/media/useMediaState";
 import { FileShelfPanel } from "../../features/file-shelf/FileShelfPanel";
 import type { useFileShelf } from "../../features/file-shelf/useFileShelf";
 import { getTodoScrollStartRows } from "./layout";
-import type { useIslandAgentAlerts } from "./useIslandAgentAlerts";
 import type { useIslandFeatures } from "./useIslandFeatures";
 import type { useIslandNavigation } from "./useIslandNavigation";
 import type { useMessageView } from "./useMessageView";
 
 type MessageView = ReturnType<typeof useMessageView>;
-type AgentAlerts = ReturnType<typeof useIslandAgentAlerts>;
-
 type IslandPagesProps = {
   page: ReturnType<typeof useIslandNavigation>["page"];
   mode: ReturnType<typeof useIslandNavigation>["mode"];
@@ -47,10 +40,6 @@ type IslandPagesProps = {
   openMessages: MessageView["openMessages"];
   media: ReturnType<typeof useMediaState>;
   clipboard: ReturnType<typeof useClipboardHistory>;
-  agentSessions: AgentSessionSummary[];
-  unseenAgentSessions: UnseenSessions;
-  agentRemoval: SessionRemoval;
-  alertedSession: AgentAlerts["alertedSession"];
   fileShelf: ReturnType<typeof useFileShelf>;
   isShelfDropping: boolean;
   notebookProps: ReturnType<typeof useTodos>["notebookProps"];
@@ -73,10 +62,6 @@ export function IslandPages({
   openMessages,
   media,
   clipboard,
-  agentSessions,
-  unseenAgentSessions,
-  agentRemoval,
-  alertedSession,
   fileShelf,
   isShelfDropping,
   notebookProps,
@@ -133,7 +118,6 @@ export function IslandPages({
           onClear={() => void clearClipboardHistoryItems()}
         />
       )}
-      {page === "agents" && <AgentSessionsPanel sessions={agentSessions} view={settings.agentSessionView} sort={settings.agentSessionSort} group={settings.agentSessionGroup} archiveMotion={settings.agentArchiveMotion} cardEffects={settings.agentCardEffects} showElapsed={settings.agentShowElapsed} showModel={settings.agentShowModel} unseen={unseenAgentSessions} removal={agentRemoval} reveal={alertedSession} />}
       {page === "translation" && <TranslationPanel isOpen={mode === "expanded"} onOpenSettings={() => openSettingsWindow("translation")} />}
       {page === "shelf" && <FileShelfPanel shelf={fileShelf} isDropTarget={isShelfDropping} revealOnDoubleClick={settings.shelfDoubleClick === "reveal"} />}
       {page === "todo" && (

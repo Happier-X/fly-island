@@ -1,7 +1,5 @@
 import { getEffectiveAppearanceMode } from "../../features/appearance/settings";
 import { useState, type ReactNode } from "react";
-import type { AgentSession } from "../../features/agent-status/session";
-import type { AgentVisualState } from "../../features/agent-status/status";
 import type { AppearanceMode, CollapsedItem, CollapsedSlot, PageDot } from "../../features/appearance/types";
 import type { MediaState } from "../../features/media/api";
 import { latestMessagePreview, type MessageSource } from "../../features/messages/messagePreview";
@@ -10,7 +8,6 @@ import type { QQNotificationsController } from "../../features/messages/qq-notif
 import type { WeChatRemindersController } from "../../features/messages/wechat/WeChatReminders";
 import { useTranslation } from "../../i18n";
 import type { IslandFeatures } from "./features";
-import { collapsedOpenPage } from "./collapsedOpenPage";
 import { IslandCollapsedBar } from "./IslandCollapsedBar";
 import { IslandHeader } from "./IslandHeader";
 import type { IslandMode, IslandPage, NativeGlassState } from "./types";
@@ -39,7 +36,7 @@ type IslandShellProps = {
   showCollapsedText: boolean;
   collapsedTaskTitle: string | null;
   collapsedTodoCount: number | null;
-  /** Which of the agent, the lyric line and a todo the collapsed island's text shows, if any. */
+  /** Which of the lyric line and a todo the collapsed island's text shows, if any. */
   collapsedItem: CollapsedItem | null;
   collapsedLayout: readonly CollapsedSlot[];
   /** The playing song's cover for the collapsed island, or null when it is not shown. */
@@ -49,18 +46,17 @@ type IslandShellProps = {
   /** Order of the header's page dots, and saving a new one after a drag. */
   pageOrder: PageDot[];
   onPageOrderChange: (order: PageDot[]) => void;
-  /** Running agent session shown in place of the todo, or null. */
-  agentSession: AgentSession | null;
-  /** Agent sessions still working, shown in place of the tuck dot while the AI Agent switch is on. */
-  activeAgentSessionCount: number;
+  /** Cindy notifications waiting, shown in place of the tuck dot; null while that module is off. */
+  notificationCount: number | null;
+  /** What the notification badge reads out; null when there is none. */
+  notificationLabel: string | null;
   mediaState: MediaState;
-  agentVisualState: AgentVisualState;
-  agentStatusLabel: string;
   /** Modules switched on; the header and collapsed bar hide the rest. */
   features: IslandFeatures;
   /** Files on the shelf for the collapsed bar, or null when it does not show them. */
   shelfCount: number | null;
   onOpenPage: (page: IslandPage) => void;
+  onOpenNotifications: () => void;
   onWindowDragStart: () => void;
   onCollapse: () => void;
   onResetPosition: () => void;
@@ -68,13 +64,10 @@ type IslandShellProps = {
   onMinimize: () => void;
   /** Null while translation is switched off, which hides its button. */
   onOpenTranslator: (() => void) | null;
-  /** One line from the selection shortcut, shown on the collapsed island, or null. */
   onOpenSettings: () => void;
   onTuck: () => void;
   onReveal: () => void;
   onPageChange: (page: IslandPage) => void;
-  /** Buttons of the open page, first among the window actions. */
-  pageActions?: ReactNode;
   children: ReactNode;
 };
 
@@ -101,14 +94,13 @@ export function IslandShell({
   lyricsSettings,
   pageOrder,
   onPageOrderChange,
-  agentSession,
-  activeAgentSessionCount,
+  notificationCount,
+  notificationLabel,
   mediaState,
-  agentVisualState,
-  agentStatusLabel,
   features,
   shelfCount,
   onOpenPage,
+  onOpenNotifications,
   onWindowDragStart,
   onCollapse,
   onResetPosition,
@@ -119,7 +111,6 @@ export function IslandShell({
   onTuck,
   onReveal,
   onPageChange,
-  pageActions,
   children,
 }: IslandShellProps) {
   const t = useTranslation();
@@ -155,9 +146,7 @@ export function IslandShell({
     .filter(Boolean)
     .join(" ");
   const collapsedLabel = showCollapsedText
-    ? agentSession
-      ? t.island.agentSession(agentSession.label, agentSession.title)
-      : collapsedTaskTitle
+    ? collapsedTaskTitle
       ? t.messages.collapsedTask(collapsedTaskTitle)
       : collapsedTodoCount !== null
         ? t.island.pendingTodos(collapsedTodoCount)
@@ -170,7 +159,7 @@ export function IslandShell({
       aria-label={collapsedLabel}
       onClick={(event) => {
         if (!isExpanded && event.target === event.currentTarget) {
-          onOpenPage(collapsedOpenPage(collapsedItem, Boolean(agentSession), page));
+          onOpenPage(page);
         }
       }}
       onPointerMove={handleGlassPointerMove}
@@ -206,13 +195,13 @@ export function IslandShell({
           collapsedLayout={collapsedLayout}
           collapsedCover={collapsedCover}
           lyricsSettings={lyricsSettings}
-          agentSession={agentSession}
-          agentSessionCount={features.agents ? activeAgentSessionCount : null}
+          notificationCount={notificationCount}
+          notificationLabel={notificationLabel}
           mediaState={mediaState}
           showMusic={features.music}
           shelfCount={shelfCount}
-          agentVisualState={agentVisualState}
           onOpenPage={onOpenPage}
+          onOpenNotifications={onOpenNotifications}
           onOpenMessages={onOpenMessages}
           onWindowDragStart={onWindowDragStart}
           onTuck={onTuck}
@@ -232,8 +221,6 @@ export function IslandShell({
             onPageOrderChange={onPageOrderChange}
             showTitle={showTitle}
             isDetached={isDetached}
-            agentVisualState={agentVisualState}
-            agentStatusLabel={agentStatusLabel}
             qqNotificationCount={qqNotificationCount}
             wechatPending={wechatPending}
             onPageChange={onPageChange}
@@ -244,7 +231,6 @@ export function IslandShell({
             onResetPosition={onResetPosition}
             minimizesToTray={minimizesToTray}
             onMinimize={onMinimize}
-            pageActions={pageActions}
           />
           <div ref={contentRef} className="island__content">{children}</div>
         </div>

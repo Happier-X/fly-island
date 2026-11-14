@@ -23,13 +23,16 @@ export function installDemoMocks(data: DemoContent) {
   const now = Date.now();
   let revision = 1;
 
-  const sessions = data.sessions.map((session, index) => ({
-    provider: "cindy", sessionId: `s${index}`, cwd: session.cwd, title: session.title,
-    model: index === 0 ? "Opus 5.5" : "gpt-6-astra", effort: null,
-    phase: ["running", "completed", "waiting"][index], lastMessage: session.message,
-    updatedAt: now - [20_000, 6 * 60_000, 3 * 60_000][index], turnStartedAt: index === 0 ? now - 240_000 : null,
-    permissionMode: "default", contextTokens: index === 0 ? 42_000 : null, contextWindow: 200_000,
-  }));
+  // Two unhandled Cindy events, as the island's badge counts them.
+  const notifications = {
+    items: [
+      { kind: "question", key: "question:demo:1", at: now - 60_000 },
+      { kind: "done", key: "done:demo:2", at: now - 300_000 },
+    ],
+    databasePath: "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db",
+    checkedAt: now,
+    error: null,
+  };
 
   let clips: Clip[] = data.clips.map((clip, index) => ({
     id: `c${index}`, kind: "text", hash: `c${index}`, createdAt: now - index * 600_000, copiedAt: now - index * 600_000,
@@ -102,10 +105,9 @@ export function installDemoMocks(data: DemoContent) {
       case "get_file_shelf":
       case "set_file_shelf_options": return { items: shelf };
       case "toggle_file_shelf_pin": shelf.forEach((item) => { if (item.id === args.id) item.pinned = !item.pinned; }); return { items: shelf };
-      case "list_agent_sessions": return sessions;
+      case "get_cindy_notifications": return notifications;
       case "agent_window_in_front": return false;
       case "list_plugin_views": return { views: [], status: [] };
-      case "get_agent_status": return { cindy: { phase: "running", updatedAt: now }, updatedAt: now, statusPath: "C:\Users\me\AppData\Roaming\Cindy\cindy-1.db" };
       case "get_media_state": return media();
       case "media_play_pause": position = elapsed(); since = Date.now(); playing = !playing; return media();
       case "media_seek": position = Math.max(0, Number(args.positionMs) || 0); since = Date.now(); return media();

@@ -11,7 +11,7 @@ src-tauri/src/
 ├── tray.rs                  # 托盘菜单与事件：文字跟随岛屿语言（命令 set_tray_language），显示 / 隐藏合成一项，按岛屿当前是否可见显示
 ├── island/                  # 主窗口：命令、窗口状态、几何计算、毛玻璃、鼠标穿透、贴边动画
 ├── agent_approval/          # 在岛上审批（B6 第 2 期）：127.0.0.1 上的审批端点（标准库 TcpListener，挂起时能发现 Agent 断开）、按会话排队、等待上限、agent-approval.json
-├── agent_status/            # AI 代理状态：快照、运行标记、Codex / Claude Code hook 安装；hooks/ 为编入二进制的 hook 脚本；sound_packs.rs 为导入的音效包（应用数据目录的 sound-packs/）
+├── cindy_notifications/     # Cindy 通知：只读 Cindy 本地数据库判定四类事件（cindy.rs）、把 Cindy 窗口拿到前台（window_focus.rs）、旧钩子的一次性清理（legacy_hooks.rs）
 │                            #   reply_marker.rs：可选的回复状态标记（B9），增删 CLAUDE.md 里岛屿自己的那段说明、识别回复末行的标记
 ├── system/                  # 开机自启（注册表）、更新代理与配置、待办 Markdown 导出
 ├── clipboard_history/
@@ -91,7 +91,7 @@ src-tauri/src/
 ## 配置与构建
 
 - 修改 `tauri.conf.json` 中的窗口配置时，同步检查 `capabilities/default.json`、前端 `main.tsx` 的窗口分发，以及 Rust 中的 label 常量。
-- `agent_status/hooks/focusd-agent-*.{cmd,ps1}` 和 `qq_notifications/repair-qq-notification-registration.ps1` 通过 `include_str!` 编入二进制，修改后需要完整的 Rust 验证。
+- `qq_notifications/repair-qq-notification-registration.ps1` 通过 `include_str!` 编入二进制，修改后需要完整的 Rust 验证。
 - clippy lint 在 `Cargo.toml` 的 `[lints.clippy]` 中声明（`undocumented_unsafe_blocks`、`unwrap_used`、`expect_used` 为 deny），测试代码的放行写在 `clippy.toml`；不要在源文件中用 `#![warn]` / `#[allow]` 重复声明这些 lint。`cargo clippy --all-targets` 保持 0 告警；个别确实无法消除的默认 lint（例如参数即 IPC 契约的命令触发 `too_many_arguments`）在该项上用带 `reason` 的 `#[expect(...)]`。
 - 验证：`cargo test --manifest-path src-tauri/Cargo.toml` + `pnpm tauri build --no-bundle`。涉及窗口、托盘、注册表行为的改动，在风险需要时用 `pnpm tauri dev` 手动检查折叠态、展开态、贴边收起和托盘隐藏。
 - 成功生成 release 可执行文件后，按根目录规则同步桌面快捷方式。

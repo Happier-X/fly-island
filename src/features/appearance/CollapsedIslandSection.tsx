@@ -1,17 +1,17 @@
 import { useCallback } from "react";
-import { Bot, ListTodo, MicVocal } from "lucide-react";
+import { ListTodo, MicVocal } from "lucide-react";
 import { ReorderList } from "../../components/reorder/ReorderList";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
 import { SettingsToggleRow } from "../../components/settings/SettingsToggleRow";
 import { useTranslation } from "../../i18n";
 import type { CollapsedItem, IslandSettings } from "./types";
 
-const ICONS = { agent: Bot, lyrics: MicVocal, todo: ListTodo } as const;
+const ICONS = { lyrics: MicVocal, todo: ListTodo } as const;
 
 /**
- * Appearance → Collapsed island: the order in which a running agent, the lyric line and a todo
- * claim the collapsed island's text (drag a row, or use the arrow keys on its handle), and
- * whether the playing song's cover shows there.
+ * Appearance → Collapsed island: the order in which the lyric line and a todo claim the
+ * collapsed island's text (drag a row, or use the arrow keys on its handle), and whether the
+ * playing song's cover shows there.
  */
 export function CollapsedIslandSection({
   settings,

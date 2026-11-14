@@ -10,7 +10,7 @@
 
 ## 项目概览
 
-FocuSD Island（仓库名 fly-island）是 Windows 优先的桌面效率工具，以透明、无边框、始终置顶的 Tauri 悬浮岛形式运行。主要功能：待办、每日笔记与归档，外观设置与预设，媒体控制，剪贴板历史，快捷翻译，QQ 通知、QQ 邮箱和微信提醒，AI 代理状态，以及自动更新。
+FocuSD Island（仓库名 fly-island）是 Windows 优先的桌面效率工具，以透明、无边框、始终置顶的 Tauri 悬浮岛形式运行。主要功能：待办、每日笔记与归档，外观设置与预设，媒体控制，剪贴板历史，快捷翻译，QQ 通知、QQ 邮箱和微信提醒，Cindy 通知，以及自动更新。
 
 应用有三个窗口，前端通过同一入口的 `?window=` 参数分发：
 
@@ -47,7 +47,7 @@ FocuSD Island（仓库名 fly-island）是 Windows 优先的桌面效率工具�
 └── README*.md           # 中英文项目说明
 ```
 
-注意：被 `include_str!` 编译进 Rust 二进制的脚本放在使用它们的模块旁边（`src-tauri/src/agent_status/hooks/`、`src-tauri/src/qq_notifications/`），修改它们按 Rust 改动验证。
+注意：被 `include_str!` 编译进 Rust 二进制的脚本放在使用它们的模块旁边（如 `src-tauri/src/qq_notifications/`），修改它们按 Rust 改动验证。
 
 ## 常用命令
 
@@ -95,7 +95,7 @@ FocuSD Island（仓库名 fly-island）是 Windows 优先的桌面效率工具�
 - `localStorage` key（`focusd-island-*`，完整清单见 [contracts.md](docs/architecture/contracts.md)）及其存储的数据格式
 - Tauri 命令名（即 Rust 函数名）、参数名，以及事件名
 - 窗口 label（`main` / `translation` / `settings`）和 `?window=` 参数值
-- 应用标识 `com.focusd.island`、开机自启注册表值 `FocuSD Island`、凭据管理器条目、应用数据目录下的文件名（如 `agent-status.json`）
+- 应用标识 `com.focusd.island`、开机自启注册表值 `FocuSD Island`、凭据管理器条目、应用数据目录下的文件名（如 `legacy-agent-hooks-removed.flag`）
 - 更新端点和 `latest.json` 格式
 
 确实需要变更时，必须在同一个提交里同步修改前后端，提供旧数据的迁移或兼容读取，并在提交说明中写明。

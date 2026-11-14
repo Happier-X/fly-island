@@ -8,24 +8,22 @@ export const SETTINGS_CATEGORIES = [
   "clipboard",
   "screenshot",
   "messages",
-  "agents",
-  "agentSource",
+  "notifications",
   "about",
 ] as const;
 
 export type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 
-export type SettingsGroup = "basics" | "features" | "agents";
+export type SettingsGroup = "basics" | "features";
 
 /**
  * Sidebar sections: app-wide settings, one page per module (QQ, WeChat and Mail share Messages,
- * the file shelf shares Clipboard), the two AI Agent pages (sessions and alerts, data source). A
- * null label sets About apart as the last group of the list, right below Connection.
+ * the file shelf shares Clipboard, Cindy notifications have one page), then About, set apart as
+ * the last group.
  */
 export const SETTINGS_GROUPS: readonly { label: SettingsGroup | null; categories: readonly SettingsCategory[] }[] = [
   { label: "basics", categories: ["general", "appearance"] },
-  { label: "features", categories: ["todos", "music", "translation", "clipboard", "screenshot", "messages"] },
-  { label: "agents", categories: ["agents", "agentSource"] },
+  { label: "features", categories: ["todos", "music", "translation", "clipboard", "screenshot", "messages", "notifications"] },
   { label: null, categories: ["about"] },
 ];
 
@@ -38,10 +36,12 @@ const MERGED_CATEGORIES: Readonly<Record<string, SettingsCategory>> = {
   mail: "messages",
   updates: "about",
   shelf: "clipboard",
-  agentAlerts: "agents",
-  sounds: "agents",
-  agentApprovals: "agents",
-  agentConnect: "agentSource",
+  agents: "notifications",
+  agentSource: "notifications",
+  agentAlerts: "notifications",
+  agentApprovals: "notifications",
+  agentConnect: "notifications",
+  sounds: "notifications",
 };
 
 /** The page a category name opens, old names included; null when there is no such page. */

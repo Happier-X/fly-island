@@ -101,18 +101,6 @@ test("options no longer in Settings load as their defaults, whatever was saved",
     shelfDoubleClick: "reveal",
     shelfShowCount: false,
     gameAutoTuck: true,
-    agentVisibleRows: 5,
-    agentHostDisplay: "both",
-    agentSessionHours: 24,
-    agentShowClaudeCode: false,
-    agentShowCodex: false,
-    agentHideFinished: true,
-    agentShowElapsed: true,
-    agentAlertStarted: "off",
-    agentAlertFailed: false,
-    agentAlertSeconds: 30,
-    agentRemindSeconds: 0,
-    agentQuotaAlertPercent: 0,
   };
   const normalized = normalizeSettings(saved);
   for (const key of Object.keys(saved)) assert.deepEqual(normalized[key], DEFAULT_SETTINGS[key], key);
@@ -129,10 +117,11 @@ test("the options still in Settings are read back and fall back for older settin
   assert.equal(normalizeSettings({ gameDoNotDisturb: false }).gameDoNotDisturb, false);
   assert.equal(normalizeSettings({ gameDoNotDisturb: "no" }).gameDoNotDisturb, true);
   assert.equal(normalizeSettings({ carryOverIncompleteTodos: false }).carryOverIncompleteTodos, false);
-  assert.equal(normalizeSettings({ agentAlertWaiting: false, agentAlertCompleted: false }).agentAlertCompleted, false);
+  assert.equal(normalizeSettings({ cindyNotifyDone: false, cindyNotifyError: false }).cindyNotifyError, false);
+  assert.equal(older.cindyNotificationsEnabled, true);
   assert.equal(normalizeSettings({ shelfAutoCleanupDays: 7 }).shelfAutoCleanupDays, 7);
   assert.equal(normalizeSettings({ shelfAutoCleanupDays: 3 }).shelfAutoCleanupDays, 0);
-  for (const key of ["todoEnabled", "musicEnabled", "agentStatusEnabled", "agentTitleEnabled", "mailEnabled", "shelfEnabled", "translationEnabled"]) {
+  for (const key of ["todoEnabled", "musicEnabled", "cindyNotificationsEnabled", "cindyNotifyDone", "cindyNotifyQuestion", "cindyNotifyScheduled", "cindyNotifyError", "mailEnabled", "shelfEnabled", "translationEnabled"]) {
     assert.equal(older[key], true, key);
     assert.equal(normalizeSettings({ [key]: false })[key], false, key);
     assert.equal(normalizeSettings({ [key]: "no" })[key], true, key);

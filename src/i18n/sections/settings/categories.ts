@@ -3,7 +3,6 @@ export type SettingsCategoriesText = {
   groups: {
     basics: string;
     features: string;
-    agents: string;
   };
   general: string;
   appearance: string;
@@ -19,9 +18,8 @@ export type SettingsCategoriesText = {
   translation: string;
   /** The file shelf's group on the Clipboard page. */
   shelf: string;
-  /** The AI Agent group's pages. */
-  agents: string;
-  agentSource: string;
+  /** Cindy notifications: one page with the switches, the sound and the data source. */
+  notifications: string;
   about: string;
 };
 
@@ -30,7 +28,6 @@ export const zhCN: SettingsCategoriesText = {
   groups: {
     basics: "基础",
     features: "功能",
-    agents: "AI Agent",
   },
   general: "通用",
   appearance: "外观",
@@ -43,8 +40,7 @@ export const zhCN: SettingsCategoriesText = {
   screenshot: "截图",
   translation: "翻译",
   shelf: "文件中转",
-  agents: "会话与提醒",
-  agentSource: "数据来源",
+  notifications: "Cindy 通知",
   about: "关于",
 };
 
@@ -53,7 +49,6 @@ export const en: SettingsCategoriesText = {
   groups: {
     basics: "Basics",
     features: "Features",
-    agents: "AI Agent",
   },
   general: "General",
   appearance: "Appearance",
@@ -66,7 +61,6 @@ export const en: SettingsCategoriesText = {
   screenshot: "Screenshots",
   translation: "Translation",
   shelf: "File shelf",
-  agents: "Sessions & alerts",
-  agentSource: "Data source",
+  notifications: "Cindy notifications",
   about: "About",
 };

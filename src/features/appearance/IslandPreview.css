@@ -61,7 +61,7 @@
 
 /*
  * Keep room for the largest scale: at that size the drawing fills 92% of the pane. Padding,
- * corners and everything inside (AgentPagePreview.css) follow the real island's proportions.
+ * corners and everything inside (ExpandedPreview.css) follow the real island's proportions.
  */
 .island-preview__island--expanded {
   --u: calc(92cqw / var(--preview-expanded-max-scale) / 660);
@@ -91,26 +91,25 @@
   white-space: nowrap;
 }
 
-.island-preview__provider {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  border-radius: 3px;
-}
-
-/* The session ring (built-in plugin) with the number of sessions, at the bar's right end. */
-.island-preview__ring {
-  width: 20px;
+/* The Cindy notification badge, with the number waiting, at the bar's right end. */
+.island-preview__badge {
   height: 20px;
   flex: none;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   margin-left: auto;
-  border: 2px solid rgba(61, 139, 255, 0.35);
-  border-radius: 50%;
-  color: var(--color-agent-running);
+  padding: 0 6px;
+  color: var(--color-light-needs);
+  background: rgba(255, 69, 58, 0.16);
+  border-radius: var(--radius-pill);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
+}
+
+.island-preview__badge svg {
+  width: 10px;
+  height: 10px;
 }
 
 .island-preview--font-pixel .island-preview__island {

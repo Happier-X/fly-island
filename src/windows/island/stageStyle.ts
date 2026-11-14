@@ -31,7 +31,7 @@ export function getIslandStageStyle(
     "--island-pulse-glow-color": hexToRgba(settings.pulseColor, 0.72),
     "--island-pulse-brightness": `${settings.pulseBrightness}%`,
     "--island-background-color": settings.islandBackgroundColor,
-    // Text drawn straight on the island (the Agent page) flips to dark on a light background.
+    // Text drawn straight on the island (the music page) flips to dark on a light background.
     "--island-ink-rgb": inkOn(settings.islandBackgroundColor),
     "--glass-intensity": glassStrength,
     "--glass-mask-opacity": glassMaskOpacity,

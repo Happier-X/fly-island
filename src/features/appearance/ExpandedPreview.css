@@ -1,0 +1,108 @@
+/*
+ * The expanded island in the appearance preview (IslandPreview.css sets --u, one real pixel at
+ * the preview's width): the header and todo page in the island's proportions, so the drawing
+ * grows with the pane instead of leaving small text in a wide island.
+ */
+.expanded-preview {
+  --ink-1: rgba(var(--preview-ink), 0.96);
+  --ink-2: rgba(var(--preview-ink), 0.68);
+  --ink-3: rgba(var(--preview-ink), 0.54);
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: calc(10 * var(--u));
+  color: var(--ink-1);
+  font-size: calc(12 * var(--u));
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.expanded-preview svg {
+  flex: none;
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+}
+
+.expanded-preview__header {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  height: calc(34 * var(--u));
+}
+
+.expanded-preview__brand {
+  font-size: calc(14 * var(--u));
+  font-weight: 600;
+}
+
+.expanded-preview__dots {
+  display: flex;
+  align-items: center;
+  gap: calc(9 * var(--u));
+}
+
+.expanded-preview__page {
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  border-radius: 50%;
+}
+
+.expanded-preview__page--todo { background: var(--color-accent); }
+.expanded-preview__page--music { background: #b69cff; }
+.expanded-preview__page--clipboard { background: #f4a7c4; }
+.expanded-preview__page--shelf { background: #d8d6cf; }
+
+.expanded-preview__buttons {
+  display: flex;
+  gap: calc(8 * var(--u));
+  margin-left: auto;
+}
+
+.expanded-preview__button {
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(var(--preview-ink), 0.08);
+  color: var(--ink-2);
+}
+
+.expanded-preview__list {
+  display: grid;
+  gap: calc(2 * var(--u));
+}
+
+.expanded-preview__row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(8 * var(--u)) 0;
+  color: var(--ink-3);
+}
+
+.expanded-preview__check {
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  flex: none;
+  border: calc(1.5 * var(--u)) solid rgba(var(--preview-ink), 0.38);
+  border-radius: 50%;
+}
+
+.expanded-preview__row--active .expanded-preview__check {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.expanded-preview__task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(14 * var(--u));
+}
+
+.expanded-preview__row--active .expanded-preview__task {
+  color: var(--ink-1);
+  font-weight: 600;
+}

@@ -15,12 +15,12 @@ import type { SettingsLanguageText } from "./language";
 import type { SettingsAppearanceText } from "./appearance";
 import type { SettingsLayoutText } from "./layout";
 import type { SettingsTodoText } from "./todo";
-import type { SettingsAgentText } from "./agent";
+import type { SettingsNotificationsText } from "./notifications";
 import type { SettingsClipboardText } from "./clipboard";
 import type { SettingsScreenshotText } from "./screenshot";
 import type { SettingsColorsText } from "./colors";
 import type { SettingsSaveText } from "./save";
-import type { SettingsSoundsText } from "./sounds";
+
 import * as fileShelf from "./fileShelf.ts";
 import * as modules from "./modules.ts";
 import * as messageSources from "./messageSources.ts";
@@ -38,12 +38,12 @@ import * as language from "./language.ts";
 import * as appearance from "./appearance.ts";
 import * as layout from "./layout.ts";
 import * as todo from "./todo.ts";
-import * as agent from "./agent.ts";
+import * as notifications from "./notifications.ts";
 import * as clipboard from "./clipboard.ts";
 import * as screenshot from "./screenshot.ts";
 import * as colors from "./colors.ts";
 import * as save from "./save.ts";
-import * as sounds from "./sounds.ts";
+
 
 export type SettingsText = {
   fileShelf: SettingsFileShelfText;
@@ -80,7 +80,7 @@ export type SettingsText = {
 
   todo: SettingsTodoText;
 
-  agent: SettingsAgentText;
+  notifications: SettingsNotificationsText;
 
   clipboard: SettingsClipboardText;
 
@@ -90,7 +90,6 @@ export type SettingsText = {
 
 
   save: SettingsSaveText;
-  sounds: SettingsSoundsText;
 };
 
 export const zhCN: SettingsText = {
@@ -127,7 +126,7 @@ export const zhCN: SettingsText = {
 
   todo: todo.zhCN,
 
-  agent: agent.zhCN,
+  notifications: notifications.zhCN,
 
   clipboard: clipboard.zhCN,
 
@@ -137,7 +136,6 @@ export const zhCN: SettingsText = {
 
 
   save: save.zhCN,
-  sounds: sounds.zhCN,
 };
 
 export const en: SettingsText = {
@@ -174,7 +172,7 @@ export const en: SettingsText = {
 
   todo: todo.en,
 
-  agent: agent.en,
+  notifications: notifications.en,
 
   clipboard: clipboard.en,
 
@@ -184,5 +182,4 @@ export const en: SettingsText = {
 
 
   save: save.en,
-  sounds: sounds.en,
 };

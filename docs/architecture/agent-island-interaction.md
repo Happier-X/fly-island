@@ -1,6 +1,6 @@
 # Agent 岛上交互：提醒、声音、审批与回答
 
-> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/agent-status.md](../agent-status.md) 和 [docs/design/agent.md](../design/agent.md) 为准。
+> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/cindy-notifications.md](../cindy-notifications.md) 和 [docs/design/notifications.md](../design/notifications.md) 为准。
 
 
 > 状态：方案，2026-11-06。用户希望岛屿在 Agent 方面做到同类 macOS 刘海岛工具的水平，重点是 **Agent 音效**，以及**会话完成、需要审批或提问时自动弹出面板，直接在岛上处理，不用切回终端**。参考截图在本机 `E:\Projects\design-refs\vibe-island-settings`（12 张设置页、3 张岛上卡片），**不进仓库**。

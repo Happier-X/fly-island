@@ -1,6 +1,6 @@
 # AI Agent 会话标题（设计）
 
-> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/agent-status.md](../agent-status.md) 和 [docs/design/agent.md](../design/agent.md) 为准。
+> **历史文档。** 2026-11-12 起，AI Agent 区改成只读 Cindy 自己的会话数据库，Codex / Claude Code 的钩子接入已删除。本文记录当时的方案与实测，具体实现请以 [docs/cindy-notifications.md](../cindy-notifications.md) 和 [docs/design/notifications.md](../design/notifications.md) 为准。
 
 
 > 状态：**已实施，后经调整**（2026-11-04）。用户确认：小岛显示"Agent 图标 + 会话标题"。

@@ -1,0 +1,19 @@
+/* The data source row's state: a small icon and a sentence in the row's title. */
+.notification-source__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notification-source__icon {
+  flex: 0 0 auto;
+  color: var(--color-success);
+}
+
+.notification-source__state--quiet .notification-source__icon {
+  color: var(--text-3);
+}
+
+.notification-source__state--attention .notification-source__icon {
+  color: var(--color-warning);
+}

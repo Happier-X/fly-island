@@ -1,7 +1,6 @@
 import { messagePanelHeight, type MessageView } from "../../features/messages/Messages";
 import type { TodoItem, TodoPageMode } from "../../features/todos/types";
-import { BASE_EXPANDED_ISLAND_HEIGHT, DAILY_NOTE_EXPANDED_ISLAND_HEIGHT, MUSIC_EXPANDED_ISLAND_HEIGHT, TODO_ARCHIVE_EXPANDED_ISLAND_HEIGHT, TODO_GROW_START_ROWS, TODO_ROW_HEIGHT, getAgentAlertExpandedHeight, getAgentPageExpandedHeight, getClipboardExpandedHeight, getTodoScrollStartRows, getTodoVisualRows } from "./layout";
-import type { AgentSessionView } from "../../features/appearance/types";
+import { BASE_EXPANDED_ISLAND_HEIGHT, DAILY_NOTE_EXPANDED_ISLAND_HEIGHT, MUSIC_EXPANDED_ISLAND_HEIGHT, TODO_ARCHIVE_EXPANDED_ISLAND_HEIGHT, TODO_GROW_START_ROWS, TODO_ROW_HEIGHT, getClipboardExpandedHeight, getTodoScrollStartRows, getTodoVisualRows } from "./layout";
 import { getShelfLayout } from "../../features/file-shelf/fileShelf";
 import type { IslandPage } from "./types";
 
@@ -51,11 +50,6 @@ type ExpandedHeightInput = {
   isReadingMail: boolean;
   maxPanelHeight: number;
   clipboardVisibleRows: number;
-  agentVisibleRows: number;
-  /** How the Agent page shows sessions (Settings); each view has its own row height. */
-  agentSessionView?: AgentSessionView;
-  /** An alert's one-session card instead: the height its row measured. */
-  agentAlertRowHeight?: number;
   /** The height the open settings page needs, or null before it is measured. */
   settingsContentHeight?: number | null;
   /** Entries on the file shelf; its page fits their rows of tiles. */
@@ -65,8 +59,8 @@ type ExpandedHeightInput = {
 /**
  * Height of the expanded island for the open page. The todo page grows with its
  * rows, and the todo, shelf and message pages stop at the panel height limit;
- * the clipboard and Agent pages show the row counts set for them, and the music and archive
- * layouts keep their fixed heights.
+ * the clipboard page shows the row count set for it, and the music and archive layouts keep
+ * their fixed heights.
  */
 export function getExpandedIslandHeight({
   page,
@@ -77,9 +71,6 @@ export function getExpandedIslandHeight({
   isReadingMail,
   maxPanelHeight,
   clipboardVisibleRows,
-  agentVisibleRows,
-  agentSessionView = "list",
-  agentAlertRowHeight,
   settingsContentHeight = null,
   shelfItems = 0,
 }: ExpandedHeightInput) {
@@ -112,10 +103,6 @@ export function getExpandedIslandHeight({
         ? Math.min(getShelfExpandedHeight(shelfItems), maxPanelHeight)
       : page === "translation"
         ? Math.min(TRANSLATION_EXPANDED_ISLAND_HEIGHT, maxPanelHeight)
-      : page === "agents"
-        ? agentAlertRowHeight !== undefined
-          ? getAgentAlertExpandedHeight(agentAlertRowHeight)
-          : getAgentPageExpandedHeight(agentVisibleRows, agentSessionView)
       : page === "clipboard"
         ? getClipboardExpandedHeight(clipboardVisibleRows)
         : Math.min(messagePanelHeight(messageSource, isReadingMail), maxPanelHeight);

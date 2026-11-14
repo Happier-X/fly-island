@@ -1,5 +1,5 @@
 import { useCallback, type KeyboardEvent, type ReactNode } from "react";
-import { AudioLines, Inbox, Mail } from "lucide-react";
+import { AudioLines, Bell, Inbox, Mail } from "lucide-react";
 import { usePointerReorder } from "../../components/reorder/usePointerReorder";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
 import { SettingsLinkButton } from "../../components/settings/SettingsLinkButton";
@@ -16,15 +16,15 @@ function slotsOn(settings: IslandSettings): Record<CollapsedSlot, boolean> {
     mail: settings.mailEnabled,
     shelf: settings.shelfEnabled && settings.shelfShowCount,
     music: settings.musicEnabled,
-    agents: true,
+    notifications: true,
   };
 }
 
 /**
  * Appearance → On the island: a collapsed island to arrange by hand. Hold the text or a status
  * icon and drag it left or right (or press the arrow keys on it); icons left of the text sit on
- * the island's left. Like the real island, the agent count shows as the tuck dot while the AI
- * Agent switch is off.
+ * the island's left. Like the real island, the notification slot is the tuck dot while the
+ * Cindy notifications switch is off.
  */
 export function CollapsedLayoutEditor({
   settings,
@@ -56,7 +56,7 @@ export function CollapsedLayoutEditor({
     mail: <Mail size={15} strokeWidth={1.6} absoluteStrokeWidth />,
     shelf: <><Inbox size={13} strokeWidth={1.6} absoluteStrokeWidth />2</>,
     music: <AudioLines size={15} strokeWidth={1.6} absoluteStrokeWidth />,
-    agents: settings.agentStatusEnabled ? "1" : null,
+    notifications: settings.cindyNotificationsEnabled ? <><Bell size={13} strokeWidth={1.6} absoluteStrokeWidth />1</> : null,
   };
 
   return (
@@ -74,7 +74,7 @@ export function CollapsedLayoutEditor({
               className={[
                 "collapsed-layout__slot",
                 `collapsed-layout__slot--${slot}`,
-                slot === "agents" && !settings.agentStatusEnabled ? "collapsed-layout__slot--tuck" : "",
+                slot === "notifications" && !settings.cindyNotificationsEnabled ? "collapsed-layout__slot--tuck" : "",
                 on[slot] ? "" : "collapsed-layout__slot--off",
                 draggingId === slot ? "collapsed-layout__slot--dragging" : "",
               ].filter(Boolean).join(" ")}

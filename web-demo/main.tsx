@@ -29,8 +29,10 @@ localStorage.setItem(LOCALE_STORAGE_KEY, language === "en" ? "en" : "zh-CN");
 localStorage.setItem("focusd-island-current-date", `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
 localStorage.setItem("focusd-island-detached-settings", "false");
 localStorage.setItem("focusd-island-qq-notification-access-requested", "true");
-// A started task shows on the collapsed island ahead of the Agent task, so starting one is visible.
-localStorage.setItem("focusd-island-settings", JSON.stringify({ lyricsOnline: true, collapsedPriority: ["todo", "agent", "lyrics"] }));
+// Started tasks show on the collapsed island, so starting one is visible.
+localStorage.setItem("focusd-island-settings", JSON.stringify({ lyricsOnline: true, collapsedPriority: ["todo", "lyrics"] }));
+// Two Cindy notifications are waiting in the demo; the island only shows events after its watermark.
+localStorage.setItem("focusd-island-cindy-notifications-seen", JSON.stringify({ watermark: now - 3_600_000 }));
 localStorage.setItem("focusd-island-todos", JSON.stringify(data.todos.map((title, index) => ({
   id: `t${index}`, title, completed: index === 2, createdAt: now - (3 - index) * 3_600_000,
 }))));

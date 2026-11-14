@@ -13,7 +13,7 @@ const mailbox = (email: string, extra: Partial<MailSnapshot> = {}): MailSnapshot
 });
 let mailboxes: MailSnapshot[] = [mailbox("demo@qq.com"), mailbox("louis@163.com", { status: "authRequired", enabled: false, unreadCount: null })];
 export const translationShortcutCalls: string[] = [];
-/** Cindy's database, as the data source page shows it. */
+/** Cindy's database, as the notifications page shows it. */
 export const CINDY_DATABASE = "C:\\Users\\demo\\AppData\\Roaming\\Cindy\\cindy-1.db";
 // Kept like the native store, so a page opened again reads back what was saved.
 let clipboardSettings = { enabled: true, captureImages: true, maxItems: 100, shortcut: "Ctrl+Shift+V", shortcutEnabled: true };
@@ -30,8 +30,8 @@ mockIPC((command, payload) => {
     case "set_clipboard_history_settings":
       clipboardSettings = { ...clipboardSettings, ...(args.settings as object | undefined) };
       return { settings: clipboardSettings, items: [] };
-    case "get_agent_status": return { cindy: { phase: "idle", updatedAt: 0 }, updatedAt: 0, statusPath: CINDY_DATABASE };
-    case "list_agent_sessions": return [];
+    case "get_cindy_notifications": return { items: [], databasePath: CINDY_DATABASE, checkedAt: Date.now(), error: null };
+    case "agent_window_in_front": return false;
     // The capture page asks the overlay side for its toolbar and key names; empty is a valid answer.
     case "get_screenshot_settings": return { ...DEFAULT_SCREENSHOT_SETTINGS };
     case "set_screenshot_settings": return null;
@@ -62,7 +62,6 @@ mockIPC((command, payload) => {
     case "updater_configured": return true;
     case "get_updater_proxy": return null;
     case "plugin:app|version": return "0.0.0-test";
-    case "list_sound_packs": return [{ id: "chimes-1", name: "Chimes", author: "Ann", license: "CC0-1.0", sounds: { complete: "complete.wav", error: "error.wav" } }];
     default: return null;
   }
 }, { shouldMockEvents: true });

@@ -30,8 +30,10 @@
 | `focusd-island-wechat-reminders-enabled` | `features/messages/wechat/storage.ts` |
 | `focusd-island-translation-settings` | `features/translation/storage.ts` |
 | `focusd-island-agent-approval`（2026-11-12 起不再读写：Cindy 的授权卡在它自己的界面里，岛上不再拦截审批；旧值留在原处不删） | — |
-| `focusd-island-agent-hidden-sessions`（`{ "cindy:<sessionId>": updatedAt }`：在 Agent 页手动移除的会话，只隐藏不删记录；值是移除时那一轮的开始时间（以前存的是最后写入时间），开始新一轮才自动回来，最多 200 条） | `features/agent-status/hiddenSessions.ts` |
-| `focusd-island-agent-seen-turns`（`{ "cindy:<sessionId>": 轮次 }`：在 Agent 页看过的会话，轮次是这一轮的开始时间，卡在半路时是最后写入时间；重启岛屿后看过的不再提醒，最多 300 条） | `features/agent-status/unseen.ts` |
+| `focusd-island-agent-hidden-sessions`（2026-11-14 起不再读写：Agent 页已删除，旧值留在原处不删） | — |
+| `focusd-island-agent-seen-turns`（2026-11-14 起不再读写：按会话的已读表换成下面的通知水位，旧值留在原处不删） | — |
+| `focusd-island-cindy-notifications-seen`（`{ watermark }`：Cindy 通知的本地水位，Unix 毫秒；比它新的事件才算未处理，只增不减，只在变化时写） | `features/cindy-notifications/storage.ts` |
+| `focusd-island-agent-sounds`（`{ enabled }`：提示音开关；旧版存的音量、音效包、事件和静音时段不再读取，键名沿用） | `features/cindy-notifications/sounds/storage.ts` |
 | `focusd-island-agent-session-filters`（2026-11-09 起不再读写：隐藏会话规则已去掉，旧规则不再生效；格式曾为 `[{ kind: "folder" | "prompt", value }]`） | — |
 | 外观主题文件（2026-11-08 起；`fly-island-theme-<日期时间>.json`，写到「下载」文件夹，命令 `save_theme_file`，Rust 端按文件名前缀和内容放行；`{ app: "fly-island", kind: "theme", version: 1, name, exportedAt, appearance }`，`appearance` 只含 `features/appearance/settings.ts` 的 `APPEARANCE_SETTING_KEYS`；导入时只读这些字段，叠在当前设置上经 `normalizeSettings` 校验后存成一个新的样式预设，不自动应用） | `features/appearance/theme.ts` |
 | `focusd-island-locale` | `i18n/index.ts` |
@@ -67,18 +69,19 @@
 - 应用标识 `com.focusd.island`，凭据服务名 `com.focusd.island.qq-mail`、`com.focusd.island.translation`。
 - 注册表值：`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `FocuSD Island`。
 - 旧版本写入的 Agent 钩子（2026-11-12 起不再安装）：`~/.claude/settings.json` 里带 `focusd-agent-` 签名的条目、`~/.codex/config.toml` 里 `# BEGIN/END FocuSD Agent Status Hooks` 之间的托管块。新版首次启动时只删这些，用户手写的内容保留，删完在应用数据目录写下 `legacy-agent-hooks-removed.flag`（同一份目录下已有同名文件时不再动那两个配置文件）。
-- AI Agent 数据来源（2026-11-12 起）：只读 Cindy 的本地 SQLite 数据库 `%APPDATA%\Cindy\cindy-*.db`（新版的 `sessions` 表、`messages` 表），见 [docs/agent-status.md](../agent-status.md)。
+- Cindy 通知的数据来源（2026-11-14 起）：只读 Cindy 的本地 SQLite 数据库 `%APPDATA%\Cindy\cindy-*.db`（`sessions`、`messages`、`schedule_runs` / `schedules`、`subagent_runs`），见 [docs/cindy-notifications.md](../cindy-notifications.md)。
 - 更新端点与 `latest.json` 格式：见 `tauri.conf.json` 和 `docs/updater.md`。
-- Agent 状态命令（2026-11-12 起）：`get_agent_status`（返回 `{ cindy, updatedAt, statusPath }`，`statusPath` 是读到的 Cindy 数据库路径，找不到时为空字符串）、`list_agent_sessions`（可选 `windowHours`，1–24，默认 2）、`focus_agent_window`（把 Cindy 的窗口拿到前台，返回是否找到）、`agent_window_in_front`（Cindy 是否就在前台）。旧的 `install_agent_status_hooks`、`get_agent_hooks_state`、`clear_agent_status`、`agent_sessions_in_front`、`get_agent_host_icon`、`get_agent_usage`、`get_codex_usage`、`set_reply_marker`、`get_reply_marker_state`、`list_agent_effort_labels` 与审批端点全部删除。
+- Cindy 通知命令（2026-11-14 起）：`get_cindy_notifications`（返回 `{ items: [{ kind, key, at }], databasePath, checkedAt, error }`；`kind` 为 `done` / `question` / `scheduled` / `error`，`databasePath` 找不到时为空字符串，读不出来时 `error` 带原因而不是命令失败）、`focus_agent_window`（把 Cindy 的窗口拿到前台，返回是否找到）、`agent_window_in_front`（Cindy 是否就在前台）。旧的 `get_agent_status`、`list_agent_sessions` 与音效包命令 `list_sound_packs` / `import_sound_pack` / `remove_sound_pack` / `read_sound_pack_file` / `open_sound_pack_folder` 已删除；更早的钩子、审批与额度命令见上一节的历史记录。
 - 歌词缓存（2026-11-06 起）：应用数据目录下的 `lyrics-cache/<FNV-1a 哈希>.json`（`{ key, lrc, source?, translation?, wordTimes?, durationMs?, durations?, fetchedAt }`；`lrc` 可带增强 LRC 的逐字时间 `<mm:ss.xx>`（酷狗 KRC 转来）；`wordTimes` 为 true 的条目由保留逐字时间的版本写入，没有它的酷狗旧条目会重新下载；`durations` 为 true 的条目由记录歌曲时长的版本写入（`durationMs` 是来源给的时长，可为空），没有它的旧条目会重新查一次（2026-11-10）；`lrc` 为 null 表示所有在线来源都没有，7 天后重查；`source` 为 `lrclib` / `kugou` / `netease`，没有时是 LRCLIB 的旧条目；开着中文来源时 key 末尾多 `cn`；最多 2000 个文件）。设置项 `lyricsFolder`、`lyricsOnline`（2026-11-10 起默认开，保存过 false 的仍为关）、`lyricsChinese`（也查酷狗和网易云，同样默认开）、`lyricsOffsetMs`。每首歌自己的偏移存在 localStorage `focusd-island-lyrics-offsets`（`{ <歌名歌手时长/2 秒>: 毫秒 }`，±10 秒，最多 500 首）。媒体状态多了 `trackId`：播放器插件写进流派的歌曲 ID（`NCM-<id>`、`QQ-<id>`），`get_lyrics` 的查询多了 `chinese`、`trackId`，返回值多了 `translation`，2026-11-10 起还有可选的 `durationMs`（来源给的歌曲时长，播放器不报告时长时用于进度条）。
-- 岛屿设置 `focusd-island-settings` 2026-11-10 新增三个字段：`collapsedPriority`（`["agent","lyrics","todo"]` 的某种顺序，收起的岛先显示哪一样）、`collapsedShowCover`（布尔，默认 false）、`pageOrder`（`["todo","music","clipboard","shelf"]` 的某种顺序，展开岛顶栏的页面圆点）；同日又加 `collapsedLayout`（`["text","mail","shelf","music","agents"]` 的某种顺序，收起的岛上文字和状态图标从左到右的位置，`text` 之前的图标在文字左边）。读取时去掉未知和重复项，缺的按默认顺序补在末尾。
+- 岛屿设置 `focusd-island-settings` 2026-11-10 新增三个字段：`collapsedPriority`（`["lyrics","todo"]` 的某种顺序，收起的岛先显示哪一样；2026-11-14 起去掉了 `"agent"`）、`collapsedShowCover`（布尔，默认 false）、`pageOrder`（`["todo","music","clipboard","shelf"]` 的某种顺序，展开岛顶栏的页面圆点）；同日又加 `collapsedLayout`（`["text","mail","shelf","music","notifications"]` 的某种顺序，收起的岛上文字和状态图标从左到右的位置，`text` 之前的图标在文字左边；旧数据里的 `"agents"` 读成 `"notifications"`）。读取时去掉未知和重复项，缺的按默认顺序补在末尾。
 - 岛屿设置 `focusd-island-settings` 的 `pageOrder` 2026-11-11 起多一个可选项 `"translation"`（翻译的页面胶囊），默认顺序 `["todo","music","clipboard","shelf","translation"]`；旧数据缺它时按上面的规则补在末尾，旧版本读到它会当未知项丢掉。
 - 岛屿设置 `focusd-island-settings` 2026-11-11 新增 `autoCollapseSeconds`（3 / 5 / 10 / 30 / 0，0 表示从不；展开的岛闲置多少秒后自动收起）。不在这几个值里、或旧数据没有这个字段时：`autoTuck` 为 true 读成 30，否则读成 0。
 - 岛屿设置 `focusd-island-settings` 的 `expandedScale`（展开后的大小）2026-11-10 重新可以设置；2026-11-11 起是 0.85–1.2 之间的任意值（滑块，步长 0.01）。3.0.0 存的 0.9 / 1 / 1.1（小 / 中 / 大）原样保留；更早版本存的任意数（原范围 0.75–1.4）读取时限制到 0.85–1.2 并取到百分位，非数字按 1。字段名和类型不变。
 - 岛屿设置 `focusd-island-settings` 的 `gameDoNotDisturb`（布尔，默认 true）2026-11-11 重新可以设置（通用 → 岛屿 → 游戏模式）：只有明确存为 false 才关；`gameAutoTuck` 仍按默认 false 读取。字段名和类型不变，没有新 key。
 - 岛屿设置 `focusd-island-settings` 新增 `positionLocked`（布尔，默认 false）：只在明确保存为 true 时禁止拖动。旧数据缺失或类型无效时保持可拖动。`set_island_interaction` 增加可选参数 `positionLocked`，缺失时按 false；`start_island_drag` 在锁定时不启动拖动。复位和贴边隐藏不受影响。
-- Agent 页显示方式（2026-11-07 起）：设置项 `agentSessionView`（`list` / `cards` / `compact`，默认 `list`）、`agentArchiveMotion`（`slide` / `dissolve`，默认 `slide`）、`agentCardEffects`（`off` / `sparkle` / `gradient`，默认 `off`）；`AgentSessionSummary.contextTokens` 是 Cindy 记录的 `context_tokens`（当前上下文占用；不知道时为 null），`contextWindow` 是它的 `context_window`。
+- Agent 页显示方式（2026-11-07 起，2026-11-14 起不再读写）：`agentSessionView`、`agentArchiveMotion`、`agentCardEffects` 等只服务 Agent 页的字段已不再读取，旧值留在原处不删。
+- 岛屿设置 `focusd-island-settings` 2026-11-14 起与通知相关的字段：`cindyNotificationsEnabled`（总开关）、`cindyNotifyDone`、`cindyNotifyQuestion`、`cindyNotifyScheduled`、`cindyNotifyError`（四类事件，均为布尔，默认 true）。旧的 `agentStatusEnabled`、`agentTitleEnabled` 不再读取。
 - 回复状态标记（2026-11-12 起不再读写）：不再往 Claude 的规则文件里写任何内容，「等你回答」改由 Cindy 的 `ask_user` / `plan_review` 消息判断。仍有 `~/.claude/rules/focusd-island-reply-marker.md` 的机器可以手动删除。
-- Agent 页排列（2026-11-08 起）：设置项 `agentSessionSort`（`status` / `recent` / `firstSeen`，默认 `status`；旧数据没有这个字段时按 `status`）。2026-11-12 起会话只有 Cindy 一台电脑，`agentSessionGroup` 只剩 `project` / `none`（默认 `none`，旧的 `computer` 读成 `none`），`agentHostDisplay`、`agentShowClaudeCode`、`agentShowCodex`、`agentHideClosed`、`agentShowActivity`、`agentShowUsage`、`agentQuotaAlertPercent` 不再读写，旧值留在原处不删。
+- Agent 页排列（2026-11-08 起，2026-11-14 起不再读写）：`agentSessionSort`、`agentSessionGroup` 等随 Agent 页一起删除，旧值留在原处不删。
 
 总览见 [overview.md](overview.md)。

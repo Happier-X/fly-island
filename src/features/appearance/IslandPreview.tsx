@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
-import cindyIcon from "../../assets/brands/cindy.png";
+import { Bell } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { inkOn } from "../../utils/color";
-import { AgentPagePreview } from "./AgentPagePreview";
+import { ExpandedPreview } from "./ExpandedPreview";
 import { cornerShapeCss } from "./cornerShape";
 import { getEffectiveAppearanceMode, hexToRgba, MAX_EXPANDED_SCALE } from "./settings";
 import type { IslandSettings } from "./types";
@@ -10,10 +10,9 @@ import "./IslandPreview.css";
 
 /**
  * Appearance, first: the island drawn from the current settings, collapsed and expanded, on a
- * colourful wallpaper so opacity and glass show. Both show an Agent session, as the island does
- * while one is working: collapsed, the bar with its title and session ring; expanded, the Agent
- * page (AgentPagePreview). A drawing with sample content, not the island itself; the variables
- * mirror windows/island/stageStyle.ts, which features cannot import.
+ * colourful wallpaper so opacity and glass show. Collapsed shows the todo text and a Cindy
+ * notification badge; expanded shows the todo page. A drawing with sample content, not the
+ * island itself; the variables mirror windows/island/stageStyle.ts, which features cannot import.
  */
 export function IslandPreview({ settings }: { settings: IslandSettings }) {
   const text = useTranslation().settings.appearance.preview;
@@ -47,15 +46,14 @@ export function IslandPreview({ settings }: { settings: IslandSettings }) {
       <div className="island-preview__desktop">
         <div className={`${islandClass} island-preview__island--collapsed`}>
           <span className="island-preview__pulse" />
-          <img className="island-preview__provider" src={cindyIcon} alt="" draggable={false} />
-          {settings.showCollapsedText && <span className="island-preview__task">{text.sessions.needs.title}</span>}
-          <span className="island-preview__ring">1</span>
+          {settings.showCollapsedText && <span className="island-preview__task">{text.collapsedText}</span>}
+          <span className="island-preview__badge"><Bell size={10} strokeWidth={2} />1</span>
         </div>
         <figcaption className="island-preview__caption">{text.collapsed}</figcaption>
       </div>
       <div className="island-preview__desktop">
         <div className={`${islandClass} island-preview__island--expanded`}>
-          <AgentPagePreview />
+          <ExpandedPreview />
         </div>
         <figcaption className="island-preview__caption">{text.expanded}</figcaption>
       </div>
