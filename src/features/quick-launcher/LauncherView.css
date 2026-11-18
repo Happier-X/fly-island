@@ -1,0 +1,206 @@
+.launcher-stage {
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  background: transparent;
+}
+
+/* Same surface family as the translation window, so the panel belongs to the island. */
+.launcher-window {
+  --launcher-surface: #212227;
+  --launcher-border: var(--color-white-a12);
+  --launcher-divider: var(--color-white-a08);
+  --launcher-selection: var(--color-white-a10);
+  --launcher-error: #ff9aa6;
+  --launcher-text: #f2f1ed;
+  --launcher-muted: rgba(242, 241, 237, 0.62);
+  --launcher-subtle: rgba(242, 241, 237, 0.42);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--launcher-text);
+  /* Mostly dark whatever the island colour, so the light text stays readable. */
+  background: #1c1d21;
+  background: color-mix(in srgb, var(--launcher-surface) 24%, #15161a);
+  border: 1px solid var(--launcher-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.launcher-window button,
+.launcher-window input {
+  font: inherit;
+}
+
+.launcher-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  color: var(--launcher-muted);
+  border-bottom: 1px solid var(--launcher-divider);
+}
+
+.launcher-search__input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  color: var(--launcher-text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.launcher-search__input::placeholder {
+  color: var(--launcher-subtle);
+}
+
+.launcher-search__esc,
+.launcher-footer kbd {
+  flex: none;
+  padding: 2px 5px;
+  color: var(--launcher-muted);
+  background: transparent;
+  border: 1px solid var(--launcher-border);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.launcher-results {
+  flex: 1;
+  min-height: 0;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.launcher-result {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.launcher-result--selected {
+  background: var(--launcher-selection);
+}
+
+.launcher-result__icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: var(--launcher-muted);
+}
+
+.launcher-result__icon img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.launcher-result__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.launcher-result__name,
+.launcher-result__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-result__name {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.launcher-result__subtitle {
+  color: var(--launcher-subtle);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.launcher-empty {
+  margin: 0;
+  padding: 28px 18px;
+  color: var(--launcher-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.launcher-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 4px 14px 8px;
+  color: var(--launcher-subtle);
+  font-size: 11.5px;
+}
+
+.launcher-footer__keys {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.launcher-footer kbd {
+  padding: 1px 4px;
+}
+
+.launcher-footer__status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-footer__error {
+  color: var(--launcher-error);
+  text-align: right;
+}
+
+.launcher-result:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+@media (prefers-color-scheme: light) {
+  .launcher-window {
+    --launcher-text: #1b1d24;
+    --launcher-muted: #40434d;
+    --launcher-subtle: #515662;
+    --launcher-border: rgba(0, 0, 0, 0.16);
+    --launcher-divider: rgba(0, 0, 0, 0.1);
+    --launcher-selection: rgba(0, 0, 0, 0.08);
+    --launcher-error: #a22139;
+    background: #f6f7f9;
+    background: color-mix(in srgb, var(--launcher-surface) 8%, #f6f7f9);
+    color-scheme: light;
+  }
+}

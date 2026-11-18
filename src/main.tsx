@@ -5,6 +5,7 @@ import "./styles/fonts.css";
 import "./styles/base.css";
 import { IslandApp } from "./windows/island/IslandApp";
 import { TranslationWindow } from "./windows/translation/TranslationWindow";
+import { LauncherWindow } from "./windows/launcher/LauncherWindow";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
 import { I18nProvider } from "./i18n";
 import { trackIslandTopEdge } from "./windows/island/topEdge";
@@ -41,6 +42,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <I18nProvider>
       {windowKind === "translation" ? (
         <TranslationWindow />
+      ) : windowKind === "launcher" ? (
+        <LauncherWindow />
       ) : windowKind === "settings" ? (
         <SettingsWindow />
       ) : (

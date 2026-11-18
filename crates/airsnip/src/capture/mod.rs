@@ -7,6 +7,7 @@
 
 mod hdr;
 mod hdr_display;
+mod monitors;
 mod region;
 mod tonemap;
 
@@ -22,6 +23,8 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
+
+use monitors::{debug_enabled, fill_uncovered_monitors, log_monitor_layout};
 
 /// 一次抓屏结果：整个虚拟屏幕的像素与原点。
 pub struct CapturedScreen {
@@ -167,6 +170,10 @@ fn capture_region_bitblt(x: i32, y: i32, w: u32, h: u32) -> Result<CapturedScree
 ///
 /// 有显示器处于 HDR 模式时走 DDA + 色调映射，否则走 GDI `BitBlt`。
 pub fn capture_virtual_screen() -> Result<CapturedScreen, String> {
+    let debug = debug_enabled();
+    if debug {
+        log_monitor_layout();
+    }
     // HDR 路径返回 None 表示无需介入（纯 SDR 环境），继续走下面的 BitBlt。
     if let Some(result) = hdr::capture_virtual_screen() {
         let mut capture = result?;
@@ -175,94 +182,10 @@ pub fn capture_virtual_screen() -> Result<CapturedScreen, String> {
         fill_uncovered_monitors(&mut capture.screen, &capture.covered);
         return Ok(capture.screen);
     }
+    if debug {
+        eprintln!("[airsnip] 无 HDR 输出，整屏走 BitBlt");
+    }
     capture_virtual_screen_bitblt()
-}
-
-/// 枚举当前所有显示器的矩形（虚拟屏物理坐标）。
-fn monitor_rects() -> Vec<(i32, i32, i32, i32)> {
-    use std::mem::size_of;
-    use windows::Win32::Foundation::{LPARAM, RECT};
-    use windows::core::BOOL;
-    use windows::Win32::Graphics::Gdi::{
-        EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO,
-    };
-
-    unsafe extern "system" fn collect(
-        monitor: HMONITOR,
-        _dc: HDC,
-        _rect: *mut RECT,
-        data: LPARAM,
-    ) -> BOOL {
-        // SAFETY: `data` 由下面的调用点传入，指向仍然存活的 Vec。
-        let out = unsafe { &mut *(data.0 as *mut Vec<(i32, i32, i32, i32)>) };
-        let mut info = MONITORINFO {
-            cbSize: size_of::<MONITORINFO>() as u32,
-            ..Default::default()
-        };
-        if unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
-            let rect = info.rcMonitor;
-            out.push((
-                rect.left,
-                rect.top,
-                rect.right - rect.left,
-                rect.bottom - rect.top,
-            ));
-        }
-        BOOL(1)
-    }
-
-    let mut rects: Vec<(i32, i32, i32, i32)> = Vec::new();
-    // SAFETY: 回调在调用期间同步执行，`rects` 的地址在整次枚举中有效。
-    unsafe {
-        let _ = EnumDisplayMonitors(
-            None,
-            None,
-            Some(collect),
-            LPARAM(&mut rects as *mut _ as isize),
-        );
-    }
-    rects
-}
-
-/// 把 `covered` 之外的显示器用 GDI 补进画布。HDR 内容在这些屏上不存在，
-/// 它们本来就是 SDR，BitBlt 拿到的是正确颜色。
-fn fill_uncovered_monitors(screen: &mut CapturedScreen, covered: &[(i32, i32, i32, i32)]) {
-    for (x, y, width, height) in monitor_rects() {
-        if width <= 0 || height <= 0 {
-            continue;
-        }
-        let overlaps = covered.iter().any(|&(cx, cy, cw, ch)| {
-            x < cx + cw && cx < x + width && y < cy + ch && cy < y + height
-        });
-        if overlaps {
-            continue;
-        }
-        let Ok(part) = capture_region_bitblt(x, y, width as u32, height as u32) else {
-            continue;
-        };
-        blit_region_into(screen, &part);
-    }
-}
-
-/// 把一小块抓屏结果拷进整屏画布（两者共用虚拟屏坐标系）。
-fn blit_region_into(screen: &mut CapturedScreen, part: &CapturedScreen) {
-    let dx = part.origin_x - screen.origin_x;
-    let dy = part.origin_y - screen.origin_y;
-    let (sw, sh) = (screen.width as i32, screen.height as i32);
-    let (pw, ph) = (part.width as i32, part.height as i32);
-    let x0 = dx.max(0);
-    let y0 = dy.max(0);
-    let x1 = (dx + pw).min(sw);
-    let y1 = (dy + ph).min(sh);
-    if x1 <= x0 || y1 <= y0 {
-        return; // 完全在画布外
-    }
-    let len = ((x1 - x0) as usize) * 4;
-    for y in y0..y1 {
-        let src = (((y - dy) * pw + (x0 - dx)) as usize) * 4;
-        let dst = ((y * sw + x0) as usize) * 4;
-        screen.rgba[dst..dst + len].copy_from_slice(&part.rgba[src..src + len]);
-    }
 }
 
 /// GDI `BitBlt` 抓取整个虚拟屏幕（纯 SDR 环境的快路径）。

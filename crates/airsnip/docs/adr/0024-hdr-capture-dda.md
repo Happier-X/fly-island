@@ -100,3 +100,23 @@ SDR 内容精确落回 `[0,1]` 不受影响，HDR 高光压到白。
 - **许可证**：仅使用系统 API 与既有 `windows` crate，无新依赖；`cargo deny check` 配置不变。
 - **已知限制**：`DuplicateOutput1` 在个别驱动（如本机 Intel Iris Xe）以外的组合下行为需实测；
   失败时 `capture_virtual_screen` 返回 `Err`，用户会看到「抓屏失败」提示而非静默劣化。
+
+## 后续修正（2026-11-18，双屏截图第二块屏全黑）
+
+实机发现「走不走 DDA」的准入条件不够：`DISPLAYCONFIG` 的 `AdvancedColorEnabled`
+在开启自动颜色管理（ACM）的**广色域 SDR 屏**上也是 true，而这块屏的桌面合成仍是
+P709/SDR（`DXGI_OUTPUT_DESC1.ColorSpace = RGB_FULL_G22_NONE_P709`、`BitsPerColor = 8`）。
+本机 Intel Iris Xe 上对这块屏 `DuplicateOutput1` 会返回整帧全 0（FP16 与 BGRA8 都一样，
+随后 `AcquireNextFrame` 立刻 `DXGI_ERROR_ACCESS_LOST`），而 GDI `BitBlt` 抓同一块屏完全正常。
+
+因此：
+
+- 准入条件改为「DisplayConfig 已启用高级色彩 **且** DXGI 桌面色彩空间是 HDR/scRGB」
+  （`hdr::output::is_hdr_color_space`）。多条件取「与」，不是取「或」。
+- 整屏抓取逐 output 容错：单块屏抓帧失败或拿到全黑帧时跳过它，`covered` 只记录真正贴进画布的输出，
+  由 `capture::monitors::fill_uncovered_monitors` 用 BitBlt 补抓。这样就**不再有「一块屏抓不到 =
+  整次截图失败」**，也不会把全黑帧当正常内容贴上去（本文档「已知限制」里那条随之作废）。
+- 排查记录与实机数据见宿主仓库 `docs/investigations/screenshot-second-monitor-black.md`。
+
+代价：ACM 广色域 SDR 屏不再走 DDA，颜色按 BitBlt 的 8bit sRGB 交付（正是用户原本看到的观感），
+换取了「那块屏不会黑」。真 HDR 屏（HDR10 / scRGB）的路径未变。

@@ -39,8 +39,9 @@ impl Default for DisplayColorState {
 /// 读取全部启用中的显示器色彩状态，按 `DXGI_OUTPUT_DESC.DeviceName` 索引。
 ///
 /// `DXGI_OUTPUT_DESC1.ColorSpace` 与 `DISPLAYCONFIG` 的 `AdvancedColorEnabled`
-/// 并不总是等价（尤其多屏混合 DPI/HDR），这里以 DisplayConfig 为准，
-/// 调用方再与 `ColorSpace` 取或。
+/// 并不总是等价：开启自动颜色管理（ACM）的广色域 SDR 屏也会报「已启用」，
+/// 但桌面合成仍是 P709/SDR。因此这里只回答「DisplayConfig 怎么说」，
+/// 要不要走 DDA 还必须再看 DXGI 的桌面色彩空间（见 `hdr::output::is_hdr_color_space`）。
 pub fn active_display_states() -> Vec<(String, DisplayColorState)> {
     unsafe {
         let mut npaths = 0u32;

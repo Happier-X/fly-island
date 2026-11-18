@@ -56,30 +56,52 @@ pub fn capture_virtual_screen() -> Option<Result<HdrScreenCapture, String>> {
     }
 
     let mut canvas = vec![0u8; (vw as usize) * (vh as usize) * 4];
+    let debug = super::monitors::debug_enabled();
+    // 只有真正贴进画布的矩形才算「已覆盖」：没抓到的输出必须留给调用方用 BitBlt 补，
+    // 否则那块屏在截图上就是整块黑。
+    let mut covered: Vec<(i32, i32, i32, i32)> = Vec::with_capacity(outputs.len());
     for out in &outputs {
-        let result = grab_frame(out);
-        let frame = match result {
+        let rect = (
+            out.rect.left,
+            out.rect.top,
+            out.rect.right - out.rect.left,
+            out.rect.bottom - out.rect.top,
+        );
+        if debug {
+            eprintln!(
+                "[airsnip] HDR 输出在 {},{} {}×{}，白点 {:.0}nits",
+                rect.0, rect.1, rect.2, rect.3, out.color.sdr_white_nits
+            );
+        }
+        let frame = match grab_frame(out) {
             Ok(f) => f,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                // 单块屏抓不到不该让整次截图失败：跳过它，后面由 BitBlt 补上。
+                eprintln!(
+                    "[airsnip] HDR 抓帧失败（{},{} {}×{}）：{e}；改用 BitBlt 补抓",
+                    rect.0, rect.1, rect.2, rect.3
+                );
+                continue;
+            }
         };
+        // 驱动在某些输出上（实测：开启自动颜色管理的广色域屏）会返回全黑帧，
+        // 直接贴上去就是整屏黑。这时同样交给 BitBlt：SDR 内容上它才是对的。
+        if is_blank_frame(&frame.rgba) {
+            eprintln!(
+                "[airsnip] HDR 帧全黑（{},{} {}×{}）；改用 BitBlt 补抓",
+                rect.0, rect.1, rect.2, rect.3
+            );
+            continue;
+        }
         // 把该输出的帧贴进虚拟屏画布（裁掉超出画布的部分）
         if let Err(e) = blit_into(&mut canvas, vw, vh, out.rect.left - vx, out.rect.top - vy, &frame) {
             return Some(Err(e));
         }
+        covered.push(rect);
     }
 
     Some(Ok(HdrScreenCapture {
-        covered: outputs
-            .iter()
-            .map(|out| {
-                (
-                    out.rect.left,
-                    out.rect.top,
-                    out.rect.right - out.rect.left,
-                    out.rect.bottom - out.rect.top,
-                )
-            })
-            .collect(),
+        covered,
         screen: CapturedScreen {
             width: vw,
             height: vh,
@@ -88,6 +110,17 @@ pub fn capture_virtual_screen() -> Option<Result<HdrScreenCapture, String>> {
             rgba: canvas,
         },
     }))
+}
+
+/// 帧是否整帧全黑（RGB 全 0）。
+///
+/// 真正全黑的桌面不会被误判：这种事上 BitBlt 抓回来也是黑的，结果不变。
+fn is_blank_frame(rgba: &[u8]) -> bool {
+    rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|px| px[0] == 0 && px[1] == 0 && px[2] == 0)
 }
 
 /// 抓取屏幕指定区域（长截图逐帧采集视口用，LNG-2/3）。非 HDR 环境返回 `None`。
@@ -100,8 +133,16 @@ pub fn capture_region(x: i32, y: i32, w: u32, h: u32) -> Option<Result<CapturedS
     let result = grab_frame(&out);
     let frame = match result {
         Ok(f) => f,
-        Err(e) => return Some(Err(e)),
+        // 抓不到或拿到全黑帧时退回 `None`：调用方会走 BitBlt，而不是交付一块黑图。
+        Err(e) => {
+            eprintln!("[airsnip] HDR 区域抓帧失败（{x},{y} {w}×{h}）：{e}；改用 BitBlt");
+            return None;
+        }
     };
+    if is_blank_frame(&frame.rgba) {
+        eprintln!("[airsnip] HDR 区域帧全黑（{x},{y} {w}×{h}）；改用 BitBlt");
+        return None;
+    }
     // 帧的左上是 out.rect.left/top，换算成相对请求原点的偏移（可为负）
     let dx = out.rect.left - x;
     let dy = out.rect.top - y;
@@ -121,6 +162,18 @@ pub fn capture_region(x: i32, y: i32, w: u32, h: u32) -> Option<Result<CapturedS
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 全黑帧判定：只有 RGB 全 0 才算，单通道非零就不算（避免把正常暗色画面退回 BitBlt）。
+    #[test]
+    fn blank_frame_needs_every_pixel_zero() {
+        assert!(is_blank_frame(&[0u8; 16]));
+        assert!(is_blank_frame(&[]), "空帧也算全黑");
+        let mut one_pixel = vec![0u8; 16];
+        one_pixel[5] = 1;
+        assert!(!is_blank_frame(&one_pixel));
+        // alpha 不参与判定：不透明黑仍是黑
+        assert!(is_blank_frame(&[0, 0, 0, 255, 0, 0, 0, 255]));
+    }
 
     /// 同一个 output 同时只能有一个 duplication 会话，并行跑会互相抢到 E_INVALIDARG / E_ACCESSDENIED。
     static CAPTURE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

@@ -33,6 +33,11 @@ mockIPC((command, payload) => {
     case "get_cindy_notifications": return { items: [], databasePath: CINDY_DATABASE, checkedAt: Date.now(), error: null };
     case "agent_window_in_front": return false;
     // The capture page asks the overlay side for its toolbar and key names; empty is a valid answer.
+    case "get_launcher_default_folders": return ["C:\\Users\\demo\\Desktop", "C:\\Users\\demo\\Documents", "C:\\Users\\demo\\Downloads"];
+    case "set_launcher_shortcut":
+      if (args.shortcut === "Ctrl+Alt+Q") throw "快捷键 Ctrl+Alt+Q 已被占用或无法注册：热键已被注册。";
+      return args.shortcut;
+    case "set_launcher_enabled": return null;
     case "get_screenshot_settings": return { ...DEFAULT_SCREENSHOT_SETTINGS };
     case "set_screenshot_settings": return null;
     case "get_screenshot_toolbar_groups": return [];

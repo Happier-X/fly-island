@@ -6,14 +6,14 @@
 
 ```text
 ┌──────────────────────── WebView2（同一前端包，按 ?window= 分发）────────────────────────┐
-│  main：悬浮岛            translation：快捷翻译            settings：设置（按需创建）       │
+│  main：悬浮岛   translation：快捷翻译   launcher：快捷启动   settings：设置（按需创建）      │
 └────────────┬─────────────────────────────────────────────────────────────────────────┘
              │ invoke（命令，请求/响应）        ▲ emit / emit_to（事件，后端主动推送）
              ▼                                │
 ┌──────────────────────────────── Rust（Tauri 2）──────────────────────────────────────┐
 │  lib.rs 组装：插件 / setup / 托盘 / generate_handler!                                  │
 │  领域模块：island · cindy_notifications · system · clipboard_history · file_shelf · media_control │
-│           mail · qq_notifications · wechat_reminders · translation · settings_window │
+│           mail · qq_notifications · wechat_reminders · translation · quick_launcher · settings_window │
 │  后台服务：IMAP IDLE 收信、剪贴板监听、通知监听、微信窗口闪烁检测、鼠标穿透循环        │
 └────────────┬─────────────────────────────────────────────────────────────────────────┘
              ▼

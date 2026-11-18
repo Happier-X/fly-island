@@ -10,6 +10,7 @@ src/
 ├── windows/                 # 每个 Tauri 窗口一个目录，只负责组合与窗口级行为
 │   ├── island/              # 主窗口：IslandApp（只做组装）、IslandShell、展开后的页面面板（IslandPages）、按职责的接线 hook（useIslandNotices / Todos / Tucking / Shelf / Hover / Notifications；新功能的接线加在这里，不加进 IslandApp）、窗口尺寸/拖拽/贴边 hook、自动化 hook
 │   ├── settings/            # 设置窗口
+│   ├── launcher/            # 快捷启动窗口：读取索引、请求图标、打开结果
 │   └── translation/         # 快捷翻译窗口
 ├── features/                # 业务领域，每个领域自包含
 │   ├── todos/               # 待办、每日笔记、归档、Markdown 导出
@@ -19,6 +20,7 @@ src/
 │   ├── messages/            # 消息导航与预览；mail/、qq-notifications/、wechat/ 子目录
 │   ├── cindy-notifications/ # Cindy 通知：只读 Cindy 数据库的轮询与本地已读水位、四类事件、设置页；sounds/ 为提示音
 │   ├── appearance/          # 外观设置、布局编辑器、预设；岛屿设置（focusd-island-settings）的范围在 settingsLimits.ts、首次启动值在 settingsDefaults.ts、读取按领域在 normalizeLayout / Notification / BehaviorSettings.ts，新设置加在这几个文件里，settings.ts 只做入口
+│   ├── quick-launcher/      # 快捷启动：搜索匹配与排序（纯函数）、设置与快捷键、面板组件、索引与图标 hook
 │   ├── translation/         # 快捷翻译：服务与模型设置、凭据、快捷键的类型化封装，请求与自动翻译 hook，岛内翻译页
 │   └── updater/             # 自动更新
 ├── components/              # 与领域无关的通用 UI（controls/ 开关、数字输入、下拉等控件，插件页和岛上还在用；settings/ 设置窗口的分组列表：组、行、开关行、滑块行、数字行、颜色、输入框、分段选择、下拉、文字链接，设置页都用它；markdown/ 把外部 Markdown 渲染成元素，不插入 HTML）

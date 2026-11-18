@@ -3,6 +3,13 @@
 //!
 //! 负责把 DXGI 输出与 DisplayConfig 的色彩状态对应起来，并提供把单个输出的帧
 //! 贴进虚拟屏画布的小工具（负坐标布局、越界裁剪）。
+//!
+//! 判定一个输出该不该走 DDA，需要两个条件同时成立（多屏截图第二块屏全黑的修复）：
+//! 1. DisplayConfig 报告该显示器已启用高级色彩；
+//! 2. DXGI 报告的桌面色彩空间本身处于 HDR / scRGB 模式。
+//!
+//! 只看第 1 条会在混合配置上误判：广色域（ACM）的 SDR 屏同样会报「高级色彩已启用」，
+//! 但它的桌面合成仍是 P709/SDR，走 DDA 反而会拿到黑帧，那块屏在截图上就是整块黑。
 
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Direct3D::{
@@ -11,7 +18,10 @@ use windows::Win32::Graphics::Direct3D::{
 use windows::Win32::Graphics::Direct3D11::{
     D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION, D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext,
 };
-use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, IDXGIOutput6};
+use windows::Win32::Graphics::Dxgi::Common::{
+    DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, DXGI_COLOR_SPACE_TYPE,
+};
+use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, DXGI_OUTPUT_DESC1, IDXGIFactory1, IDXGIOutput6};
 use windows::core::Interface;
 
 use super::super::hdr_display::{DisplayColorState, state_for_device};
@@ -37,12 +47,7 @@ pub struct Frame {
 pub fn all_hdr_outputs(states: &[(String, DisplayColorState)]) -> Result<Vec<HdrOutput>, String> {
     let mut found = Vec::new();
     visit_attached_outputs(states, |output6, desc, color| {
-        let bounds = unsafe {
-            output6
-                .GetDesc1()
-                .map(|d| d.DesktopCoordinates)
-                .unwrap_or(desc.DesktopCoordinates)
-        };
+        let bounds = desc.DesktopCoordinates;
         let (device, context) = create_context(output6)?;
         found.push(HdrOutput {
             output: output6.clone(),
@@ -93,16 +98,25 @@ pub fn hdr_output_intersecting(
     picked
 }
 
-/// 遍历所有已连接输出；回调返回 `Ok(true)` 继续、`Ok(false)` 停止、`Err` 中断。
+/// 桌面色彩空间是否处于 HDR / scRGB 合成模式。
 ///
-/// 回调参数：输出接口、`DXGI_OUTPUT_DESC`、该输出的色彩状态。
+/// `DisplayConfig` 的「高级色彩已启用」在混合显示器场景并不可靠：开启自动颜色管理（ACM）
+/// 的广色域 SDR 屏也会报 true，但它的桌面合成仍是 P709/SDR（本机实测：自动颜色管理的内置屏
+/// 报已启用、桌面色彩空间仍是 `RGB_FULL_G22_NONE_P709`，DDA 抓回来全是 0）。
+/// 只有色彩空间本身是 HDR/scRGB 时才值得走 DDA，否则交给 BitBlt。
+pub fn is_hdr_color_space(space: DXGI_COLOR_SPACE_TYPE) -> bool {
+    matches!(
+        space,
+        DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 | DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020
+    )
+}
+
+/// 遍历所有已连接且需要 DDA 的输出；回调返回 `Ok(true)` 继续、`Ok(false)` 停止、`Err` 中断。
+///
+/// 回调参数：输出接口、`DXGI_OUTPUT_DESC1`、该输出的色彩状态。
 fn visit_attached_outputs<F>(states: &[(String, DisplayColorState)], mut visit: F) -> Result<(), String>
 where
-    F: FnMut(
-        &IDXGIOutput6,
-        &windows::Win32::Graphics::Dxgi::DXGI_OUTPUT_DESC,
-        DisplayColorState,
-    ) -> Result<bool, String>,
+    F: FnMut(&IDXGIOutput6, &DXGI_OUTPUT_DESC1, DisplayColorState) -> Result<bool, String>,
 {
     unsafe {
         let factory: IDXGIFactory1 = CreateDXGIFactory1().map_err(|e| format!("CreateDXGIFactory1 失败：{e}"))?;
@@ -121,7 +135,7 @@ where
                 let Some(output6) = output.cast::<IDXGIOutput6>().ok() else {
                     continue;
                 };
-                let Ok(desc) = output6.GetDesc() else { continue };
+                let Ok(desc) = output6.GetDesc1() else { continue };
                 if !desc.AttachedToDesktop.as_bool() {
                     continue;
                 }
@@ -134,8 +148,9 @@ where
                         .collect::<Vec<_>>(),
                 );
                 let color = state_for_device(states, &name);
-                // SDR 输出不需要 DDA：BitBlt 已正确且更快。
-                if !color.hdr_enabled {
+                // SDR 输出不需要 DDA：BitBlt 已正确且更快。两个条件缺一不可：
+                // DisplayConfig 说已启用高级色彩，且桌面色彩空间确实是 HDR/scRGB。
+                if !color.hdr_enabled || !is_hdr_color_space(desc.ColorSpace) {
                     continue;
                 }
                 if !visit(&output6, &desc, color)? {
@@ -204,6 +219,27 @@ pub fn blit_into(canvas: &mut [u8], cw: u32, ch: u32, dst_x: i32, dst_y: i32, fr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windows::Win32::Graphics::Dxgi::Common::{
+        DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P2020, DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+        DXGI_COLOR_SPACE_YCBCR_FULL_G22_NONE_P709_X601,
+    };
+
+    /// 只有 HDR / scRGB 桌面色彩空间才走 DDA。广色域（P2020）+ SDR 传输函数仍是 SDR，
+    /// 走 DDA 会拿到黑帧（本机实测配置里的内置屏就是这种屏）。
+    #[test]
+    fn dda_is_only_for_hdr_color_spaces() {
+        assert!(is_hdr_color_space(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709), "scRGB");
+        assert!(
+            is_hdr_color_space(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020),
+            "HDR10"
+        );
+        assert!(!is_hdr_color_space(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709), "普通 SDR");
+        assert!(
+            !is_hdr_color_space(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P2020),
+            "广色域 SDR 仍是 SDR"
+        );
+        assert!(!is_hdr_color_space(DXGI_COLOR_SPACE_YCBCR_FULL_G22_NONE_P709_X601));
+    }
 
     fn frame(w: u32, h: u32, value: u8) -> Frame {
         Frame {

@@ -7,6 +7,8 @@
 | 待办、以后的待办、每日笔记、归档、正在进行的待办、待办日期 | WebView2 的 `localStorage`（`focusd-island-todos` 等 key，见 [contracts.md](contracts.md)） | `features/todos/storage.ts` |
 | Cindy 通知的水位、旧钩子清理标记 | 水位在 WebView2 的 `localStorage`（`focusd-island-cindy-notifications-seen`，见 [contracts.md](contracts.md)）；应用数据目录的 `legacy-agent-hooks-removed.flag` 记录旧钩子已清理 | `features/cindy-notifications/storage.ts`、`cindy_notifications/legacy_hooks.rs` |
 | Cindy 通知的数据来源 | 只读 `%APPDATA%\Cindy\cindy-*.db`（`sessions`、`messages`、`schedule_runs` / `schedules`、`subagent_runs`），不写入 Cindy 的任何文件 | `cindy_notifications/cindy.rs` |
+| 快捷启动的设置（开关、快捷键、搜索范围、搜索引擎、文件目录） | WebView2 的 `localStorage`（`focusd-island-launcher-settings`） | `features/quick-launcher/storage.ts` |
+| 快捷启动的应用与文件索引、图标 | 仅保存在内存中，关闭应用即丢弃；搜索结果不写盘 | `quick_launcher` |
 | 文件中转列表（只存路径，不复制文件） | 应用数据目录（`file-shelf.json`） | `file_shelf` |
 | 设置窗口上次关闭时的大小与位置（位置已不在任何屏幕上时忽略） | 应用数据目录（`settings-window.json`） | `settings_window/bounds.rs` |
 | QQ 邮箱授权码、翻译 API 密钥 | Windows 凭据管理器（`com.focusd.island.qq-mail`、`com.focusd.island.translation`；翻译密钥按服务分条目，用户名为服务 id，DeepSeek 沿用 `deepseek`） | `qq_mail`、`translation` |

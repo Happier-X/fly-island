@@ -13,6 +13,7 @@ import * as music from "../sections/music.ts";
 import * as todo from "../sections/todo.ts";
 import * as clipboard from "../sections/clipboard.ts";
 import * as fileShelf from "../sections/fileShelf.ts";
+import * as launcher from "../sections/launcher.ts";
 import * as settings from "../sections/settings/index.ts";
 
 const en: Translations = {
@@ -41,6 +42,8 @@ const en: Translations = {
   clipboard: clipboard.en,
 
   fileShelf: fileShelf.en,
+
+  launcher: launcher.en,
 
   settings: settings.en,
 };

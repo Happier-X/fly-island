@@ -16,4 +16,5 @@ pub(crate) mod process;
 pub(crate) mod process_times;
 pub(crate) mod registry;
 pub(crate) mod shell_hook;
+pub(crate) mod shortcut;
 pub(crate) mod window;

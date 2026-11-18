@@ -4,8 +4,10 @@
 //! must not depend on anything else in the crate.
 
 use windows::{
-    core::HSTRING,
-    Win32::System::Registry::{RegGetValueW, HKEY, RRF_RT_REG_SZ},
+    core::{HSTRING, PCWSTR, PWSTR},
+    Win32::System::Registry::{
+        RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, KEY_READ, RRF_RT_REG_SZ,
+    },
 };
 
 /// UTF-16 units read per value, including the terminating NUL. Longer values
@@ -45,6 +47,66 @@ pub(crate) fn read_string(root: HKEY, subkey: &str, value: &str) -> Option<Strin
 
 
 
+/// Names of the subkeys under `root\subkey`, in registry order; empty when the key does
+/// not exist or cannot be enumerated. Long names are skipped rather than truncated.
+pub(crate) fn subkeys(root: HKEY, subkey: &str) -> Vec<String> {
+    let subkey = HSTRING::from(subkey);
+    let mut opened = HKEY::default();
+    // SAFETY: `subkey` is NUL-terminated and outlives the call, and `opened` is a valid
+    // HKEY to write. The returned key is closed by KeyHandle on every path below.
+    let opened_result = unsafe {
+        RegOpenKeyExW(
+            root,
+            PCWSTR(subkey.as_ptr()),
+            None,
+            KEY_READ,
+            &mut opened,
+        )
+    };
+    if opened_result.is_err() {
+        return Vec::new();
+    }
+    let key = KeyHandle(opened);
+    let mut names = Vec::new();
+    let mut index = 0;
+    loop {
+        let mut name = [0u16; 256];
+        let mut length = name.len() as u32;
+        // SAFETY: `key.0` is an open registry key; `name` is writable for exactly
+        // `length` UTF-16 units, and RegEnumKeyExW writes at most that many characters.
+        // All optional outputs are omitted.
+        let result = unsafe {
+            RegEnumKeyExW(
+                key.0,
+                index,
+                Some(PWSTR(name.as_mut_ptr())),
+                &mut length,
+                None,
+                None,
+                None,
+                None,
+            )
+        };
+        // ERROR_NO_MORE_ITEMS is the normal end; any other error stops too.
+        if result.is_err() {
+            break;
+        }
+        names.push(String::from_utf16_lossy(&name[..length as usize]));
+        index += 1;
+    }
+    names
+}
+
+/// Owns an opened registry key and closes it when dropped.
+struct KeyHandle(HKEY);
+
+impl Drop for KeyHandle {
+    fn drop(&mut self) {
+        // SAFETY: the key came from a successful RegOpenKeyExW and is closed once here.
+        let _ = unsafe { RegCloseKey(self.0) };
+    }
+}
+
 /// The executable in an uninstall entry's `DisplayIcon` value, which may be quoted and end
 /// with an icon index: `"C:\App\App.exe",0` → `C:\App\App.exe`.
 pub(crate) fn display_icon_path(icon: &str) -> &str {
@@ -76,6 +138,14 @@ mod tests {
             read_string(HKEY_LOCAL_MACHINE, CURRENT_VERSION, "NoSuchValue"),
             None
         );
+    }
+
+    #[test]
+    fn subkeys_are_listed_for_an_existing_key_and_none_for_a_missing_one() {
+        let names = subkeys(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths");
+        // Every Windows install registers at least one App Paths entry.
+        assert!(names.iter().any(|name| name.to_lowercase().ends_with(".exe")), "{names:?}");
+        assert!(subkeys(HKEY_CURRENT_USER, r"Software\FocuSD\NoSuchKey").is_empty());
     }
 
     #[test]

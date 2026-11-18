@@ -54,7 +54,7 @@ try {
   check(groups().join("|") === "基础|功能" && !host.querySelector(".settings-sidebar__heading"),
     "Pages sit in two named groups (About on its own after them), set apart by space rather than visible headings");
   check(!host.querySelector("input, button[aria-expanded]"), "No search box and nothing to fold");
-  check(listed().join() === "general,appearance,todos,music,translation,clipboard,screenshot,messages,notifications,about",
+  check(listed().join() === "general,appearance,todos,music,translation,clipboard,screenshot,launcher,messages,notifications,about",
     "Every page is listed once, in sidebar order");
   const listGroups = [...host.querySelectorAll<HTMLElement>(".settings-sidebar__list .settings-sidebar__group")];
   const lastGroup = listGroups[listGroups.length - 1];

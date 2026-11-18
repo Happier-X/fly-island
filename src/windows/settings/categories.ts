@@ -7,6 +7,7 @@ export const SETTINGS_CATEGORIES = [
   "translation",
   "clipboard",
   "screenshot",
+  "launcher",
   "messages",
   "notifications",
   "about",
@@ -23,7 +24,7 @@ export type SettingsGroup = "basics" | "features";
  */
 export const SETTINGS_GROUPS: readonly { label: SettingsGroup | null; categories: readonly SettingsCategory[] }[] = [
   { label: "basics", categories: ["general", "appearance"] },
-  { label: "features", categories: ["todos", "music", "translation", "clipboard", "screenshot", "messages", "notifications"] },
+  { label: "features", categories: ["todos", "music", "translation", "clipboard", "screenshot", "launcher", "messages", "notifications"] },
   { label: null, categories: ["about"] },
 ];
 

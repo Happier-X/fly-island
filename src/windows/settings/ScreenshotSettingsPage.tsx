@@ -4,6 +4,7 @@ import type { IslandSettings } from "../../features/appearance/types";
 import { useTranslation } from "../../i18n";
 import { useTranslationSettings } from "../../features/translation/useTranslationSettings";
 import { useClipboardSettings } from "../../features/clipboard/useClipboardSettings";
+import { useLauncherSettings } from "../../features/quick-launcher/useLauncherSettings";
 import { ModuleSwitchSection } from "./ModuleSwitchSection";
 import { findShortcutOwner } from "./shortcutConflicts";
 
@@ -13,6 +14,7 @@ export function ScreenshotSettingsPage({ settings }: { settings: IslandSettings 
   const [screenshotSettings, updateScreenshotSettings] = useScreenshotSettings();
   const [translationSettings] = useTranslationSettings();
   const [clipboardSettings] = useClipboardSettings();
+  const [launcherSettings] = useLauncherSettings();
 
   // A global hotkey swallows its keys everywhere, so it may not reuse another page's.
   const takenBy = (shortcut: string) =>
@@ -24,6 +26,9 @@ export function ScreenshotSettingsPage({ settings }: { settings: IslandSettings 
           : []),
         ...(clipboardSettings.shortcutEnabled
           ? [{ id: "clipboard", label: t.settings.categories.clipboard, shortcut: clipboardSettings.shortcut }]
+          : []),
+        ...(launcherSettings.enabled
+          ? [{ id: "launcher", label: t.settings.launcher.shortcut, shortcut: launcherSettings.shortcut }]
           : []),
       ],
       "screenshot",

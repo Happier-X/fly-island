@@ -5,6 +5,7 @@ import { useTranslation } from "../../i18n";
 import { ModuleSwitchSection } from "./ModuleSwitchSection";
 import { ClipboardShortcutRows } from "../../features/clipboard/ClipboardShortcutRows";
 import { useTranslationSettings } from "../../features/translation/useTranslationSettings";
+import { useLauncherSettings } from "../../features/quick-launcher/useLauncherSettings";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
 import { findShortcutOwner } from "./shortcutConflicts";
 import { ShelfSettingsGroup } from "./ShelfSettingsGroup";
@@ -20,12 +21,18 @@ export function ClipboardSettingsPage({
   const t = useTranslation();
   const [clipboardSettings, updateClipboardSettings] = useClipboardSettings();
   const [translationSettings] = useTranslationSettings();
-  // A global hotkey swallows its keys everywhere, so it may not reuse translation's.
+  const [launcherSettings] = useLauncherSettings();
+  // A global hotkey swallows its keys everywhere, so it may not reuse another page's.
   const takenBy = (shortcut: string) => findShortcutOwner(
     shortcut,
-    settings.translationEnabled
-      ? [{ id: "translation", label: t.settings.shortcuts.openTranslation, shortcut: translationSettings.shortcut }]
-      : [],
+    [
+      ...(settings.translationEnabled
+        ? [{ id: "translation", label: t.settings.shortcuts.openTranslation, shortcut: translationSettings.shortcut }]
+        : []),
+      ...(launcherSettings.enabled
+        ? [{ id: "launcher", label: t.settings.launcher.shortcut, shortcut: launcherSettings.shortcut }]
+        : []),
+    ],
     "clipboard",
   );
 

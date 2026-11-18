@@ -8,6 +8,7 @@ mod messenger_activation;
 mod notification_diagnostics;
 mod mail;
 mod qq_notifications;
+mod quick_launcher;
 mod screenshot;
 mod settings_window;
 mod system;
@@ -48,6 +49,20 @@ pub fn run() {
                 }
                 return;
             }
+            if window.label() == quick_launcher::WINDOW_LABEL {
+                match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                    // A launcher that lost the focus is done with, as with any command palette.
+                    WindowEvent::Focused(false) => {
+                        let _ = window.hide();
+                    }
+                    _ => {}
+                }
+                return;
+            }
             if window.label() != island::WINDOW_LABEL {
                 return;
             }
@@ -65,6 +80,7 @@ pub fn run() {
                 eprintln!("failed to initialize clipboard history: {error}");
             }
             translation::init(app.handle());
+            quick_launcher::init(app.handle());
             if let Err(error) = screenshot::init(app.handle()) {
                 eprintln!("failed to initialize screenshots: {error}");
             }
@@ -112,6 +128,7 @@ pub fn run() {
             lyrics;
             clipboard_history;
             translation;
+            quick_launcher;
             screenshot;
             tray;
             settings_window

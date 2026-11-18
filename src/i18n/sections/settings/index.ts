@@ -18,6 +18,7 @@ import type { SettingsTodoText } from "./todo";
 import type { SettingsNotificationsText } from "./notifications";
 import type { SettingsClipboardText } from "./clipboard";
 import type { SettingsScreenshotText } from "./screenshot";
+import type { SettingsLauncherText } from "./launcher";
 import type { SettingsColorsText } from "./colors";
 import type { SettingsSaveText } from "./save";
 
@@ -41,6 +42,7 @@ import * as todo from "./todo.ts";
 import * as notifications from "./notifications.ts";
 import * as clipboard from "./clipboard.ts";
 import * as screenshot from "./screenshot.ts";
+import * as launcher from "./launcher.ts";
 import * as colors from "./colors.ts";
 import * as save from "./save.ts";
 
@@ -85,6 +87,8 @@ export type SettingsText = {
   clipboard: SettingsClipboardText;
 
   screenshot: SettingsScreenshotText;
+
+  launcher: SettingsLauncherText;
 
   colors: SettingsColorsText;
 
@@ -132,6 +136,8 @@ export const zhCN: SettingsText = {
 
   screenshot: screenshot.zhCN,
 
+  launcher: launcher.zhCN,
+
   colors: colors.zhCN,
 
 
@@ -177,6 +183,8 @@ export const en: SettingsText = {
   clipboard: clipboard.en,
 
   screenshot: screenshot.en,
+
+  launcher: launcher.en,
 
   colors: colors.en,
 

@@ -29,6 +29,7 @@
 | `focusd-island-qq-notification-access-requested` | `features/messages/qq-notifications/storage.ts` |
 | `focusd-island-wechat-reminders-enabled` | `features/messages/wechat/storage.ts` |
 | `focusd-island-translation-settings` | `features/translation/storage.ts` |
+| `focusd-island-launcher-settings`（`{ enabled, shortcut, searchApps, searchFiles, searchWeb, searchEngine, folderMode, folders }`：快捷启动的开关、快捷键、搜索范围、搜索引擎与文件目录；不保存搜索结果） | `features/quick-launcher/storage.ts` |
 | `focusd-island-agent-approval`（2026-11-12 起不再读写：Cindy 的授权卡在它自己的界面里，岛上不再拦截审批；旧值留在原处不删） | — |
 | `focusd-island-agent-hidden-sessions`（2026-11-14 起不再读写：Agent 页已删除，旧值留在原处不删） | — |
 | `focusd-island-agent-seen-turns`（2026-11-14 起不再读写：按会话的已读表换成下面的通知水位，旧值留在原处不删） | — |
@@ -58,12 +59,15 @@
 | `wechat-reminder-changed` | `wechat_reminders/mod.rs` | `main`、`settings` |
 | `translation-window-opened` | `translation/mod.rs` | 广播 |
 | `translation-island-shortcut`（翻译设为「岛内页面」时按下翻译快捷键：先唤出主窗口，再让它切换翻译页） | `translation/mod.rs` | 广播 |
+| `quick-launcher-opened`（无载荷：快捷启动面板已显示并定位，面板清空输入并聚焦搜索框） | `quick_launcher/mod.rs` | `launcher` |
+| `quick-launcher-index-ready`（无载荷：后台的应用索引已建好，面板重新读取一次） | `quick_launcher/mod.rs` | `launcher` |
 | `settings-open-requested`（无载荷：托盘、翻译窗口或独立设置窗口要打开设置，主窗口按 `focusd-island-detached-settings` 决定打开岛上的设置页还是独立窗口） | `settings_window/mod.rs`、前端 `windows/settings/api.ts` | `main` |
 | `focusd-update-state` / `focusd-update-request`（更新状态由主窗口广播；独立设置窗口用后者请求 `snapshot` / `check` / `install` / `dismiss`；3.0.2 及更早还有 `channel`） | `features/updater/updaterController.ts` | 广播 / `main` |
 
 ## 其他
 
-- 窗口 label：`main`、`translation`、`settings`；前端分发参数为 `?window=translation`、`?window=settings`。
+- 窗口 label：`main`、`translation`、`launcher`、`settings`；前端分发参数为 `?window=translation`、`?window=launcher`、`?window=settings`。
+- 快捷启动命令：`get_launcher_index`（`{ includeApps, includeFiles, folders }` → `{ apps, files, appsReady }`）、`get_launcher_default_folders`、`get_launcher_icon`、`open_launcher_item`、`open_launcher_url`、`hide_quick_launcher`、`set_launcher_shortcut`、`set_launcher_enabled`。索引只存在内存中，不写盘。
 - Tauri 命令：以 `lib.rs` 中 `generate_handler!` 列表为准，命令名即 Rust 函数名。
 - 托盘语言命令 `set_tray_language`：参数 `{ locale: "zh-CN" | "en" }`，主窗口首次加载及应用语言变化时同步；沿用 `focusd-island-locale` 与现有系统语言检测，不另存原生语言设置。托盘创建时先用中文，主窗口加载后应用解析出的语言。
 - 应用标识 `com.focusd.island`，凭据服务名 `com.focusd.island.qq-mail`、`com.focusd.island.translation`。
