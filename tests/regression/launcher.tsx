@@ -139,6 +139,9 @@ if (!automated) {
       );
     });
     check(Boolean(input()) && input() === document.activeElement, "打开后搜索框自动获得焦点");
+    const panelStyle = getComputedStyle(document.querySelector<HTMLElement>(".launcher-window")!);
+    check(panelStyle.boxShadow === "none" && panelStyle.borderTopWidth === "1px",
+      "面板没有外扩阴影，只留细边框做区分");
     check(document.querySelector(".launcher-empty")?.textContent?.includes("输入名称"), "空查询显示输入提示，不列出全部");
     check(rows().length === 0 && document.querySelector(".launcher-footer__status")?.textContent?.includes("正在加载"), "空列表时底部说明正在加载");
 

@@ -27,7 +27,9 @@
   background: color-mix(in srgb, var(--launcher-surface) 24%, #15161a);
   border: 1px solid var(--launcher-border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  /* No outer shadow: the transparent window leaves 8px around the panel, and a
+     large blur looks like a heavy halo on the always-on-top launcher. */
+  box-shadow: none;
   font-size: 13px;
   color-scheme: dark;
 }
