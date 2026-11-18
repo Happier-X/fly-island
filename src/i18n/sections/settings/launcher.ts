@@ -2,6 +2,11 @@ export type SettingsLauncherText = {
   enable: string;
   enableHint: string;
   shortcut: string;
+  trigger: string;
+  combination: string;
+  doubleCtrl: string;
+  doubleCtrlFailed: string;
+  disableFailed: string;
   pressKeys: string;
   searchScope: string;
   apps: string;
@@ -24,6 +29,11 @@ export const zhCN: SettingsLauncherText = {
   enable: "启用快捷启动",
   enableHint: "关闭后释放全局快捷键，面板不再弹出；设置会保留。",
   shortcut: "打开快捷启动",
+  trigger: "触发方式",
+  combination: "组合键",
+  doubleCtrl: "双击 Ctrl",
+  doubleCtrlFailed: "无法启用双击 Ctrl，请重试。",
+  disableFailed: "无法关闭快捷启动，请重试。",
   pressKeys: "按下快捷键",
   searchScope: "搜索范围",
   apps: "搜索应用",
@@ -44,13 +54,18 @@ export const zhCN: SettingsLauncherText = {
   folderPlaceholder: "输入文件夹路径，例如 D:\\资料",
   removeFolder: (path) => `移除 ${path}`,
   useDefaultFolders: "恢复默认目录",
-  shortcutHint: "在任何程序里按这个组合键都会弹出快捷启动。",
+  shortcutHint: "双击 Ctrl 时，快速单独按下并松开 Ctrl 两次。",
 };
 
 export const en: SettingsLauncherText = {
   enable: "Enable quick launcher",
   enableHint: "When off, the shortcut is released and the panel stays closed. Your settings are kept.",
   shortcut: "Open quick launcher",
+  trigger: "Trigger",
+  combination: "Key combination",
+  doubleCtrl: "Double-tap Ctrl",
+  doubleCtrlFailed: "Could not enable double-tap Ctrl. Try again.",
+  disableFailed: "Could not disable the quick launcher. Try again.",
   pressKeys: "Press a shortcut",
   searchScope: "Search scope",
   apps: "Search apps",
@@ -71,5 +86,5 @@ export const en: SettingsLauncherText = {
   folderPlaceholder: "Type a folder path, for example D:\\Files",
   removeFolder: (path) => `Remove ${path}`,
   useDefaultFolders: "Restore the default folders",
-  shortcutHint: "The panel opens in any program when this combination is pressed.",
+  shortcutHint: "To double-tap Ctrl, quickly press and release Ctrl by itself twice.",
 };

@@ -6,10 +6,10 @@ import {
   openLauncherItem,
   openLauncherUrl,
   setLauncherEnabled,
-  setLauncherShortcut,
 } from "../../features/quick-launcher/api";
 import { LauncherView } from "../../features/quick-launcher/LauncherView";
 import {
+  launcherTrigger,
   loadLauncherSettings,
   type LauncherSettings,
 } from "../../features/quick-launcher/storage";
@@ -52,8 +52,7 @@ export function LauncherWindow() {
   useEffect(() => {
     const saved = loadLauncherSettings();
     setSettings(saved);
-    void setLauncherEnabled(saved.enabled)
-      .then(() => (saved.enabled ? setLauncherShortcut(saved.shortcut) : undefined))
+    void setLauncherEnabled(saved.enabled, launcherTrigger(saved))
       .catch((error) => console.error("Failed to apply the launcher shortcut", error));
   }, []);
 

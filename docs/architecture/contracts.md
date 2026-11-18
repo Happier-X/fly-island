@@ -29,7 +29,7 @@
 | `focusd-island-qq-notification-access-requested` | `features/messages/qq-notifications/storage.ts` |
 | `focusd-island-wechat-reminders-enabled` | `features/messages/wechat/storage.ts` |
 | `focusd-island-translation-settings` | `features/translation/storage.ts` |
-| `focusd-island-launcher-settings`（`{ enabled, shortcut, searchApps, searchFiles, searchWeb, searchEngine, folderMode, folders }`：快捷启动的开关、快捷键、搜索范围、搜索引擎与文件目录；不保存搜索结果） | `features/quick-launcher/storage.ts` |
+| `focusd-island-launcher-settings`（`{ enabled, shortcut, triggerMode, searchApps, searchFiles, searchWeb, searchEngine, folderMode, folders }`：快捷启动的开关、快捷键、搜索范围、搜索引擎与文件目录；不保存搜索结果） | `features/quick-launcher/storage.ts` |
 | `focusd-island-agent-approval`（2026-11-12 起不再读写：Cindy 的授权卡在它自己的界面里，岛上不再拦截审批；旧值留在原处不删） | — |
 | `focusd-island-agent-hidden-sessions`（2026-11-14 起不再读写：Agent 页已删除，旧值留在原处不删） | — |
 | `focusd-island-agent-seen-turns`（2026-11-14 起不再读写：按会话的已读表换成下面的通知水位，旧值留在原处不删） | — |
@@ -67,7 +67,7 @@
 ## 其他
 
 - 窗口 label：`main`、`translation`、`launcher`、`settings`；前端分发参数为 `?window=translation`、`?window=launcher`、`?window=settings`。
-- 快捷启动命令：`get_launcher_index`（`{ includeApps, includeFiles, folders }` → `{ apps, files, appsReady }`）、`get_launcher_default_folders`、`get_launcher_icon`、`open_launcher_item`、`open_launcher_url`、`hide_quick_launcher`、`set_launcher_shortcut`、`set_launcher_enabled`。索引只存在内存中，不写盘。
+- 快捷启动命令：`get_launcher_index`（`{ includeApps, includeFiles, folders }` → `{ apps, files, appsReady }`）、`get_launcher_default_folders`、`get_launcher_icon`、`open_launcher_item`、`open_launcher_url`、`hide_quick_launcher`、`set_launcher_shortcut`、`set_launcher_enabled`。`triggerMode` 为 `shortcut` 或 `doubleCtrl`，缺失时按 `shortcut`。普通组合键继续保存在 `shortcut` 中。原生命令的 `shortcut` 参数用 `DoubleCtrl` 表示双击 Ctrl，`set_launcher_enabled` 可同时接收该参数。索引只存在内存中，不写盘。
 - Tauri 命令：以 `lib.rs` 中 `generate_handler!` 列表为准，命令名即 Rust 函数名。
 - 托盘语言命令 `set_tray_language`：参数 `{ locale: "zh-CN" | "en" }`，主窗口首次加载及应用语言变化时同步；沿用 `focusd-island-locale` 与现有系统语言检测，不另存原生语言设置。托盘创建时先用中文，主窗口加载后应用解析出的语言。
 - 应用标识 `com.focusd.island`，凭据服务名 `com.focusd.island.qq-mail`、`com.focusd.island.translation`。

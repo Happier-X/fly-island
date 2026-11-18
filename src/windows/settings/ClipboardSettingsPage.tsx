@@ -29,7 +29,7 @@ export function ClipboardSettingsPage({
       ...(settings.translationEnabled
         ? [{ id: "translation", label: t.settings.shortcuts.openTranslation, shortcut: translationSettings.shortcut }]
         : []),
-      ...(launcherSettings.enabled
+      ...(launcherSettings.enabled && launcherSettings.triggerMode === "shortcut"
         ? [{ id: "launcher", label: t.settings.launcher.shortcut, shortcut: launcherSettings.shortcut }]
         : []),
     ],

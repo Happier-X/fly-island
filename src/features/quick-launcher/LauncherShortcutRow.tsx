@@ -1,98 +1,101 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { ShortcutResetButton } from "../../components/controls/ShortcutResetButton";
 import { ShortcutRecordButton } from "../../components/controls/ShortcutRecordButton";
+import { SettingsRow } from "../../components/settings/SettingsRow";
+import { SettingsSelect } from "../../components/settings/SettingsSelect";
 import { useTranslation } from "../../i18n";
 import { buildShortcutFromEvent } from "../clipboard/shortcut";
 import { setLauncherShortcut } from "./api";
-import { DEFAULT_LAUNCHER_SETTINGS, type LauncherSettings } from "./storage";
+import { DEFAULT_LAUNCHER_SETTINGS, launcherTrigger, type LauncherSettings, type LauncherTriggerMode } from "./storage";
 import "../clipboard/ClipboardSettingsSection.css";
 
-/**
- * The global shortcut that opens the launcher. Same control as the other shortcut
- * rows: keys another island shortcut uses are refused before registration, and keys
- * Windows refuses keep the previous ones and show why. `registerToken` asks again
- * after the module is switched back on.
- */
-export function LauncherShortcutRow({
-  settings,
-  onSettingsChange,
-  takenBy,
-  enabled,
-  registerToken,
-}: {
+export function LauncherShortcutRow({ settings, onSettingsChange, takenBy }: {
   settings: LauncherSettings;
   onSettingsChange: Dispatch<SetStateAction<LauncherSettings>>;
   takenBy: (shortcut: string) => string | null;
-  enabled: boolean;
-  registerToken: number;
 }) {
   const t = useTranslation();
+  const text = t.settings.launcher;
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
-      setError("");
-      return;
-    }
-    let didCancel = false;
-    void setLauncherShortcut(settings.shortcut)
-      .then(() => {
-        if (!didCancel) setError("");
-      })
-      .catch((failure) => {
-        console.warn("Launcher shortcut not registered:", failure);
-        if (!didCancel) setError(t.settings.shortcuts.registerFailed(settings.shortcut));
-      });
-    return () => {
-      didCancel = true;
-    };
-    // Registers on open and whenever the page asks again; recording reports its own result.
+    let active = true;
+    void setLauncherShortcut(launcherTrigger(settings)).catch(() => {
+      if (active) {
+        setError(settings.triggerMode === "doubleCtrl" ? text.doubleCtrlFailed : t.settings.shortcuts.registerFailed(settings.shortcut));
+      }
+    });
+    return () => { active = false; };
+    // Opening the page reports startup registration failures. Each edit reports its own result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerToken, enabled]);
+  }, []);
 
-  const apply = (shortcut: string) => {
-    const owner = takenBy(shortcut);
+  const apply = (shortcut: string, triggerMode: LauncherTriggerMode = "shortcut") => {
+    if (busy) return;
+    const owner = triggerMode === "shortcut" ? takenBy(shortcut) : null;
     if (owner) {
       setError(t.settings.shortcuts.taken(shortcut, owner));
       return;
     }
-    void setLauncherShortcut(shortcut)
+    setBusy(true);
+    void setLauncherShortcut(launcherTrigger({ ...settings, shortcut, triggerMode }))
       .then((registered) => {
-        onSettingsChange((current) => ({ ...current, shortcut: registered }));
+        onSettingsChange((current) => ({
+          ...current,
+          triggerMode,
+          shortcut: triggerMode === "shortcut" ? registered : current.shortcut,
+        }));
         setError("");
       })
-      .catch((failure) => {
-        console.warn("Launcher shortcut not registered:", failure);
-        setError(t.settings.shortcuts.registerFailed(shortcut, settings.shortcut));
-      });
+      .catch(() => setError(triggerMode === "doubleCtrl" ? text.doubleCtrlFailed : t.settings.shortcuts.registerFailed(shortcut)))
+      .finally(() => setBusy(false));
   };
 
   const fallback = DEFAULT_LAUNCHER_SETTINGS.shortcut;
   return (
-    <div className="shortcut-row">
-      <div className={`shortcut-control${enabled ? "" : " shortcut-control--disabled"}`}>
-        <div className="shortcut-control__meta">
-          <span>{t.settings.launcher.shortcut}</span>
-          <strong>{settings.shortcut}</strong>
+    <>
+      <SettingsRow title={text.trigger} control={
+        <SettingsSelect<LauncherTriggerMode>
+          ariaLabel={text.trigger}
+          value={settings.triggerMode}
+          disabled={busy}
+          options={[
+            { value: "shortcut", label: text.combination },
+            { value: "doubleCtrl", label: text.doubleCtrl },
+          ]}
+          onChange={(mode) => apply(settings.shortcut, mode)}
+        />
+      } />
+      {(settings.triggerMode === "shortcut" || error) && (
+        <div className="shortcut-row">
+          {settings.triggerMode === "shortcut" && (
+            <div className="shortcut-control">
+              <div className="shortcut-control__meta">
+                <span>{text.shortcut}</span>
+                <strong>{settings.shortcut}</strong>
+              </div>
+              <div className="shortcut-control__actions">
+                <ShortcutResetButton
+                  label={t.settings.shortcuts.reset(fallback)}
+                  isDefault={settings.shortcut === fallback}
+                  disabled={busy}
+                  onReset={() => apply(fallback)}
+                />
+                <ShortcutRecordButton
+                  shortcut={settings.shortcut}
+                  pressKeysLabel={text.pressKeys}
+                  disabled={busy}
+                  toShortcut={buildShortcutFromEvent}
+                  onRecord={apply}
+                  onInterrupted={() => setError(t.settings.shortcuts.takenElsewhere)}
+                />
+              </div>
+            </div>
+          )}
+          {error && <p className="shortcut-control__error" role="alert">{error}</p>}
         </div>
-        <div className="shortcut-control__actions">
-          <ShortcutResetButton
-            label={t.settings.shortcuts.reset(fallback)}
-            isDefault={settings.shortcut === fallback}
-            disabled={!enabled}
-            onReset={() => apply(fallback)}
-          />
-          <ShortcutRecordButton
-            shortcut={settings.shortcut}
-            pressKeysLabel={t.settings.launcher.pressKeys}
-            disabled={!enabled}
-            toShortcut={buildShortcutFromEvent}
-            onRecord={apply}
-            onInterrupted={() => setError(t.settings.shortcuts.takenElsewhere)}
-          />
-        </div>
-      </div>
-      {error && <p className="shortcut-control__error" role="alert">{error}</p>}
-    </div>
+      )}
+    </>
   );
 }

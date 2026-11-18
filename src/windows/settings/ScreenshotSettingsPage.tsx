@@ -27,7 +27,7 @@ export function ScreenshotSettingsPage({ settings }: { settings: IslandSettings 
         ...(clipboardSettings.shortcutEnabled
           ? [{ id: "clipboard", label: t.settings.categories.clipboard, shortcut: clipboardSettings.shortcut }]
           : []),
-        ...(launcherSettings.enabled
+        ...(launcherSettings.enabled && launcherSettings.triggerMode === "shortcut"
           ? [{ id: "launcher", label: t.settings.launcher.shortcut, shortcut: launcherSettings.shortcut }]
           : []),
       ],

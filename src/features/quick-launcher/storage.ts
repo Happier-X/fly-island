@@ -13,10 +13,14 @@ export const SEARCH_ENGINES: readonly SearchEngine[] = [
 /** `default` searches Desktop, Documents and Downloads; `custom` uses `folders` as they are. */
 export type FolderMode = "default" | "custom";
 
+export type LauncherTriggerMode = "shortcut" | "doubleCtrl";
+export const DOUBLE_CTRL_TRIGGER = "DoubleCtrl";
+
 export type LauncherSettings = {
   /** The module switch; off releases the shortcut and hides the panel. */
   enabled: boolean;
   shortcut: string;
+  triggerMode: LauncherTriggerMode;
   searchApps: boolean;
   searchFiles: boolean;
   searchWeb: boolean;
@@ -28,6 +32,7 @@ export type LauncherSettings = {
 export const DEFAULT_LAUNCHER_SETTINGS: LauncherSettings = {
   enabled: true,
   shortcut: "Alt+Space",
+  triggerMode: "shortcut",
   searchApps: true,
   searchFiles: true,
   searchWeb: true,
@@ -60,6 +65,7 @@ export function normalizeLauncherSettings(stored: unknown): LauncherSettings {
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : DEFAULT_LAUNCHER_SETTINGS.enabled,
     shortcut: normalizeShortcut(value.shortcut),
+    triggerMode: value.triggerMode === "doubleCtrl" ? "doubleCtrl" : "shortcut",
     searchApps: typeof value.searchApps === "boolean" ? value.searchApps : DEFAULT_LAUNCHER_SETTINGS.searchApps,
     searchFiles: typeof value.searchFiles === "boolean" ? value.searchFiles : DEFAULT_LAUNCHER_SETTINGS.searchFiles,
     searchWeb: typeof value.searchWeb === "boolean" ? value.searchWeb : DEFAULT_LAUNCHER_SETTINGS.searchWeb,
@@ -77,4 +83,8 @@ export function loadLauncherSettings(): LauncherSettings {
 
 export function saveLauncherSettings(settings: LauncherSettings) {
   writeJson(LAUNCHER_STORAGE_KEY, settings);
+}
+
+export function launcherTrigger(settings: LauncherSettings) {
+  return settings.triggerMode === "doubleCtrl" ? DOUBLE_CTRL_TRIGGER : settings.shortcut;
 }

@@ -7,6 +7,7 @@ import { setLauncherEnabled } from "../../features/quick-launcher/api";
 import { LauncherFolderSettings } from "../../features/quick-launcher/LauncherFolderSettings";
 import { LauncherSearchSettings } from "../../features/quick-launcher/LauncherSearchSettings";
 import { LauncherShortcutRow } from "../../features/quick-launcher/LauncherShortcutRow";
+import { launcherTrigger } from "../../features/quick-launcher/storage";
 import { useLauncherSettings } from "../../features/quick-launcher/useLauncherSettings";
 import { useScreenshotSettings } from "../../features/screenshot/useScreenshotSettings";
 import { useTranslationSettings } from "../../features/translation/useTranslationSettings";
@@ -24,7 +25,8 @@ export function LauncherSettingsPage({ settings }: { settings: IslandSettings })
   const [translationSettings] = useTranslationSettings();
   const [clipboardSettings] = useClipboardSettings();
   const [screenshotSettings] = useScreenshotSettings();
-  const [registerToken, setRegisterToken] = useState(0);
+  const [switchError, setSwitchError] = useState("");
+  const [switching, setSwitching] = useState(false);
 
   // A global hotkey swallows its keys everywhere, so it may not reuse another page's.
   const takenBy = (shortcut: string) =>
@@ -45,21 +47,29 @@ export function LauncherSettingsPage({ settings }: { settings: IslandSettings })
     );
 
   const changeEnabled = (enabled: boolean) => {
-    setLauncherSettings((current) => ({ ...current, enabled }));
-    // The shortcut can only be registered once the native side is on.
-    void setLauncherEnabled(enabled)
-      .then(() => {
-        if (enabled) setRegisterToken((value) => value + 1);
-      })
+    if (switching) return;
+    const shortcut = launcherTrigger(launcherSettings);
+    const owner = enabled && launcherSettings.triggerMode === "shortcut" ? takenBy(shortcut) : null;
+    if (owner) {
+      setSwitchError(t.settings.shortcuts.taken(shortcut, owner));
+      return;
+    }
+    setSwitching(true);
+    setSwitchError("");
+    void setLauncherEnabled(enabled, shortcut)
+      .then(() => setLauncherSettings((current) => ({ ...current, enabled })))
       .catch((error) => {
         console.error("Failed to switch the quick launcher", error);
-        setLauncherSettings((current) => ({ ...current, enabled: !enabled }));
-      });
+        setSwitchError(!enabled ? t.settings.launcher.disableFailed
+          : launcherSettings.triggerMode === "doubleCtrl" ? t.settings.launcher.doubleCtrlFailed
+            : t.settings.shortcuts.registerFailed(shortcut));
+      })
+      .finally(() => setSwitching(false));
   };
 
   return (
     <>
-      <SettingsGroup>
+      <SettingsGroup footer={switchError && <span role="alert">{switchError}</span>}>
         <SettingsToggleRow
           title={t.settings.launcher.enable}
           description={t.settings.launcher.enableHint}
@@ -73,8 +83,6 @@ export function LauncherSettingsPage({ settings }: { settings: IslandSettings })
             settings={launcherSettings}
             onSettingsChange={setLauncherSettings}
             takenBy={takenBy}
-            enabled={launcherSettings.enabled}
-            registerToken={registerToken}
           />
         </SettingsGroup>
       )}

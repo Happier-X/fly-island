@@ -27,7 +27,7 @@ export function TranslationSettingsPage({
       ...(clipboardSettings.enabled && clipboardSettings.shortcutEnabled
         ? [{ id: "clipboard", label: t.settings.clipboard.shortcut, shortcut: clipboardSettings.shortcut }]
         : []),
-      ...(launcherSettings.enabled
+      ...(launcherSettings.enabled && launcherSettings.triggerMode === "shortcut"
         ? [{ id: "launcher", label: t.settings.launcher.shortcut, shortcut: launcherSettings.shortcut }]
         : []),
     ],

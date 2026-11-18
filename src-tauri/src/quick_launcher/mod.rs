@@ -3,11 +3,13 @@
 //! monitor under the pointer; it closes on Esc, on losing the focus, or on its shortcut.
 
 mod apps;
+mod ctrl_tap;
 mod files;
 mod icon;
 
 use serde::Serialize;
 use std::{
+    cell::RefCell,
     collections::HashSet,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -25,7 +27,9 @@ use windows::Win32::{
 use crate::{
     clipboard_history::{parse_shortcut_binding, ShortcutBinding},
     win32::{
-        self, known_folder,
+        self,
+        keyboard_hook::KeyboardHook,
+        known_folder,
         message_window::{self, WindowMessages},
     },
 };
@@ -37,9 +41,12 @@ const OPENED_EVENT: &str = "quick-launcher-opened";
 /// Mirrors LAUNCHER_INDEX_READY_EVENT in src/features/quick-launcher/api.ts.
 const INDEX_READY_EVENT: &str = "quick-launcher-index-ready";
 
+const DOUBLE_CTRL: &str = "DoubleCtrl";
+#[cfg(test)]
 const DEFAULT_SHORTCUT: &str = "Alt+Space";
 const HOTKEY_ID: i32 = 0x464C;
 const CHANGE_HOTKEY_MESSAGE: u32 = WM_APP + 0x53;
+const CTRL_TAPS_MESSAGE: u32 = WM_APP + 0x54;
 
 /// The panel's size in logical pixels; it is scaled to the monitor it opens on.
 const PANEL_WIDTH: f64 = 680.0;
@@ -52,16 +59,44 @@ const APP_INDEX_TTL: Duration = Duration::from_secs(300);
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
 static HOTKEY_WINDOW: Mutex<Option<isize>> = Mutex::new(None);
-static ACTIVE_BINDING: Mutex<Option<ShortcutBinding>> = Mutex::new(None);
+static SHORTCUT_REQUEST: Mutex<()> = Mutex::new(());
+thread_local! {
+    static ACTIVE: RefCell<Option<Registration>> = const { RefCell::new(None) };
+}
+
+enum Trigger {
+    Keys(ShortcutBinding),
+    CtrlTaps,
+}
+
+impl Trigger {
+    fn parse(value: &str) -> Result<Self, String> {
+        if value == DOUBLE_CTRL {
+            return Ok(Self::CtrlTaps);
+        }
+        parse_shortcut_binding(value)
+            .map(Self::Keys)
+            .ok_or_else(|| "快捷键无效，请使用至少一个修饰键。".to_string())
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            Self::Keys(binding) => &binding.label,
+            Self::CtrlTaps => DOUBLE_CTRL,
+        }
+    }
+}
+
+struct Registration {
+    trigger: Trigger,
+    _hook: Option<KeyboardHook>,
+}
 /// Off when the launcher is switched off: its shortcut is released so its keys reach
 /// other programs again.
 static ENABLED: AtomicBool = AtomicBool::new(true);
 static APP_BUILDING: AtomicBool = AtomicBool::new(false);
 
-type PendingBinding = (
-    Option<ShortcutBinding>,
-    mpsc::Sender<Result<String, String>>,
-);
+type PendingBinding = (Option<Trigger>, mpsc::Sender<Result<String, String>>);
 static PENDING_BINDING: Mutex<Option<PendingBinding>> = Mutex::new(None);
 
 struct AppIndex {
@@ -341,22 +376,33 @@ fn centered_panel(area: WorkArea, scale: f64) -> Placement {
 
 #[tauri::command]
 pub async fn set_launcher_shortcut(shortcut: String) -> Result<String, String> {
-    let binding = parse_shortcut_binding(&shortcut)
-        .ok_or_else(|| "快捷键无效，请使用至少一个修饰键。".to_string())?;
+    let trigger = Trigger::parse(&shortcut)?;
+    let _request = SHORTCUT_REQUEST.lock().map_err(|error| error.to_string())?;
     if !ENABLED.load(Ordering::SeqCst) {
-        // Remembered by the frontend and registered when the launcher is switched on.
-        return Ok(binding.label);
+        return Ok(trigger.label().to_owned());
     }
-    change_hotkey(Some(binding))
+    post_binding(&PENDING_BINDING, CHANGE_HOTKEY_MESSAGE, Some(trigger))
 }
 
-/// Switching off releases the shortcut and hides the panel; switching on registers
-/// nothing by itself, the frontend then calls set_launcher_shortcut.
 #[tauri::command]
-pub async fn set_launcher_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
-    ENABLED.store(enabled, Ordering::SeqCst);
+pub async fn set_launcher_enabled(
+    app: AppHandle,
+    enabled: bool,
+    shortcut: Option<String>,
+) -> Result<(), String> {
+    {
+        let _request = SHORTCUT_REQUEST.lock().map_err(|error| error.to_string())?;
+        if enabled {
+            if let Some(shortcut) = shortcut {
+                let trigger = Trigger::parse(&shortcut)?;
+                post_binding(&PENDING_BINDING, CHANGE_HOTKEY_MESSAGE, Some(trigger))?;
+            }
+        } else {
+            post_binding(&PENDING_BINDING, CHANGE_HOTKEY_MESSAGE, None)?;
+        }
+        ENABLED.store(enabled, Ordering::SeqCst);
+    }
     if !enabled {
-        change_hotkey(None)?;
         if let Ok(window) = launcher_window(&app) {
             let _ = window.hide();
         }
@@ -364,14 +410,10 @@ pub async fn set_launcher_enabled(app: AppHandle, enabled: bool) -> Result<(), S
     Ok(())
 }
 
-fn change_hotkey(binding: Option<ShortcutBinding>) -> Result<String, String> {
-    post_binding(&PENDING_BINDING, CHANGE_HOTKEY_MESSAGE, binding)
-}
-
 fn post_binding(
     slot: &Mutex<Option<PendingBinding>>,
     message: u32,
-    binding: Option<ShortcutBinding>,
+    binding: Option<Trigger>,
 ) -> Result<String, String> {
     let started = Instant::now();
     let hwnd = loop {
@@ -412,65 +454,116 @@ fn run_hotkey_loop() -> Result<(), String> {
         "FocuSD Quick Launcher Hotkey",
     )
     .map_err(|error| error.to_string())?;
-    if let Some(binding) =
-        parse_shortcut_binding(DEFAULT_SHORTCUT).filter(|_| ENABLED.load(Ordering::SeqCst))
-    {
-        if register_binding(hwnd, HOTKEY_ID, &binding).is_ok() {
-            *ACTIVE_BINDING.lock().map_err(|error| error.to_string())? = Some(binding);
-        }
-    }
     *HOTKEY_WINDOW.lock().map_err(|error| error.to_string())? = Some(hwnd.0 as isize);
     message_window::run_message_loop();
-    let _ = win32::hotkey::unregister(hwnd, HOTKEY_ID);
+    ACTIVE.with(|active| release_trigger(hwnd, active.borrow_mut().take()));
     Ok(())
 }
 
-fn register_binding(hwnd: HWND, id: i32, binding: &ShortcutBinding) -> Result<(), String> {
-    win32::hotkey::register(hwnd, id, binding.modifiers, binding.key_code)
-        .map_err(|error| format!("快捷键 {} 已被占用或无法注册：{error}", binding.label))
+fn register_trigger(hwnd: HWND, trigger: Trigger) -> Result<Registration, String> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{VK_LCONTROL, VK_RCONTROL};
+    let hook = match &trigger {
+        Trigger::Keys(binding) => {
+            win32::hotkey::register(hwnd, HOTKEY_ID, binding.modifiers, binding.key_code)
+                .map_err(|error| format!("快捷键 {} 已被占用或无法注册：{error}", binding.label))?;
+            None
+        }
+        Trigger::CtrlTaps => {
+            let mut taps = ctrl_tap::CtrlTaps::default();
+            Some(KeyboardHook::install(move |event| {
+                let key = match event.key as u16 {
+                    key if key == VK_LCONTROL.0 => ctrl_tap::Key::LeftCtrl,
+                    key if key == VK_RCONTROL.0 => ctrl_tap::Key::RightCtrl,
+                    _ => ctrl_tap::Key::Other,
+                };
+                if taps.event(key, event.down, event.time, event.other_modifier_held) {
+                    // Return to the hook chain before any window work.
+                    let _ = message_window::post_message(hwnd, CTRL_TAPS_MESSAGE);
+                }
+            })?)
+        }
+    };
+    Ok(Registration {
+        trigger,
+        _hook: hook,
+    })
 }
 
-fn apply_binding_change(
-    hwnd: HWND,
-    id: i32,
-    pending_slot: &Mutex<Option<PendingBinding>>,
-    active_slot: &Mutex<Option<ShortcutBinding>>,
-) {
-    let pending = pending_slot.lock().ok().and_then(|mut value| value.take());
-    let Some((binding, sender)) = pending else {
-        return;
-    };
-    let previous = active_slot.lock().ok().and_then(|mut value| value.take());
-    if previous.is_some() {
-        let _ = win32::hotkey::unregister(hwnd, id);
+fn release_trigger(hwnd: HWND, active: Option<Registration>) {
+    if active.is_some_and(|active| matches!(active.trigger, Trigger::Keys(_))) {
+        let _ = win32::hotkey::unregister(hwnd, HOTKEY_ID);
     }
-    let Some(binding) = binding else {
-        let _ = sender.send(Ok(String::new()));
-        return;
-    };
-    let result = register_binding(hwnd, id, &binding).map(|()| binding.label.clone());
-    if let Ok(mut active) = active_slot.lock() {
-        *active = if result.is_ok() {
-            Some(binding)
-        } else {
-            previous.and_then(|old| register_binding(hwnd, id, &old).ok().map(|()| old))
+}
+
+fn apply_binding_change(hwnd: HWND, requested: Option<Trigger>) -> Result<String, String> {
+    ACTIVE.with(|slot| {
+        let mut active = slot.borrow_mut();
+        let Some(requested) = requested else {
+            release_trigger(hwnd, active.take());
+            return Ok(String::new());
         };
-    }
-    let _ = sender.send(result);
+        let label = requested.label().to_owned();
+        if active
+            .as_ref()
+            .is_some_and(|current| current.trigger.label() == label)
+        {
+            return Ok(label);
+        }
+        let mut previous = active.take();
+        // A different trigger type can be acquired before giving up the old registration.
+        let restore = match (
+            &requested,
+            previous.as_ref().map(|current| &current.trigger),
+        ) {
+            (Trigger::Keys(_), Some(Trigger::Keys(binding))) => {
+                Some(Trigger::Keys(binding.clone()))
+            }
+            _ => None,
+        };
+        if restore.is_some() {
+            release_trigger(hwnd, previous.take());
+        }
+        match register_trigger(hwnd, requested) {
+            Ok(next) => {
+                release_trigger(hwnd, previous);
+                *active = Some(next);
+                Ok(label)
+            }
+            Err(error) => {
+                *active =
+                    previous.or_else(|| restore.and_then(|old| register_trigger(hwnd, old).ok()));
+                Err(error)
+            }
+        }
+    })
 }
 
 struct LauncherHotkeyWindow;
 
 impl WindowMessages for LauncherHotkeyWindow {
     fn handle(hwnd: HWND, message: u32, wparam: WPARAM, _: LPARAM) -> Option<LRESULT> {
-        if message == WM_HOTKEY && wparam.0 == HOTKEY_ID as usize {
-            if let Some(app) = APP.get().filter(|_| ENABLED.load(Ordering::SeqCst)) {
-                let _ = toggle_quick_launcher(app.clone());
+        if message == CHANGE_HOTKEY_MESSAGE {
+            let pending = PENDING_BINDING
+                .lock()
+                .ok()
+                .and_then(|mut value| value.take());
+            if let Some((trigger, sender)) = pending {
+                let _ = sender.send(apply_binding_change(hwnd, trigger));
             }
             return Some(LRESULT(0));
         }
-        if message == CHANGE_HOTKEY_MESSAGE {
-            apply_binding_change(hwnd, HOTKEY_ID, &PENDING_BINDING, &ACTIVE_BINDING);
+        let matching_trigger = ACTIVE.with(|slot| {
+            slot.borrow()
+                .as_ref()
+                .is_some_and(|active| match active.trigger {
+                    Trigger::Keys(_) => message == WM_HOTKEY && wparam.0 == HOTKEY_ID as usize,
+                    Trigger::CtrlTaps => message == CTRL_TAPS_MESSAGE,
+                })
+        });
+        if matching_trigger {
+            if let Some(app) = APP.get().filter(|_| ENABLED.load(Ordering::SeqCst)) {
+                let _ = toggle_quick_launcher(app.clone());
+            }
             return Some(LRESULT(0));
         }
         None

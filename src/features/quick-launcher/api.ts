@@ -48,9 +48,9 @@ export function setLauncherShortcut(shortcut: string) {
   return invoke<string>("set_launcher_shortcut", { shortcut });
 }
 
-/** Off releases the shortcut and hides the panel; on lets set_launcher_shortcut register again. */
-export function setLauncherEnabled(enabled: boolean) {
-  return invoke<void>("set_launcher_enabled", { enabled });
+/** Off releases the shortcut and hides the panel; on registers the saved trigger. */
+export function setLauncherEnabled(enabled: boolean, shortcut: string) {
+  return invoke<void>("set_launcher_enabled", { enabled, shortcut });
 }
 
 export function listenLauncherOpened(handler: EventCallback<unknown>) {

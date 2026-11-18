@@ -21,13 +21,13 @@ src-tauri/src/
 ├── mail/                    # 邮箱（命令名仍为 *_qq_mail）：附件（attachments.rs）、命令、每个邮箱一个后台服务（accounts.rs）及其崩溃后重启（supervisor.rs）、IMAP 会话、正文与内嵌图片解析、凭据
 ├── qq_notifications/        # QQ 通知监听；repair-qq-notification-registration.ps1 编入二进制，也可手动运行
 ├── wechat_reminders/        # 提醒服务与命令；source.rs 为托盘闪烁监听（examples 通过 #[path] 复用）
-├── quick_launcher/          # 快捷启动：面板窗口与快捷键、应用枚举（apps.rs）、文件扫描与缓存（files.rs）、图标（icon.rs）
+├── quick_launcher/          # 快捷启动：面板窗口与快捷键、双击 Ctrl 识别（ctrl_tap.rs）、应用枚举（apps.rs）、文件扫描与缓存（files.rs）、图标（icon.rs）
 ├── translation/             # 快捷翻译：窗口、全局快捷键、凭据与翻译请求（mod.rs）
 ├── settings_window/         # 设置窗口：按需创建与显示（mod.rs）
 ├── messenger_activation.rs
 ├── notification_diagnostics.rs
 └── win32/                   # Win32 / COM 的安全封装，crate 中唯一允许 unsafe 的地方：window（窗口查询、枚举、前台切换）、
-                             # message_window（隐藏消息窗口与安全的窗口过程）、hotkey、clipboard、shell_hook、input、
+                             # message_window（隐藏消息窗口与安全的窗口过程）、hotkey、keyboard_hook（透传键盘事件）、clipboard、shell_hook、input、
                              # com（COM / WinRT 初始化守卫）、audio、ole（文件拖出）、process / process_times、registry、
                              # notification_state（前台是否有全屏程序）、known_folder（桌面、文档、下载等已知文件夹）、
                              # shortcut（.lnk 的目标）、icon、chinese、process_env / process_tree、uia_tabs（终端标签页）

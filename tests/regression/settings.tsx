@@ -10,7 +10,9 @@ import { SettingsWindow } from "../../src/windows/settings/SettingsWindow";
 import { DEFAULT_SETTINGS } from "../../src/features/appearance/settings";
 import { settingsCategoryFor } from "../../src/windows/settings/categories";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../../src/i18n";
-import { CINDY_DATABASE, commands, mailCalls, translationShortcutCalls } from "./settingsMocks";
+import { LauncherWindow } from "../../src/windows/launcher/LauncherWindow";
+import { LAUNCHER_STORAGE_KEY, loadLauncherSettings } from "../../src/features/quick-launcher/storage";
+import { CINDY_DATABASE, commands, launcherCalls, mailCalls, translationShortcutCalls } from "./settingsMocks";
 
 const query = new URLSearchParams(location.search);
 const automated = query.has("test");
@@ -34,6 +36,7 @@ localStorage.setItem("focusd-island-qq-notification-access-requested", "true");
 localStorage.removeItem("focusd-island-agent-sounds");
 localStorage.removeItem("focusd-island-cindy-notifications-seen");
 localStorage.removeItem("focusd-island-detached-settings");
+localStorage.setItem(LAUNCHER_STORAGE_KEY, JSON.stringify({ shortcut: "Ctrl+Alt+Y" }));
 // The player order as the old Music page saved it.
 localStorage.setItem("focusd-island-music-sources", JSON.stringify([{ id: "Spotify.exe", label: "Spotify" }, { id: "QQMusic", label: "QQ音乐" }]));
 
@@ -316,6 +319,23 @@ if (!automated) {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     check(recordButtonText() === "Ctrl+Shift+/", `The clipboard page shows the recorded shortcut when opened again (${recordButtonText()})`);
 
+    await openPage("launcher");
+    const chooseTrigger = async (mode: string) => {
+      await click('[role="combobox"][aria-label="触发方式"]');
+      await click(`[role="option"][data-value="${mode}"]`);
+    };
+    const launcherSwitch = () => click('.editor-panel [role="switch"]');
+    check(loadLauncherSettings().triggerMode === "shortcut" && launcherCalls[launcherCalls.length - 1]?.shortcut === "Ctrl+Alt+Y", "Existing launcher combinations keep working after migration");
+    await chooseTrigger("doubleCtrl");
+    check(loadLauncherSettings().triggerMode === "doubleCtrl" && !document.querySelector(".editor-panel .shortcut-record-button"), "Double-tap Ctrl is saved and hides the combination recorder");
+    await launcherSwitch();
+    check(!loadLauncherSettings().enabled && launcherCalls[launcherCalls.length - 1]?.enabled === false, "Disabling releases the active trigger and saves the switch");
+    await launcherSwitch();
+    check(loadLauncherSettings().enabled && launcherCalls.some((call) => call.enabled && call.shortcut === "DoubleCtrl"), "Enabling registers the saved Double-tap Ctrl trigger");
+    await chooseTrigger("shortcut");
+    check(loadLauncherSettings().triggerMode === "shortcut" && launcherCalls[launcherCalls.length - 1]?.shortcut === "Ctrl+Alt+Y", "Switching back restores the previous combination");
+    await chooseTrigger("doubleCtrl");
+
     await openPage("about");
     // About: one group holds the latest version (with its update states) and the links; no
     // separate Version group nests a box in a box.
@@ -346,6 +366,9 @@ if (!automated) {
     await act(async () => { aboutLink("退出")!.click(); });
     check(commands.includes("quit_island"), "Quit asks the island to exit");
 
+    launcherCalls.length = 0;
+    await act(async () => { root.render(<I18nProvider><LauncherWindow /></I18nProvider>); });
+    check(launcherCalls.some((call) => call.enabled && call.shortcut === "DoubleCtrl"), "A fresh launcher window restores the saved trigger from storage");
     await act(async () => { root.unmount(); });
     document.documentElement.dataset.testResult = "passed";
   } catch (error) {

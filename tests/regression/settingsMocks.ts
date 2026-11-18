@@ -5,6 +5,7 @@ import type { MailSnapshot } from "../../src/features/messages/mail/api";
 import { DEFAULT_SCREENSHOT_SETTINGS } from "../../src/features/screenshot/api";
 
 let revision = 0;
+export const launcherCalls: { enabled?: boolean; shortcut: unknown }[] = [];
 export const commands: string[] = [];
 export const mailCalls: { command: string; args: Record<string, unknown> }[] = [];
 const mailbox = (email: string, extra: Partial<MailSnapshot> = {}): MailSnapshot => ({
@@ -35,9 +36,12 @@ mockIPC((command, payload) => {
     // The capture page asks the overlay side for its toolbar and key names; empty is a valid answer.
     case "get_launcher_default_folders": return ["C:\\Users\\demo\\Desktop", "C:\\Users\\demo\\Documents", "C:\\Users\\demo\\Downloads"];
     case "set_launcher_shortcut":
+      launcherCalls.push({ shortcut: args.shortcut });
       if (args.shortcut === "Ctrl+Alt+Q") throw "快捷键 Ctrl+Alt+Q 已被占用或无法注册：热键已被注册。";
       return args.shortcut;
-    case "set_launcher_enabled": return null;
+    case "set_launcher_enabled":
+      launcherCalls.push({ enabled: Boolean(args.enabled), shortcut: args.shortcut });
+      return null;
     case "get_screenshot_settings": return { ...DEFAULT_SCREENSHOT_SETTINGS };
     case "set_screenshot_settings": return null;
     case "get_screenshot_toolbar_groups": return [];
