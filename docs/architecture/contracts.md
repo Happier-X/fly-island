@@ -30,6 +30,7 @@
 | `focusd-island-wechat-reminders-enabled` | `features/messages/wechat/storage.ts` |
 | `focusd-island-translation-settings` | `features/translation/storage.ts` |
 | `focusd-island-launcher-settings`（`{ enabled, shortcut, triggerMode, searchApps, searchFiles, searchWeb, searchEngine, folderMode, folders }`：快捷启动的开关、快捷键、搜索范围、搜索引擎与文件目录；不保存搜索结果） | `features/quick-launcher/storage.ts` |
+| `focusd-island-auto-update-settings`（`{ enabled, autoInstall, intervalHours }`：自动更新总开关、下载后自动安装、检查间隔；缺省分别为 `true`、`true`、`6`） | `features/updater/autoUpdateSettings.ts` |
 | `focusd-island-agent-approval`（2026-11-12 起不再读写：Cindy 的授权卡在它自己的界面里，岛上不再拦截审批；旧值留在原处不删） | — |
 | `focusd-island-agent-hidden-sessions`（2026-11-14 起不再读写：Agent 页已删除，旧值留在原处不删） | — |
 | `focusd-island-agent-seen-turns`（2026-11-14 起不再读写：按会话的已读表换成下面的通知水位，旧值留在原处不删） | — |
@@ -62,7 +63,7 @@
 | `quick-launcher-opened`（无载荷：快捷启动面板已显示并定位，面板清空输入并聚焦搜索框） | `quick_launcher/mod.rs` | `launcher` |
 | `quick-launcher-index-ready`（无载荷：后台的应用索引已建好，面板重新读取一次） | `quick_launcher/mod.rs` | `launcher` |
 | `settings-open-requested`（无载荷：托盘、翻译窗口或独立设置窗口要打开设置，主窗口按 `focusd-island-detached-settings` 决定打开岛上的设置页还是独立窗口） | `settings_window/mod.rs`、前端 `windows/settings/api.ts` | `main` |
-| `focusd-update-state` / `focusd-update-request`（更新状态由主窗口广播；独立设置窗口用后者请求 `snapshot` / `check` / `install` / `dismiss`；3.0.2 及更早还有 `channel`） | `features/updater/updaterController.ts` | 广播 / `main` |
+| `focusd-update-state` / `focusd-update-request`（`focusd-update-state` 载荷为 `{ state, autoUpdate }`，由主窗口广播；独立设置窗口用后者请求 `snapshot` / `check` / `install` / `dismiss`；3.0.2 及更早还有 `channel`） | `features/updater/updaterController.ts` | 广播 / `main` |
 
 ## 其他
 

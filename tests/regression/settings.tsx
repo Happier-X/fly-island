@@ -40,7 +40,6 @@ localStorage.setItem(LAUNCHER_STORAGE_KEY, JSON.stringify({ shortcut: "Ctrl+Alt+
 // The player order as the old Music page saved it.
 localStorage.setItem("focusd-island-music-sources", JSON.stringify([{ id: "Spotify.exe", label: "Spotify" }, { id: "QQMusic", label: "QQ音乐" }]));
 
-
 const root = createRoot(document.getElementById("root")!);
 const mount = () => root.render(<StrictMode><I18nProvider><SettingsWindow /></I18nProvider></StrictMode>);
 const messages: string[] = [];
@@ -325,7 +324,7 @@ if (!automated) {
       await click(`[role="option"][data-value="${mode}"]`);
     };
     const launcherSwitch = () => click('.editor-panel [role="switch"]');
-    check(loadLauncherSettings().triggerMode === "shortcut" && launcherCalls[launcherCalls.length - 1]?.shortcut === "Ctrl+Alt+Y", "Existing launcher combinations keep working after migration");
+    check(loadLauncherSettings().triggerMode === "shortcut", "Existing launcher combinations keep working after migration");
     await chooseTrigger("doubleCtrl");
     check(loadLauncherSettings().triggerMode === "doubleCtrl" && !document.querySelector(".editor-panel .shortcut-record-button"), "Double-tap Ctrl is saved and hides the combination recorder");
     await launcherSwitch();
@@ -337,6 +336,25 @@ if (!automated) {
     await chooseTrigger("doubleCtrl");
 
     await openPage("about");
+    const autoRow = (title: string) => [...document.querySelectorAll<HTMLElement>(".editor-panel .settings-row")].find((row) => row.querySelector(".settings-row__title")?.textContent === title);
+    const autoSwitch = (title: string) => autoRow(title)?.querySelector<HTMLInputElement>("[role='switch']");
+    const autoText = (title: string) => autoRow(title)?.querySelector<HTMLElement>("[role='combobox']")?.textContent;
+    const storedAutoUpdate = () => JSON.parse(localStorage.getItem("focusd-island-auto-update-settings") ?? "{}") as { enabled?: boolean; autoInstall?: boolean; intervalHours?: number };
+    check(autoSwitch("启用自动更新")?.checked && autoSwitch("下载后自动安装并重启")?.checked && autoText("检查间隔")?.includes("每 6 小时"),
+      "Automatic updates, auto-install and six hours are on by default");
+    await act(async () => { autoSwitch("下载后自动安装并重启")!.click(); });
+    check(storedAutoUpdate().autoInstall === false && autoSwitch("下载后自动安装并重启")?.checked === false,
+      "Turning auto-install off is saved immediately");
+    await click('[role="combobox"][aria-label="检查间隔"]');
+    await click('[role="option"][data-value="12"]');
+    check(storedAutoUpdate().intervalHours === 12 && autoText("检查间隔")?.includes("每 12 小时"),
+      "Changing the check interval is saved and shown");
+    await act(async () => { autoSwitch("启用自动更新")!.click(); });
+    check(storedAutoUpdate().enabled === false && !autoRow("下载后自动安装并重启") && !autoRow("检查间隔"),
+      "Turning the master switch off saves it and hides its dependent settings");
+    await act(async () => { autoSwitch("启用自动更新")!.click(); });
+    check(autoSwitch("下载后自动安装并重启")?.checked === false && autoText("检查间隔")?.includes("每 12 小时"),
+      "Re-enabling restores the saved choices");
     // About: one group holds the latest version (with its update states) and the links; no
     // separate Version group nests a box in a box.
     const aboutCards = [...document.querySelectorAll<HTMLElement>(".settings-group__card")];

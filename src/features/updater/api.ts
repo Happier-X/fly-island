@@ -6,16 +6,21 @@ export type UpdateRequest = { action: "snapshot" | "check" | "install" | "dismis
 const UPDATE_STATE_EVENT = "focusd-update-state";
 const UPDATE_REQUEST_EVENT = "focusd-update-request";
 
-export function listenUpdateState(callback: (state: UpdateState) => void) {
-  return listen<UpdateState>(UPDATE_STATE_EVENT, (event) => callback(event.payload));
+export type UpdateStateSnapshot = {
+  state: UpdateState;
+  autoUpdate: import("./autoUpdateSettings").AutoUpdateSettings;
+};
+
+export function listenUpdateState(callback: (snapshot: UpdateStateSnapshot) => void) {
+  return listen<UpdateStateSnapshot>(UPDATE_STATE_EVENT, (event) => callback(event.payload));
 }
 
 export function listenUpdateRequests(callback: (request: UpdateRequest) => void) {
   return listen<UpdateRequest>(UPDATE_REQUEST_EVENT, (event) => callback(event.payload));
 }
 
-export function publishUpdateState(state: UpdateState) {
-  return emit(UPDATE_STATE_EVENT, state);
+export function publishUpdateState(snapshot: UpdateStateSnapshot) {
+  return emit(UPDATE_STATE_EVENT, snapshot);
 }
 
 export function requestUpdateAction(request: UpdateRequest) {

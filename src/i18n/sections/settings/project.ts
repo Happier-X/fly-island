@@ -47,6 +47,15 @@ export type SettingsProjectText = {
     error: string;
     errorDetail: (reason: string) => string;
     unavailable: string;
+    autoUpdateTitle: string;
+    autoUpdateEnabled: string;
+    autoUpdateEnabledHint: string;
+    autoInstall: string;
+    autoInstallHint: string;
+    checkInterval: string;
+    checkIntervalHint: string;
+    intervalLabel: (hours: number) => string;
+    autoUpdateFooter: string;
   };
 };
 
@@ -96,6 +105,15 @@ export const zhCN: SettingsProjectText = {
     error: "检查更新失败，请稍后再试。",
     errorDetail: (reason) => `原因：${reason}`,
     unavailable: "这里不能应用内更新，请到 Release 页手动下载。",
+    autoUpdateTitle: "自动更新",
+    autoUpdateEnabled: "启用自动更新",
+    autoUpdateEnabledHint: "开启后定期在后台检查；关闭后不再定时检查或自动安装，仍可手动检查。",
+    autoInstall: "下载后自动安装并重启",
+    autoInstallHint: "更新包下载完成后立即安装并重启小岛，无需手动确认；可能打断正在进行的工作。",
+    checkInterval: "检查间隔",
+    checkIntervalHint: "从上次启动开始计时，切到后台也照常检查。",
+    intervalLabel: (hours) => `每 ${hours} 小时`,
+    autoUpdateFooter: "自动安装前仍会校验官方签名；检查或下载进行中不会重复发起。",
   },
 };
 
@@ -145,5 +163,14 @@ export const en: SettingsProjectText = {
     error: "Couldn't check for updates. Please try again later.",
     errorDetail: (reason) => `Reason: ${reason}`,
     unavailable: "In-app updates aren't available here. Grab new versions from the release page.",
+    autoUpdateTitle: "Automatic updates",
+    autoUpdateEnabled: "Enable automatic updates",
+    autoUpdateEnabledHint: "Check periodically in the background. Turning this off stops scheduled checks and automatic installs; manual checks still work.",
+    autoInstall: "Install and restart after download",
+    autoInstallHint: "Install and restart as soon as the package finishes downloading, without waiting for confirmation. This may interrupt your work.",
+    checkInterval: "Check interval",
+    checkIntervalHint: "Counted from the last start, including while the island is in the background.",
+    intervalLabel: (hours) => `Every ${hours} hours`,
+    autoUpdateFooter: "Packages are still signature-verified; no second check or download starts while one is running.",
   },
 };
