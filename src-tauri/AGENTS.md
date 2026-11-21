@@ -16,6 +16,7 @@ src-tauri/src/
 ├── system/                  # 开机自启（注册表）、更新代理与配置、待办 Markdown 导出
 ├── clipboard_history/
 ├── file_shelf/              # 文件中转：路径列表（file-shelf.json）与命令；拖出调用 win32/ole.rs
+├── device_battery/          # 外设电量：BLE GATT 电池服务、标准 HID 电池用量、Logitech HID++；只列真正读到的设备
 ├── media_control/
 ├── lyrics/                  # 音乐页歌词：本地 .lrc 文件夹（local.rs）、LRCLIB（lrclib.rs，用户开启才联网）、按歌名歌手时长匹配（matching.rs），在线结果缓存在 lyrics-cache/
 ├── mail/                    # 邮箱（命令名仍为 *_qq_mail）：附件（attachments.rs）、命令、每个邮箱一个后台服务（accounts.rs）及其崩溃后重启（supervisor.rs）、IMAP 会话、正文与内嵌图片解析、凭据
@@ -28,7 +29,7 @@ src-tauri/src/
 ├── notification_diagnostics.rs
 └── win32/                   # Win32 / COM 的安全封装，crate 中唯一允许 unsafe 的地方：window（窗口查询、枚举、前台切换）、
                              # message_window（隐藏消息窗口与安全的窗口过程）、hotkey、keyboard_hook（透传键盘事件）、clipboard、shell_hook、input、
-                             # com（COM / WinRT 初始化守卫）、audio、ole（文件拖出）、process / process_times、registry、
+                             # com（COM / WinRT 初始化守卫）、audio、hid（HID 枚举与报告读写）、ole（文件拖出）、process / process_times、registry、
                              # notification_state（前台是否有全屏程序）、known_folder（桌面、文档、下载等已知文件夹）、
                              # shortcut（.lnk 的目标）、icon、chinese、process_env / process_tree、uia_tabs（终端标签页）
 ```

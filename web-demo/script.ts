@@ -10,6 +10,7 @@ export const PAGE_BUTTONS: Record<IslandPage, string> = {
   music: ".dot-button--music",
   clipboard: ".dot-button--clipboard",
   shelf: ".dot-button--shelf",
+  battery: ".dot-button--battery",
   qq: ".island-message-button",
   // A page capsule since the translate button became one; the header button before that.
   translation: ".dot-button--translation, .island-translate-button",

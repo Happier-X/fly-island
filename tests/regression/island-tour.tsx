@@ -12,7 +12,7 @@ import { I18nProvider, LOCALE_STORAGE_KEY } from "../../src/i18n";
 import { IslandApp } from "../../src/windows/island/IslandApp";
 import { trackIslandTopEdge } from "../../src/windows/island/topEdge";
 import { checkCapsuleMotion } from "./islandShapeChecks";
-import { TOUR_CLIPBOARD, TOUR_LRC, TOUR_MAIL, TOUR_QQ_ITEMS, TOUR_SHELF, TOUR_TODOS, tourMediaState, type TourMedia } from "./islandTourMocks";
+import { TOUR_BATTERIES, TOUR_CLIPBOARD, TOUR_LRC, TOUR_MAIL, TOUR_QQ_ITEMS, TOUR_SHELF, TOUR_TODOS, tourMediaState, type TourMedia } from "./islandTourMocks";
 
 const query = new URLSearchParams(location.search);
 const automated = query.has("test");
@@ -61,6 +61,7 @@ mockIPC((command, payload) => {
     case "get_default_todo_save_directory": return "D:\\Notes";
     case "get_clipboard_history": return empty ? { ...TOUR_CLIPBOARD, items: [] } : TOUR_CLIPBOARD;
     case "get_file_shelf": return { items: empty ? [] : TOUR_SHELF };
+    case "get_peripheral_batteries": return empty ? [] : TOUR_BATTERIES;
     case "agent_window_in_front": return false;
     case "focus_agent_window": focusCalls += 1; return true;
     case "list_plugin_views": return { views: [], status: [] };
@@ -189,7 +190,7 @@ if (!automated) {
     };
     await drag(".dot-button--todo", ".dot-button--clipboard");
     const savedOrder = JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}").pageOrder as string[] | undefined;
-    check(dotOrder().join() === "music,clipboard,todo,shelf,translation" && savedOrder?.join() === "music,clipboard,todo,shelf,translation" && island().className === pageBefore,
+    check(dotOrder().join() === "music,clipboard,todo,shelf,battery,translation" && savedOrder?.join() === "music,clipboard,todo,shelf,battery,translation" && island().className === pageBefore,
       `拖动页面圆点可以调整顺序并保存，拖完不切页（${dotOrder().join()}）`);
     await drag(".dot-button--todo", ".dot-button--music");
     check(dotOrder()[0] === "todo", "圆点可以拖回原来的位置");
@@ -236,6 +237,7 @@ if (!automated) {
       [".dot-button--music", "音乐"],
       [".dot-button--clipboard", "剪贴板"],
       [".dot-button--shelf", "文件中转"],
+      [".dot-button--battery", "外设电量"],
       [".island-message-button", "消息"],
       [".dot-button--translation", "翻译"],
       [".island-settings-button", "设置"],

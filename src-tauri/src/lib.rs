@@ -1,5 +1,6 @@
 mod cindy_notifications;
 mod clipboard_history;
+mod device_battery;
 mod file_shelf;
 mod island;
 mod lyrics;
@@ -127,6 +128,7 @@ pub fn run() {
             media_control;
             lyrics;
             clipboard_history;
+            device_battery;
             translation;
             quick_launcher;
             screenshot;

@@ -12,6 +12,7 @@ import * as archive from "../sections/archive.ts";
 import * as music from "../sections/music.ts";
 import * as todo from "../sections/todo.ts";
 import * as clipboard from "../sections/clipboard.ts";
+import * as battery from "../sections/battery.ts";
 import * as fileShelf from "../sections/fileShelf.ts";
 import * as launcher from "../sections/launcher.ts";
 import * as settings from "../sections/settings/index.ts";
@@ -40,6 +41,8 @@ const en: Translations = {
   todo: todo.en,
 
   clipboard: clipboard.en,
+
+  battery: battery.en,
 
   fileShelf: fileShelf.en,
 

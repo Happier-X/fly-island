@@ -14,6 +14,7 @@ import { useMediaState } from "../../features/media/useMediaState";
 import type { TodoItem } from "../../features/todos/types";
 import { useIslandWindow } from "./useIslandWindow";
 import { getExpandedIslandHeight } from "./expandedHeight";
+import { useIslandBattery } from "./useIslandBattery";
 import { getIslandStageStyle } from "./stageStyle";
 import { useCollapsedTodo } from "./useCollapsedTodo";
 import { useGameMode } from "./useGameMode";
@@ -94,6 +95,7 @@ export function IslandApp() {
     openIslandPage,
   });
   const { fileShelf, isShelfDropping } = useIslandShelf(settings, navigation);
+  const battery = useIslandBattery(settings, page, mode);
   const expandedIslandHeight = getExpandedIslandHeight({
     page,
     todoPageMode,
@@ -105,6 +107,7 @@ export function IslandApp() {
     clipboardVisibleRows: settings.clipboardVisibleRows,
     settingsContentHeight,
     shelfItems: fileShelf.items.length,
+    batteryDevices: battery.devices.length,
   });
   const stageStyle = useMemo(
     () => getIslandStageStyle(settings, collapsedIslandWidth, expandedIslandHeight),
@@ -212,6 +215,7 @@ export function IslandApp() {
           media={media}
           clipboard={clipboard}
           fileShelf={fileShelf}
+          battery={battery}
           isShelfDropping={isShelfDropping}
           notebookProps={notebookProps}
         />

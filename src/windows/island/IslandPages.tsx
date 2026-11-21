@@ -14,6 +14,8 @@ import { ClipboardHistoryPanel } from "../../features/clipboard/ClipboardHistory
 import type { useClipboardHistory } from "../../features/clipboard/useClipboardHistory";
 import { MusicPlayerPanel } from "../../features/media/MusicPlayerPanel";
 import type { useMediaState } from "../../features/media/useMediaState";
+import { PeripheralBatteryPanel } from "../../features/device-battery/PeripheralBatteryPanel";
+import type { usePeripheralBattery } from "../../features/device-battery/usePeripheralBattery";
 import { FileShelfPanel } from "../../features/file-shelf/FileShelfPanel";
 import type { useFileShelf } from "../../features/file-shelf/useFileShelf";
 import { getTodoScrollStartRows } from "./layout";
@@ -41,6 +43,7 @@ type IslandPagesProps = {
   media: ReturnType<typeof useMediaState>;
   clipboard: ReturnType<typeof useClipboardHistory>;
   fileShelf: ReturnType<typeof useFileShelf>;
+  battery: ReturnType<typeof usePeripheralBattery>;
   isShelfDropping: boolean;
   notebookProps: ReturnType<typeof useTodos>["notebookProps"];
 };
@@ -63,6 +66,7 @@ export function IslandPages({
   media,
   clipboard,
   fileShelf,
+  battery,
   isShelfDropping,
   notebookProps,
 }: IslandPagesProps): ReactNode {
@@ -120,6 +124,7 @@ export function IslandPages({
       )}
       {page === "translation" && <TranslationPanel isOpen={mode === "expanded"} onOpenSettings={() => openSettingsWindow("translation")} />}
       {page === "shelf" && <FileShelfPanel shelf={fileShelf} isDropTarget={isShelfDropping} revealOnDoubleClick={settings.shelfDoubleClick === "reveal"} />}
+      {page === "battery" && <PeripheralBatteryPanel {...battery} />}
       {page === "todo" && (
         <TodoNotebook
           {...notebookProps}

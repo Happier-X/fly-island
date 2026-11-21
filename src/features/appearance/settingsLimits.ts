@@ -23,6 +23,9 @@ export const AUTO_COLLAPSE_SECONDS = [3, 5, 10, 30, 0] as const;
 /** Auto-cleanup choices for the file shelf, in days; 0 never cleans up. */
 export const SHELF_CLEANUP_DAYS = [0, 1, 7, 30] as const;
 export const DEFAULT_TASK_TEXT_COLOR = "#ffffff";
+/** Choices for how often the peripheral battery page re-reads connected devices, in seconds. */
+export const BATTERY_REFRESH_SECONDS = [30, 60, 120, 300] as const;
+export const DEFAULT_BATTERY_REFRESH_SECONDS = 60;
 
 /**
  * The expanded island's size (Appearance → "Expanded size"): a slider over this range in steps
@@ -48,7 +51,7 @@ export const COLLAPSED_ITEMS: readonly CollapsedItem[] = ["lyrics", "todo"];
 /** The collapsed island's layout as it always was: the text, then the icons on its right. */
 export const COLLAPSED_SLOTS: readonly CollapsedSlot[] = ["text", "mail", "shelf", "music", "notifications"];
 /** The header's page dots in their default order; translation joined last (2026-11-11). */
-export const PAGE_DOTS: readonly PageDot[] = ["todo", "music", "clipboard", "shelf", "translation"];
+export const PAGE_DOTS: readonly PageDot[] = ["todo", "music", "clipboard", "shelf", "battery", "translation"];
 
 /** `value` when it is one of `allowed`, else `fallback`: a saved choice from an older or newer build. */
 export function oneOf<T>(allowed: readonly T[], value: unknown, fallback: T): T {

@@ -24,12 +24,12 @@ test("the collapsed island's order, cover and the page dots load with defaults",
   const settings = normalizeSettings({});
   assert.deepEqual(settings.collapsedPriority, ["lyrics", "todo"]);
   assert.equal(settings.collapsedShowCover, false);
-  assert.deepEqual(settings.pageOrder, ["todo", "music", "clipboard", "shelf", "translation"]);
+  assert.deepEqual(settings.pageOrder, ["todo", "music", "clipboard", "shelf", "battery", "translation"]);
   const saved = normalizeSettings({ collapsedPriority: ["todo"], collapsedShowCover: true, pageOrder: ["shelf", "todo"] });
   assert.deepEqual(saved.collapsedPriority, ["todo", "lyrics"]);
   assert.equal(saved.collapsedShowCover, true);
   // Orders saved before translation had a capsule get it at the end.
-  assert.deepEqual(saved.pageOrder, ["shelf", "todo", "music", "clipboard", "translation"]);
+  assert.deepEqual(saved.pageOrder, ["shelf", "todo", "music", "clipboard", "battery", "translation"]);
 });
 
 test("a collapsed layout saved with the old agent slot keeps its place as notifications", () => {

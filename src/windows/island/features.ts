@@ -7,6 +7,7 @@ export type IslandFeatures = {
   music: boolean;
   clipboard: boolean;
   shelf: boolean;
+  battery: boolean;
   qq: boolean;
   wechat: boolean;
   qqMail: boolean;
@@ -14,7 +15,7 @@ export type IslandFeatures = {
   translation: boolean;
 };
 
-const PAGE_ORDER: IslandPage[] = ["todo", "music", "clipboard", "shelf", "qq", "translation"];
+const PAGE_ORDER: IslandPage[] = ["todo", "music", "clipboard", "shelf", "qq", "battery", "translation"];
 const SOURCE_ORDER: MessageSource[] = ["qq", "wechat", "qqMail"];
 
 export function isPageEnabled(page: IslandPage, features: IslandFeatures): boolean {

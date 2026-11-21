@@ -9,6 +9,7 @@ export type SettingsModulesText = {
   translation: string;
   clipboard: string;
   screenshot: string;
+  battery: string;
 };
 
 export const zhCN: SettingsModulesText = {
@@ -22,6 +23,7 @@ export const zhCN: SettingsModulesText = {
   translation: "启用快捷翻译",
   clipboard: "启用剪贴板历史",
   screenshot: "启用截图",
+  battery: "启用外设电量",
 };
 
 export const en: SettingsModulesText = {
@@ -35,4 +37,5 @@ export const en: SettingsModulesText = {
   translation: "Enable quick translation",
   clipboard: "Enable clipboard history",
   screenshot: "Enable screenshots",
+  battery: "Enable device battery",
 };

@@ -24,7 +24,7 @@ export type CollapsedItem = "lyrics" | "todo";
  */
 export type CollapsedSlot = "text" | "mail" | "shelf" | "music" | "notifications";
 /** The page dots in the expanded island's header, which the user can drag into any order. */
-export type PageDot = "todo" | "music" | "clipboard" | "shelf" | "translation";
+export type PageDot = "todo" | "music" | "clipboard" | "shelf" | "battery" | "translation";
 
 export type IslandSettings = {
   topEdgeLayoutVersion: 1;
@@ -112,6 +112,10 @@ export type IslandSettings = {
   /** Lyrics shown this many ms later (positive) or earlier than the position Windows reports. */
   lyricsOffsetMs: number;
   mailEnabled: boolean;
+  /** Off hides the peripheral battery page and stops its polling. */
+  batteryEnabled: boolean;
+  /** Seconds between peripheral battery reads while the page is open. */
+  batteryRefreshSeconds: number;
   /** Which of the lyric line and a todo the collapsed island shows first when both have something. */
   collapsedPriority: CollapsedItem[];
   /** The playing song's cover on the collapsed island. */

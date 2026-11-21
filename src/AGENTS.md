@@ -17,6 +17,7 @@ src/
 │   ├── media/               # 媒体控制、波形；lyrics/ 为同步歌词（解析 LRC、跟随进度、设置项）
 │   ├── clipboard/           # 剪贴板历史、快捷键
 │   ├── file-shelf/          # 文件中转：拖到岛上的文件（只存路径）、拖出、复制、打开
+│   ├── device-battery/      # 外设电量：蓝牙 / 2.4G 键鼠耳机的电量页与轮询；只显示系统真能读到的设备
 │   ├── messages/            # 消息导航与预览；mail/、qq-notifications/、wechat/ 子目录
 │   ├── cindy-notifications/ # Cindy 通知：只读 Cindy 数据库的轮询与本地已读水位、四类事件、设置页；sounds/ 为提示音
 │   ├── appearance/          # 外观设置、布局编辑器、预设；岛屿设置（focusd-island-settings）的范围在 settingsLimits.ts、首次启动值在 settingsDefaults.ts、读取按领域在 normalizeLayout / Notification / BehaviorSettings.ts，新设置加在这几个文件里，settings.ts 只做入口

@@ -27,6 +27,21 @@ export function getShelfExpandedHeight(items: number) {
 }
 // Header, direction bar, a few lines of source, the result and the action row.
 const TRANSLATION_EXPANDED_ISLAND_HEIGHT = 420;
+// Peripheral battery: island padding, header and gap (86), the panel's padding (34), its
+// title row (38), then one 58px row per device; empty, a 150px explanation.
+const BATTERY_CHROME_HEIGHT = 86;
+const BATTERY_PANEL_PADDING = 34;
+const BATTERY_HEADER_HEIGHT = 38;
+const BATTERY_ROW_PITCH = 58;
+const BATTERY_EMPTY_HEIGHT = 150;
+
+/** The island's height around the battery page holding `devices` rows. */
+export function getBatteryExpandedHeight(devices: number) {
+  const content = devices === 0
+    ? BATTERY_EMPTY_HEIGHT
+    : BATTERY_HEADER_HEIGHT + devices * BATTERY_ROW_PITCH;
+  return BATTERY_CHROME_HEIGHT + BATTERY_PANEL_PADDING + content;
+}
 // Settings fit their open page (useSettingsPageHeight): the island's padding, header and gap
 // around it, between a floor that keeps short pages from looking cramped and about the tallest
 // island the window allows, past which the page scrolls. The fallback before the first measure.
@@ -54,6 +69,8 @@ type ExpandedHeightInput = {
   settingsContentHeight?: number | null;
   /** Entries on the file shelf; its page fits their rows of tiles. */
   shelfItems?: number;
+  /** Readable peripheral batteries; the battery page fits their rows. */
+  batteryDevices?: number;
 };
 
 /**
@@ -73,6 +90,7 @@ export function getExpandedIslandHeight({
   clipboardVisibleRows,
   settingsContentHeight = null,
   shelfItems = 0,
+  batteryDevices = 0,
 }: ExpandedHeightInput) {
   // The upcoming list scrolls inside the archive's fixed height.
   const isTodoArchivePage =
@@ -101,6 +119,8 @@ export function getExpandedIslandHeight({
       ? MUSIC_EXPANDED_ISLAND_HEIGHT + (hasMediaCommandError ? 24 : 0)
       : page === "shelf"
         ? Math.min(getShelfExpandedHeight(shelfItems), maxPanelHeight)
+      : page === "battery"
+        ? Math.min(getBatteryExpandedHeight(batteryDevices), maxPanelHeight)
       : page === "translation"
         ? Math.min(TRANSLATION_EXPANDED_ISLAND_HEIGHT, maxPanelHeight)
       : page === "clipboard"

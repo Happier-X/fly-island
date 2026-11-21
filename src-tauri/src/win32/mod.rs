@@ -5,6 +5,7 @@ pub(crate) mod audio;
 pub(crate) mod chinese;
 pub(crate) mod clipboard;
 pub(crate) mod com;
+pub(crate) mod hid;
 pub(crate) mod hotkey;
 pub(crate) mod icon;
 pub(crate) mod input;

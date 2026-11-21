@@ -21,6 +21,7 @@ import type { SettingsScreenshotText } from "./screenshot";
 import type { SettingsLauncherText } from "./launcher";
 import type { SettingsColorsText } from "./colors";
 import type { SettingsSaveText } from "./save";
+import type { SettingsDeviceBatteryText } from "./deviceBattery";
 
 import * as fileShelf from "./fileShelf.ts";
 import * as modules from "./modules.ts";
@@ -45,6 +46,7 @@ import * as screenshot from "./screenshot.ts";
 import * as launcher from "./launcher.ts";
 import * as colors from "./colors.ts";
 import * as save from "./save.ts";
+import * as deviceBattery from "./deviceBattery.ts";
 
 
 export type SettingsText = {
@@ -94,6 +96,8 @@ export type SettingsText = {
 
 
   save: SettingsSaveText;
+
+  deviceBattery: SettingsDeviceBatteryText;
 };
 
 export const zhCN: SettingsText = {
@@ -142,6 +146,8 @@ export const zhCN: SettingsText = {
 
 
   save: save.zhCN,
+
+  deviceBattery: deviceBattery.zhCN,
 };
 
 export const en: SettingsText = {
@@ -190,4 +196,6 @@ export const en: SettingsText = {
 
 
   save: save.en,
+
+  deviceBattery: deviceBattery.en,
 };

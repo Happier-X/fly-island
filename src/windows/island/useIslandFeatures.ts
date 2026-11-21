@@ -41,11 +41,12 @@ export function useIslandFeatures({
     music: settings.musicEnabled,
     clipboard: clipboardEnabled,
     shelf: settings.shelfEnabled,
+    battery: settings.batteryEnabled,
     qq: qqEnabled,
     wechat: wechatEnabled,
     qqMail: settings.mailEnabled,
     translation: settings.translationEnabled && settings.translationTarget === "island",
-  }), [clipboardEnabled, qqEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled]);
+  }), [clipboardEnabled, qqEnabled, settings.batteryEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled]);
 
   useEffect(() => {
     const next = resolveIslandPage(page, features);

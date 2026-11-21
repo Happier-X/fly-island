@@ -2,7 +2,7 @@
 import { normalizeLyricsSettings } from "../media/lyrics/lyricsSettings.ts";
 import { DEFAULT_SETTINGS } from "./settingsDefaults.ts";
 import { normalizeOrder } from "../../utils/order.ts";
-import { AUTO_COLLAPSE_SECONDS, COLLAPSED_ITEMS, COLLAPSED_SLOTS, PAGE_DOTS, SHELF_CLEANUP_DAYS, oneOf } from "./settingsLimits.ts";
+import { AUTO_COLLAPSE_SECONDS, BATTERY_REFRESH_SECONDS, COLLAPSED_ITEMS, COLLAPSED_SLOTS, DEFAULT_BATTERY_REFRESH_SECONDS, PAGE_DOTS, SHELF_CLEANUP_DAYS, oneOf } from "./settingsLimits.ts";
 import type { IslandSettings, LegacyIslandSettings } from "./types";
 
 /**
@@ -40,6 +40,8 @@ export function normalizeBehaviorSettings(settings: LegacyIslandSettings | null 
     shelfAutoCleanupDays: oneOf(SHELF_CLEANUP_DAYS, settings?.shelfAutoCleanupDays, DEFAULT_SETTINGS.shelfAutoCleanupDays),
     ...normalizeLyricsSettings(settings),
     mailEnabled: settings?.mailEnabled !== false,
+    batteryEnabled: settings?.batteryEnabled !== false,
+    batteryRefreshSeconds: oneOf(BATTERY_REFRESH_SECONDS, settings?.batteryRefreshSeconds, DEFAULT_BATTERY_REFRESH_SECONDS),
     collapsedPriority: normalizeOrder(settings?.collapsedPriority, COLLAPSED_ITEMS),
     collapsedShowCover: settings?.collapsedShowCover === true,
     collapsedLayout: normalizeCollapsedLayout(settings?.collapsedLayout),

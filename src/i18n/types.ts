@@ -11,6 +11,7 @@ import type { ArchiveText } from "./sections/archive";
 import type { MusicText } from "./sections/music";
 import type { TodoText } from "./sections/todo";
 import type { ClipboardText } from "./sections/clipboard";
+import type { BatteryText } from "./sections/battery";
 import type { FileShelfText } from "./sections/fileShelf";
 import type { LauncherText } from "./sections/launcher";
 import type { SettingsText } from "./sections/settings/index";
@@ -43,6 +44,8 @@ export type Translations = {
   todo: TodoText;
 
   clipboard: ClipboardText;
+
+  battery: BatteryText;
 
   fileShelf: FileShelfText;
 

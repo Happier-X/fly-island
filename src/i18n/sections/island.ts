@@ -14,8 +14,9 @@ export type IslandText = {
   music: string;
   clipboardHistory: string;
   shelf: string;
+  battery: string;
   /** Short page names in the tips above the header dots. */
-  pageNames: { todo: string; music: string; clipboard: string; shelf: string; translation: string };
+  pageNames: { todo: string; music: string; clipboard: string; shelf: string; battery: string; translation: string };
   calendar: string;
   shelfCount: (count: number) => string;
   layoutEditor: string;
@@ -37,7 +38,8 @@ export const zhCN: IslandText = {
   music: "Music",
   clipboardHistory: "剪贴板历史",
   shelf: "文件中转",
-  pageNames: { todo: "待办", music: "音乐", clipboard: "剪贴板", shelf: "文件中转", translation: "翻译" },
+  battery: "外设电量",
+  pageNames: { todo: "待办", music: "音乐", clipboard: "剪贴板", shelf: "文件中转", battery: "电量", translation: "翻译" },
   calendar: "日历",
   shelfCount: (count) => `文件中转里有 ${count} 个文件`,
   layoutEditor: "布局编辑",
@@ -59,7 +61,8 @@ export const en: IslandText = {
   music: "Music",
   clipboardHistory: "Clipboard history",
   shelf: "File shelf",
-  pageNames: { todo: "Todo", music: "Music", clipboard: "Clipboard", shelf: "File shelf", translation: "Translate" },
+  battery: "Device battery",
+  pageNames: { todo: "Todo", music: "Music", clipboard: "Clipboard", shelf: "File shelf", battery: "Battery", translation: "Translate" },
   calendar: "Calendar",
   shelfCount: (count) => (count === 1 ? "1 file on the shelf" : `${count} files on the shelf`),
   layoutEditor: "Layout editor",

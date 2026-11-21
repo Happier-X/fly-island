@@ -6,6 +6,7 @@ import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
 import { ClipboardSettingsPage } from "./ClipboardSettingsPage";
 import { ScreenshotSettingsPage } from "./ScreenshotSettingsPage";
 import { LauncherSettingsPage } from "./LauncherSettingsPage";
+import { DeviceBatterySettingsPage } from "./DeviceBatterySettingsPage";
 import { LayoutEditor } from "./LayoutEditor";
 import { MusicSettingsPage } from "./MusicSettingsPage";
 import { MessagesSettingsPage } from "./MessagesSettingsPage";
@@ -112,6 +113,7 @@ export function SettingsPanel({
       {category === "clipboard" && <ClipboardSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "screenshot" && <ScreenshotSettingsPage settings={settings} />}
       {category === "launcher" && <LauncherSettingsPage settings={settings} />}
+      {category === "battery" && <DeviceBatterySettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "music" && <MusicSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "notifications" && <NotificationsSettingsPage settings={settings} onSettingsChange={setSettings} />}
       {category === "about" && <AboutSettingsPage />}

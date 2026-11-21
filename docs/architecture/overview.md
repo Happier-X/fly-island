@@ -13,6 +13,7 @@
 ┌──────────────────────────────── Rust（Tauri 2）──────────────────────────────────────┐
 │  lib.rs 组装：插件 / setup / 托盘 / generate_handler!                                  │
 │  领域模块：island · cindy_notifications · system · clipboard_history · file_shelf · media_control │
+│           device_battery（外设电量：BLE GATT / HID / Logitech HID++）                            │
 │           mail · qq_notifications · wechat_reminders · translation · quick_launcher · settings_window │
 │  后台服务：IMAP IDLE 收信、剪贴板监听、通知监听、微信窗口闪烁检测、鼠标穿透循环        │
 └────────────┬─────────────────────────────────────────────────────────────────────────┘

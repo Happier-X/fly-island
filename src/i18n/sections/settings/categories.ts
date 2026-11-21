@@ -16,6 +16,7 @@ export type SettingsCategoriesText = {
   clipboard: string;
   screenshot: string;
   launcher: string;
+  battery: string;
   translation: string;
   /** The file shelf's group on the Clipboard page. */
   shelf: string;
@@ -40,6 +41,7 @@ export const zhCN: SettingsCategoriesText = {
   clipboard: "剪贴板与文件",
   screenshot: "截图",
   launcher: "快捷启动",
+  battery: "外设电量",
   translation: "翻译",
   shelf: "文件中转",
   notifications: "Cindy 通知",
@@ -62,6 +64,7 @@ export const en: SettingsCategoriesText = {
   clipboard: "Clipboard & files",
   screenshot: "Screenshots",
   launcher: "Quick launcher",
+  battery: "Device battery",
   translation: "Translation",
   shelf: "File shelf",
   notifications: "Cindy notifications",

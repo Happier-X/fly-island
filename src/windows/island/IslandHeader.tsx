@@ -62,6 +62,7 @@ export function IslandHeader({
     music: t.island.music,
     clipboard: t.island.clipboardHistory,
     shelf: t.island.shelf,
+    battery: t.island.battery,
     translation: t.translator.title,
   };
   const reorderDots = useCallback(

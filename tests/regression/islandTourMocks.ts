@@ -68,6 +68,13 @@ export const TOUR_SHELF: FileShelfItem[] = [
   file("folder", "项目资料", { isDir: true, size: 0 }),
 ];
 
+export const TOUR_BATTERIES = [
+  { id: "ble:mouse", name: "MCHOSE G3 A", kind: "mouse", level: 20, charging: false },
+  { id: "ble:keyboard", name: "keycool 5.0", kind: "keyboard", level: 68, charging: false },
+  { id: "ble:headset", name: "WH-1000XM5", kind: "headset", level: 92, charging: true },
+  { id: "hid:receiver", name: "LIGHTSPEED Receiver", kind: "receiver", level: 100, charging: false },
+];
+
 export const TOUR_TODOS = [
   { id: "t1", title: "把音乐页重做一遍", completed: false, createdAt: now - 3_600_000 },
   { id: "t2", title: "回复设计评审邮件", completed: false, createdAt: now - 3_000_000 },

@@ -92,7 +92,7 @@ function Fixture() {
       pageOrder={["todo", "music", "clipboard", "shelf"]} onPageOrderChange={() => {}}
       appearanceMode="classic" nativeGlassState="disabled"
       mediaState={UNAVAILABLE_MEDIA}
-      features={{ todo: true, music: true, clipboard: true, shelf: true, qq: true, wechat: true, qqMail: true, translation: false }}
+      features={{ todo: true, music: true, clipboard: true, shelf: true, battery: true, qq: true, wechat: true, qqMail: true, translation: false }}
       shelfCount={null}
       notificationCount={notificationCount}
       notificationLabel={notificationCount ? `Cindy 有 ${notificationCount} 条通知待处理` : null}

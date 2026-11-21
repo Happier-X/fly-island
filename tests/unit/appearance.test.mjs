@@ -135,6 +135,15 @@ test("dragging files out keeps shelf entries, including settings saved by older 
   }
 });
 
+test("peripheral battery defaults on and only accepts a listed refresh interval", () => {
+  const defaults = normalizeSettings({});
+  assert.equal(defaults.batteryEnabled, true);
+  assert.equal(defaults.batteryRefreshSeconds, 60);
+  assert.equal(normalizeSettings({ batteryEnabled: false }).batteryEnabled, false);
+  assert.equal(normalizeSettings({ batteryRefreshSeconds: 30 }).batteryRefreshSeconds, 30);
+  assert.equal(normalizeSettings({ batteryRefreshSeconds: 7 }).batteryRefreshSeconds, 60);
+});
+
 test("normalizing saved settings keeps the first-launch defaults", () => {
   assert.deepEqual(normalizeSettings(DEFAULT_SETTINGS), DEFAULT_SETTINGS);
   assert.equal(isSameSettings(DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS }), true);
