@@ -29,6 +29,7 @@ pub struct MediaState {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub thumbnail: Option<String>,
+    pub tint: Option<String>,
     /// A song id a player plugin gives (`NCM-<id>`, `QQ-<id>`); the lyrics use it to skip a search.
     pub track_id: Option<String>,
     pub position_ms: i64,

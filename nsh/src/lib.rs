@@ -285,7 +285,7 @@ fn collapsed_island(
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
-) -> impl IntoElement {
+   ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
         .border(px(1.0))
@@ -388,7 +388,7 @@ fn expanded_header(
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
-) -> impl IntoElement {
+   ) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -438,7 +438,7 @@ fn expanded_header(
         )
 }
 
-fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
+fn ai_panel(ai: AiState, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_col()
         .gap(px(3.0))
@@ -450,7 +450,7 @@ fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
         }))
 }
 
-fn ai_summary_row(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
+fn ai_summary_row(ai: AiState, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -508,7 +508,7 @@ fn ai_row(ai: AiState, session: ReadSignal<AgentSession>, dark: Signal<bool>) ->
         )
 }
 
-fn ai_dot(dark: Signal<bool>, ai: AiState) -> impl IntoElement {
+fn ai_dot(dark: Signal<bool>, ai: AiState   ) -> impl IntoElement {
     view()
         .w(px(7.0))
         .h(px(7.0))
@@ -595,7 +595,7 @@ fn open_cindy(ai: AiState) {
     });
 }
 
-fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<bool>) -> impl IntoElement {
+fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -675,7 +675,7 @@ fn wechat_panel(
         ))
 }
 
-fn wechat_toggle_row(state: SettingsState) -> impl IntoElement {
+fn wechat_toggle_row(state: SettingsState   ) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -708,57 +708,228 @@ fn wechat_toggle_row(state: SettingsState) -> impl IntoElement {
         ))
 }
 
-fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
+fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>   ) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(3.0))
+        .px(px(14.0))
+        .pb(px(5.0))
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    text("♪")
+                        .text_size(px(12.0))
+                        .text_color(move || media_color(media_state, dark)),
+                )
+                .child(
+                    image(move || {
+                        media_state
+                            .get()
+                            .and_then(|media| media.thumbnail)
+                            .unwrap_or_default()
+                    })
+                    .w(px(30.0))
+                    .h(px(30.0))
+                    .rounded(px(4.0)),
+                )
+                .child(media_control("⏮", media_state, dark, media::previous))
+                .child(media_play_control(media_state, dark))
+                .child(media_control("⏭", media_state, dark, media::next))
+                .child(media_shuffle(media_state, dark))
+                .child(media_repeat(media_state, dark))
+                .child(
+                    text(move || {
+                        let state = media_state.get();
+                        let title = state
+                            .as_ref()
+                            .and_then(|media| media.title.clone())
+                            .unwrap_or_else(|| t!("island.media_unknown"));
+                        let artist = state
+                            .as_ref()
+                            .and_then(|media| media.artist.clone())
+                            .unwrap_or_default();
+                        if artist.is_empty() {
+                            title
+                        } else {
+                            format!("{title} — {artist}")
+                        }
+                    })
+                    .flex_1()
+                    .truncate()
+                    .text_size(px(11.5))
+                    .text_color(move || palette(dark.get()).fg),
+                )
+                .child(
+                    text(move || {
+                        let peak = media_state
+                            .get()
+                            .as_ref()
+                            .map(|media| media.audio_peak)
+                            .unwrap_or(0.0);
+                        if peak > 0.12 { "▇" } else if peak > 0.04 { "▅" } else if peak > 0.01 { "▃" } else { "▁" }
+                    })
+                    .text_size(px(12.0))
+                    .text_color(move || media_color(media_state, dark)),
+                )
+                .child(media_volume_control("−", -0.1, media_state, dark))
+                .child(
+                    text(move || {
+                        let volume = media_state
+                            .get()
+                            .as_ref()
+                            .map(|media| media.volume)
+                            .unwrap_or(0.0);
+                        format!("{:.0}%", volume * 100.0)
+                    })
+                    .text_size(px(10.0))
+                    .text_color(move || palette(dark.get()).muted),
+                )
+                .child(media_volume_control("+", 0.1, media_state, dark)),
+        )
+        .child(when(
+            move || media_state.get().as_ref().is_some_and(|media| media.duration_ms > 0),
+            move || media_progress(media_state, dark),
+        ))
+}
+
+fn media_progress(
+    media_state: Signal<Option<MediaState>>,
+    dark: Signal<bool>,
+) -> impl IntoElement {
+    let segments = signal((0..10u32).collect::<Vec<_>>());
     view()
         .flex_row()
         .items_center()
         .gap(px(6.0))
-        .px(px(14.0))
-        .pb(px(6.0))
         .child(
-            text("♪")
-                .text_size(px(13.0))
-                .text_color(move || palette(dark.get()).accent),
+            view()
+                .flex_row()
+                .gap(px(1.0))
+                .on_press(move |event: &nsh_core::PressEvent| {
+                    let state = media_state.get_untracked();
+                    let duration = state.as_ref().map(|media| media.duration_ms).unwrap_or(0);
+                    if duration <= 0 || !state.as_ref().is_some_and(|media| media.can_seek) {
+                        return;
+                    }
+                    let fraction = (event.position.x.0 / 240.0).clamp(0.0, 1.0);
+                    let target = (fraction * duration as f32) as i64;
+                    spawn(async move {
+                        if let Ok(next) = media::seek(target) {
+                            media_state.set(Some(next));
+                        }
+                    });
+                })
+                .child(each(
+                    segments,
+                    |index| *index,
+                    move |index, _| {
+                        view()
+                            .w(px(23.0))
+                            .h(px(4.0))
+                            .rounded(px(2.0))
+                            .bg(move || {
+                                let state = media_state.get();
+                                let fraction = state
+                                    .as_ref()
+                                    .map(|media| {
+                                        media.position_ms as f32 / media.duration_ms.max(1) as f32
+                                    })
+                                    .unwrap_or(0.0);
+                                if fraction > index.get() as f32 / 10.0 {
+                                    media_color(media_state, dark)
+                                } else {
+                                    palette(dark.get()).border
+                                }
+                            })
+                    },
+                )),
         )
-        .child(media_control("⏮", media_state, dark, media::previous))
-        .child(media_play_control(media_state, dark))
-        .child(media_control("⏭", media_state, dark, media::next))
         .child(
             text(move || {
                 let state = media_state.get();
-                let title = state
-                    .as_ref()
-                    .and_then(|media| media.title.clone())
-                    .unwrap_or_else(|| t!("island.media_unknown"));
-                let artist = state
-                    .as_ref()
-                    .and_then(|media| media.artist.clone())
-                    .unwrap_or_default();
-                if artist.is_empty() {
-                    title
-                } else {
-                    format!("{title} — {artist}")
+                let position = state.as_ref().map(|media| media.position_ms).unwrap_or(0);
+                let duration = state.as_ref().map(|media| media.duration_ms).unwrap_or(0);
+                format!("{} / {}", media_time(position), media_time(duration))
+            })
+            .text_size(px(9.5))
+            .text_color(move || palette(dark.get()).faint),
+        )
+}
+
+fn media_time(ms: i64) -> String {
+    let total = (ms.max(0) / 1000) as u32;
+    format!("{}:{:02}", total / 60, total % 60)
+}
+
+fn media_color(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> Color {
+    media_state
+        .get_untracked()
+        .and_then(|media| media.tint)
+        .and_then(|tint| u32::from_str_radix(tint.trim_start_matches('#'), 16).ok())
+        .map(|value| rgb(value).into())
+        .unwrap_or_else(|| palette(dark.get_untracked()).accent)
+}
+
+fn media_shuffle(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
+    text("🔀")
+        .text_size(px(12.0))
+        .text_color(move || {
+            if media_state
+                .get()
+                .as_ref()
+                .is_some_and(|media| media.shuffle_active == Some(true))
+            {
+                media_color(media_state, dark)
+            } else {
+                palette(dark.get()).faint
+            }
+        })
+        .px(px(3.0))
+        .on_press(move || {
+            spawn(async move {
+                if let Ok(next) = media::toggle_shuffle() {
+                    media_state.set(Some(next));
                 }
-            })
-            .flex_1()
-            .truncate()
-            .text_size(px(11.5))
-            .text_color(move || palette(dark.get()).fg),
-        )
-        .child(media_volume_control("−", -0.1, media_state, dark))
-        .child(
-            text(move || {
-                let volume = media_state
-                    .get()
-                    .as_ref()
-                    .map(|media| media.volume)
-                    .unwrap_or(0.0);
-                format!("{:.0}%", volume * 100.0)
-            })
-            .text_size(px(10.0))
-            .text_color(move || palette(dark.get()).muted),
-        )
-        .child(media_volume_control("+", 0.1, media_state, dark))
+            });
+        })
+}
+
+fn media_repeat(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
+    text(move || {
+        match media_state
+            .get()
+            .as_ref()
+            .map(|media| media.repeat_mode)
+            .unwrap_or("unknown")
+        {
+            "track" => "🔂",
+            "list" => "🔁",
+            _ => "🔁",
+        }
+    })
+    .text_size(px(12.0))
+    .text_color(move || {
+        if media_state
+            .get()
+            .as_ref()
+            .is_some_and(|media| media.repeat_mode != "none" && media.repeat_mode != "unknown")
+        {
+            media_color(media_state, dark)
+        } else {
+            palette(dark.get()).faint
+        }
+    })
+    .px(px(3.0))
+    .on_press(move || {
+        spawn(async move {
+            if let Ok(next) = media::cycle_repeat() {
+                media_state.set(Some(next));
+            }
+        });
+    })
 }
 
 fn media_control(
@@ -836,7 +1007,7 @@ fn search_and_list(
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
-) -> impl IntoElement {
+   ) -> impl IntoElement {
     view()
         .flex_1()
         .flex_col()
@@ -978,7 +1149,7 @@ fn settings_content(
     open: Signal<bool>,
     state: SettingsState,
     items: Signal<Vec<ClipItem>>,
-) -> impl IntoElement {
+   ) -> impl IntoElement {
     view()
         .flex_1()
         .bg(move || palette(state.dark.get()).bg)
@@ -1261,7 +1432,7 @@ fn pill(
         )
 }
 
-fn empty_state(dark: Signal<bool>) -> impl IntoElement {
+fn empty_state(dark: Signal<bool>   ) -> impl IntoElement {
     view().items_center().justify_center().py(px(36.0)).child(
         text(move || t!("island.empty"))
             .text_size(px(12.0))
@@ -1269,7 +1440,7 @@ fn empty_state(dark: Signal<bool>) -> impl IntoElement {
     )
 }
 
-fn no_results(dark: Signal<bool>) -> impl IntoElement {
+fn no_results(dark: Signal<bool>   ) -> impl IntoElement {
     view().items_center().justify_center().py(px(36.0)).child(
         text(move || t!("island.no_results"))
             .text_size(px(12.0))
@@ -1277,7 +1448,7 @@ fn no_results(dark: Signal<bool>) -> impl IntoElement {
     )
 }
 
-fn divider(dark: Signal<bool>) -> impl IntoElement {
+fn divider(dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .h(px(1.0))
         .w_full()
