@@ -38,7 +38,7 @@
 ## 展示
 
 - 折叠岛：圆点按三态着色；有 AI 会话时在标题后显示“运行 N / 需关注 N / 完成”；有未读通知时显示数字角标；保留剪贴板条数。
-- 展开岛：标题下增加 AI 条，显示三态数量、最多 3 个会话行（状态、Codex/Claude Code、标题），右侧“聚焦 Cindy”。点击摘要、会话行或“聚焦 Cindy”都会聚焦 Cindy。
+- 展开岛：标题下增加 AI 条，显示三态数量、最多 4 个会话行（状态、Codex/Claude Code、标题），右侧“聚焦 Cindy”。点击摘要、会话行或“聚焦 Cindy”都会聚焦 Cindy。
 - 设置页：AI 总开关、完成/提问/定时与后台/出错四类提醒开关、数据源状态（数据库已连接 / 未找到 / 读取失败原因）。
 - 旧设置导入：`cindyNotificationsEnabled`、`cindyNotifyDone`、`cindyNotifyQuestion`、`cindyNotifyScheduled`、`cindyNotifyError` 从 WebView2 LevelDB 的白名单字段读入，缺失按 `true`。
 
@@ -49,3 +49,9 @@
 - 提示音和声音设置未迁移；通知以角标为主。
 - 标题缺失时不回退到工作目录，只显示 `Agent`。
 - 会话列表只显示最近 2 小时内有活动、且处于需关注/运行/10 分钟内完成的会话；24 小时事件仍参与角标。
+
+## 验收证据
+
+- 实机运行态：`docs/assets/nsh-settings/ai-panel-125.png`（展开岛，运行中会话）。
+- 三态：`docs/assets/nsh-settings/ai-three-states.png`（“运行 2 · 需关注 1 · 完成 2”）。当时本机没有真实等待中的会话，因此用真实 Cindy 库的只读副本，向一个真实 Codex 会话插入一条 `ask_user` 后截图；原库未写入、未删除。
+- 设置页副屏 150%：`docs/assets/nsh-settings/secondary-150-ai-zh.png`。

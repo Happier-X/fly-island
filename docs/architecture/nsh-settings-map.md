@@ -40,7 +40,7 @@
 
 ## 暂不迁移（NSH 当前无等价能力）
 
-外观预设（名称、颜色、字体、透明度等）不在这张表的逐字段迁移范围内，按 [nsh-migration.md](nsh-migration.md) 的“外观预设导入”在 Phase 3 收尾单独解析与导入。
+外观预设（名称、颜色、字体、透明度等）：本机旧库没有 `focusd-island-setting-presets`，也不存在预设文件，判定为“不适用”；依据与目标机器上的条件性检查见 [nsh-migration.md](nsh-migration.md) 的“旧外观预设导入”。
 
 | 旧字段组 | 处理 |
 |---|---|

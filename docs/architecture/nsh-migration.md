@@ -139,7 +139,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 4. 微信 / QQ / 邮件通知。
 5. 媒体控制、翻译。
 6. 快捷启动器、文件中转、外设电量。
-7. 旧外观预设导入（Phase 3 收尾；发布前必须完成）。
+7. 旧外观预设导入（本机不适用；发布前对目标旧库做条件性检查）。
 
 截图套件继续单独立项。
 
@@ -221,7 +221,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
 - **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；剩余微信/QQ/邮件、媒体/翻译、启动器/文件架/电池，以及发布前必须完成的外观预设导入。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；剩余微信/QQ/邮件、媒体/翻译、启动器/文件架/电池；外观预设本机旧库无数据，发布前做条件性扫描。
 
 ## Phase 1 验证记录
 
@@ -336,18 +336,48 @@ raw display hmon=0x4C90F95 primary=true rect=(0,0)-(2560,1440) work=(0,0)-(2560,
 ## Phase 3 AI 状态与 Cindy 通知验收（2026-11-23）
 
 - 数据源：只读本机最新 Cindy 数据库（694 MB），查询 `sessions`、`messages`、`schedule_runs`、`subagent_runs`；未写库。
-- 三态：折叠岛显示“焦点岛 运行 4 30 条 ⌄”；展开后 AI 条为“AI 状态 运行 4”，列出 3 个 Codex 会话（car-bot、fly-island NSH、Native Shell），每个带“运行”状态。
+- 三态：实机折叠岛显示“焦点岛 运行 3/4 …”，随会话变化；展开 AI 条显示三态计数和最多 4 个会话行。三态截图用真实 Cindy 库的只读副本，向一个真实 Codex 会话插入一条 `ask_user` 后显示“运行 2 · 需关注 1 · 完成 2”，四行覆盖需关注/运行/完成；原库未写入。
 - 已读水位：把 `ai-watermark.json` 回拨 1 小时后重启，折叠岛出现未读角标 “2”；点击“聚焦 Cindy”后前台进程变为 `Cindy`，水位推进到当前读取时间，角标消失。
 - 点击失败不标记已读：`focus_cindy()` 返回 false 时不推进水位；Cindy 在前台时轮询会自动推进水位。
 - 设置页：新增“AI 状态”区，含总开关、完成/提问/定时与后台/出错四个开关，以及“已连接 Cindy 数据库 · 4 个会话”。关闭总开关后 AI 条消失，恢复后下一次轮询重新出现；四个开关写入 `settings.json` 的 `ai_enabled` 与 `notify_*`。
 - 旧设置：`cindyNotificationsEnabled` 与四个 `cindyNotify*` 字段从 WebView2 LevelDB 白名单导入。
 - 副屏 150%：设置窗口 `dpi=144`、`668×1022`，内容边界 `x 2709–3360 / y ≤ 1107`，无裁剪。
-- 证据：`docs/assets/nsh-settings/ai-panel-125.png`、`secondary-150-ai-zh.png`；对照表 [nsh-ai-notifications.md](nsh-ai-notifications.md)。
+- 证据：`docs/assets/nsh-settings/ai-panel-125.png`（实机运行态）、`ai-three-states.png`（三态，真实库副本）、`secondary-150-ai-zh.png`；对照表 [nsh-ai-notifications.md](nsh-ai-notifications.md)。
 - 验证：`cargo check`（nsh、nsh/host）、`cargo test --lib`（2 passed：三态与“已回答的提问不再算需关注”）、`nsh test nsh`、`pnpm check` 均通过。
 
-## 外观预设导入（Phase 3 收尾，发布前必须完成）
+## 旧外观预设导入（本机不适用）
 
-旧外观预设（名称、颜色、字体、透明度等）不随应用设置一起导入，放在 Phase 3 收尾；这是发布前的必做项，不能带病发布。
+结论：本机旧库没有自定义外观预设数据，不适用迁移。依据：
+
+- 完整扫描 WebView2 LevelDB 的全部键（`scan_legacy` 读副本），没有 `focusd-island-setting-presets`；键列表见下方记录。
+- `%APPDATA%\com.focusd.island` 目录只有剪贴板、歌词缓存、截图、Agent 会话记录与设置窗口位置，没有预设文件。
+- [contracts.md](contracts.md) 与 [docs/design/settings.md](../design/settings.md) 记录：样式预设（含主题文件导入导出）已于 2026-11-09 去掉，`focusd-island-setting-presets` 的旧数据保留但不再读写。
+- 用户提到的 6 个自定义预设在本机没有对应数据；扫描结果中没有任何 `preset` 键或值。
+
+扫描到的旧 localStorage 键（两个 origin 的并集）：
+
+```text
+focusd-island-agent-approval
+focusd-island-agent-hidden-sessions
+focusd-island-agent-seen-turns
+focusd-island-agent-sounds
+focusd-island-archives
+focusd-island-cindy-notifications-seen
+focusd-island-collapsed-text-default-v1
+focusd-island-current-date
+focusd-island-daily-note
+focusd-island-launcher-settings
+focusd-island-last-saved-signature
+focusd-island-music-sources
+focusd-island-qq-notification-access-requested
+focusd-island-save-directory
+focusd-island-scheduled-todos
+focusd-island-settings
+focusd-island-todos
+focusd-island-translation-settings
+```
+
+若发布前在其他目标机器的旧库里发现该键，再按下面的约束补导入：
 
 实现约束：
 

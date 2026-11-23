@@ -115,7 +115,7 @@ pub fn App() -> impl IntoElement {
     let ai_sessions = signal(Vec::<AgentSession>::new());
     effect(move || {
         let list = ai_status.snapshot.get().sessions;
-        ai_sessions.set(list.into_iter().take(3).collect());
+        ai_sessions.set(list.into_iter().take(4).collect());
     });
     let ai_state = AiState {
         enabled: ai_enabled,
