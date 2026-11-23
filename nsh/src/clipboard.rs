@@ -45,12 +45,19 @@ pub struct ClipboardHistory {
 }
 
 impl ClipboardHistory {
-    pub fn start() -> Self {
+    pub fn start(
+        enabled: Signal<bool>,
+        capture_images: Signal<bool>,
+        max_items: Signal<usize>,
+    ) -> Self {
         let items = signal(load());
         let last_text = signal(String::new());
         let last_image = signal(String::new());
         let read = Rc::new(move || {
             spawn(async move {
+                if !enabled.get() {
+                    return;
+                }
                 let text = clipboard_string().await;
                 let trimmed = text.trim();
                 if !trimmed.is_empty() {
@@ -59,10 +66,10 @@ impl ClipboardHistory {
                     }
                     last_text.set(trimmed.to_string());
                     last_image.set(String::new());
-                    capture_text(items, trimmed.to_string());
+                    capture_text(items, trimmed.to_string(), max_items.get());
                     return;
                 }
-                if !nsh_core::prelude::os().is_desktop() {
+                if !capture_images.get() || !nsh_core::prelude::os().is_desktop() {
                     return;
                 }
                 if let Some(image) = clipboard_image().await {
@@ -78,6 +85,7 @@ impl ClipboardHistory {
                         url,
                         image.size.width.0 as u32,
                         image.size.height.0 as u32,
+                        max_items.get(),
                     );
                 }
             });
@@ -141,7 +149,7 @@ fn decode_data_url(url: &str) -> Option<Vec<u8>> {
     STANDARD.decode(encoded).ok()
 }
 
-fn capture_text(items: Signal<Vec<ClipItem>>, text: String) {
+fn capture_text(items: Signal<Vec<ClipItem>>, text: String, max_items: usize) {
     items.update(|list| {
         let mut item = if let Some(index) = list
             .iter()
@@ -161,12 +169,12 @@ fn capture_text(items: Signal<Vec<ClipItem>>, text: String) {
         };
         item.id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         list.insert(0, item);
-        list.truncate(MAX_ITEMS);
+        list.truncate(max_items.clamp(5, 200));
     });
     save(&items.get_untracked());
 }
 
-fn capture_image(items: Signal<Vec<ClipItem>>, url: String, width: u32, height: u32) {
+fn capture_image(items: Signal<Vec<ClipItem>>, url: String, width: u32, height: u32, max_items: usize) {
     items.update(|list| {
         list.retain(|item| {
             !(item.kind == ClipKind::Image && item.width == width && item.height == height)
@@ -183,7 +191,7 @@ fn capture_image(items: Signal<Vec<ClipItem>>, url: String, width: u32, height: 
                 favorite: false,
             },
         );
-        list.truncate(MAX_ITEMS);
+        list.truncate(max_items.clamp(5, 200));
     });
     save(&items.get_untracked());
 }

@@ -19,3 +19,9 @@ island:
   image_missing: Image expired
   back: Back
   clear: Clear history (keep favorites)
+  clipboard_enabled: Capture clipboard
+  capture_images: Capture images
+  max_items: Keep
+  on: On
+  off: Off
+  about: FocuSD Island (NSH) %{version} · NSH 0.6.1

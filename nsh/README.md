@@ -10,8 +10,8 @@ upgrade needs its own verification run. The CLI is installed at
 
 ## What runs
 
-- `src/` is the app root: island capsule, clipboard history, settings page
-  and i18n. It builds standalone with `nsh run nsh`.
+- `src/` is the app root: island capsule, clipboard history, the separate
+  settings window and i18n. It builds standalone with `nsh run nsh`.
 - `host/` is the Win32 host: a message loop, hotkeys, tray, bounds, DPI,
   tuck/fullscreen handling and focus policy around one NSH `AppView`.
 - NSH's child-window `AppView` disables `transparent`, so the host uses a
@@ -32,8 +32,8 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - `Ctrl+Shift+M`: move to the next monitor.
 - `Ctrl+Shift+T`: tuck the collapsed island above the top edge; hover the
   visible strip to reveal it.
-- Tray (overflow area, "焦点岛"): show/collapse, click-through, tuck, next
-  monitor, quit.
+- Tray (overflow area, "焦点岛"): show/collapse, settings, click-through, tuck,
+  next monitor, quit.
 
 ## Clipboard (Phase 3)
 
@@ -48,7 +48,9 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   `arboard`, so `Clipboard.ContainsImage()` is true; Notepad's manual paste
   still needs a human check on the target build.
 - `☆` / `★` toggles a favorite; clearing the history keeps favorites.
-- Settings (`⚙`) switches dark/light and Chinese/English; both are saved to
+- Settings (`⚙` or the tray menu) opens a separate window: dark/light,
+  Chinese/English, clipboard capture on/off, capture images, max items and
+  clear history. They are saved to
   `%APPDATA%\com.focusd.island.nsh\settings.json`.
 
 ## Focus policy
@@ -76,8 +78,9 @@ those in favor of its own.
   Moving, expand/collapse, topmost, click-through, tray/hotkeys, unplug/replug
   and edge straddling all re-center correctly. Evidence is in
   `docs/assets/nsh-dpi/`.
-- The settings page is in-island; the independent settings window is Phase 3
-  late work.
+- Tauri settings live in WebView2 LevelDB; only the old clipboard options
+  (enabled/captureImages/maxItems) are imported from `clipboard-history.json`.
+  Old appearance presets are not mapped yet.
 - Drag works through the capsule grip; expanding or collapsing re-centers the
   window, so a dragged position is not preserved yet.
 - This app does not implement todo, daily notes or the archive. Old Tauri data

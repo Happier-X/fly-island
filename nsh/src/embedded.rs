@@ -16,6 +16,7 @@ use std::time::Duration;
 static EXPANDED: AtomicBool = AtomicBool::new(false);
 static POINTER_THROUGH: AtomicBool = AtomicBool::new(false);
 static CLIPBOARD_DIRTY: AtomicBool = AtomicBool::new(false);
+static SETTINGS_REQUEST: AtomicBool = AtomicBool::new(false);
 static ON_EXPAND: OnceLock<fn(bool)> = OnceLock::new();
 
 /// The host installs the function it uses to resize its window.
@@ -44,6 +45,14 @@ pub fn set_pointer_through(through: bool) {
     POINTER_THROUGH.store(through, Ordering::Relaxed);
 }
 
+pub fn request_settings() {
+    SETTINGS_REQUEST.store(true, Ordering::Relaxed);
+}
+
+pub fn take_settings_request() -> bool {
+    SETTINGS_REQUEST.swap(false, Ordering::Relaxed)
+}
+
 pub fn mark_clipboard_dirty() {
     CLIPBOARD_DIRTY.store(true, Ordering::Relaxed);
 }
@@ -57,11 +66,14 @@ pub fn pointer_through() -> bool {
 }
 
 /// Polls the host's state on the engine thread and applies it to the UI.
-pub fn start(expanded: Signal<bool>) {
+pub fn start(expanded: Signal<bool>, settings_open: Signal<bool>) {
     spawn(async move {
         let mut through = false;
         loop {
             timer(Duration::from_millis(60)).await;
+            if take_settings_request() {
+                settings_open.set(true);
+            }
             let wanted = wanted_expanded();
             if wanted != expanded.get_untracked() {
                 expanded.set(wanted);

@@ -5,7 +5,10 @@ import { expect, open, test } from "nsh/test";
 
 test("opens as a collapsed capsule and expands", async () => {
   const app = await open(".");
-  expect(app.texts().join("\n")).toContain("FocuSD Island");
-  await app.press("FocuSD Island");
-  expect(app.texts().join("\n")).toContain("Clipboard history");
+  const texts = app.texts().join("\n");
+  const title = texts.includes("焦点岛") ? "焦点岛" : "FocuSD Island";
+  expect(texts).toContain(title);
+  await app.press(title);
+  const after = app.texts().join("\n");
+  expect(after.includes("复制") || after.includes("COPY")).toBe(true);
 });

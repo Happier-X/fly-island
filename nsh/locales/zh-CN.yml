@@ -19,3 +19,9 @@ island:
   image_missing: 图片已过期
   back: 返回
   clear: 清空历史（保留收藏）
+  clipboard_enabled: 记录剪贴板
+  capture_images: 记录图片
+  max_items: 最多保留
+  on: 开
+  off: 关
+  about: 焦点岛（NSH）%{version} · NSH 0.6.1
