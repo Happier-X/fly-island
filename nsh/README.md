@@ -53,6 +53,23 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   clear history. They are saved to
   `%APPDATA%\com.focusd.island.nsh\settings.json`.
 
+## AI status and Cindy notifications
+
+- Read-only from the newest `%APPDATA%\Cindy\cindy-*.db`: active Codex and
+  Claude Code sessions are shown as running, done or needs attention (waiting
+  for an answer or an error).
+- The four notification kinds mirror Tauri: done, question, scheduled/background
+  and error, with a 24-hour window. A local watermark in
+  `ai-watermark.json` keeps seen events out; it moves when Cindy is already in
+  front or after a successful click.
+- Clicking the AI strip, a session row or "Focus Cindy" brings Cindy's window to
+  the front. If no window is found, the events stay unseen.
+- Settings adds the master switch and the four event switches. The old
+  `cindyNotificationsEnabled` / `cindyNotify*` fields are imported with the
+  other legacy settings.
+- Known limits: no notification sound yet and no per-session deep link (Cindy
+  runs every session in one window).
+
 ## Focus policy
 
 - Entering click-through releases keyboard focus to the last foreground

@@ -18,6 +18,7 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusty-leveldb = "4"
+rusqlite = { version = "0.32", features = ["bundled"] }
 base64 = "0.22"
 arboard = "3"
 image = { version = "0.25", default-features = false, features = ["bmp", "png"] }
@@ -30,3 +31,4 @@ nsh-platform-macos = { version = "0.6.1", default-features = false, features = [
 
 [target.'cfg(target_os = "windows")'.dependencies]
 nsh-platform-windows = { version = "0.6.1", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term", "websocket", "updater", "svg", "net"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

@@ -29,6 +29,16 @@ pub struct Preferences {
     pub capture_images: bool,
     #[serde(default = "default_max_items")]
     pub max_items: usize,
+    #[serde(default = "default_true")]
+    pub ai_enabled: bool,
+    #[serde(default = "default_true")]
+    pub notify_done: bool,
+    #[serde(default = "default_true")]
+    pub notify_question: bool,
+    #[serde(default = "default_true")]
+    pub notify_scheduled: bool,
+    #[serde(default = "default_true")]
+    pub notify_error: bool,
 }
 
 impl Default for Preferences {
@@ -39,6 +49,11 @@ impl Default for Preferences {
             clipboard_enabled: true,
             capture_images: true,
             max_items: default_max_items(),
+            ai_enabled: true,
+            notify_done: true,
+            notify_question: true,
+            notify_scheduled: true,
+            notify_error: true,
         }
     }
 }
@@ -52,10 +67,48 @@ fn data_file() -> Option<PathBuf> {
     Some(new_dir()?.join("settings.json"))
 }
 
+/// Settings written before the AI switches existed keep their defaults; import
+/// those five fields once so an old `cindyNotificationsEnabled=false` is kept.
+fn import_ai_settings_once(preferences: &mut Preferences) {
+    let Some(flag) = ai_import_flag() else {
+        return;
+    };
+    if flag.exists() {
+        return;
+    }
+    if let Some(legacy) = legacy_settings_text()
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok())
+    {
+        preferences.ai_enabled = legacy.cindy_notifications_enabled;
+        preferences.notify_done = legacy.cindy_notify_done;
+        preferences.notify_question = legacy.cindy_notify_question;
+        preferences.notify_scheduled = legacy.cindy_notify_scheduled;
+        preferences.notify_error = legacy.cindy_notify_error;
+    }
+    if let Some(parent) = flag.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(flag, b"1");
+    save(preferences);
+}
+
+fn ai_import_flag() -> Option<PathBuf> {
+    Some(new_dir()?.join("legacy-ai-settings-imported.flag"))
+}
+
+fn legacy_settings_text() -> Option<String> {
+    if let Some(text) = new_dir().and_then(|dir| fs::read_to_string(dir.join("legacy-settings.json")).ok()) {
+        return Some(text);
+    }
+    legacy_local_storage()?.settings
+}
+
 pub fn load() -> Preferences {
     if let Some(path) = data_file() {
         if let Ok(text) = fs::read_to_string(path) {
-            if let Ok(preferences) = serde_json::from_str::<Preferences>(&text) {
+            if let Ok(mut preferences) = serde_json::from_str::<Preferences>(&text) {
+                import_ai_settings_once(&mut preferences);
                 return preferences;
             }
         }
@@ -64,13 +117,21 @@ pub fn load() -> Preferences {
         return Preferences::default();
     }
     let LegacyLocalStorage { settings, locale } = legacy_local_storage().unwrap_or_default();
+    let legacy = settings
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok());
     let clipboard = legacy_clipboard_settings();
     let preferences = Preferences {
-        dark: settings.as_deref().and_then(dark_from_legacy).unwrap_or(true),
+        dark: legacy.as_ref().and_then(dark_from_settings).unwrap_or(true),
         locale: locale.unwrap_or_default(),
         clipboard_enabled: clipboard.map_or(true, |(enabled, _, _)| enabled),
         capture_images: clipboard.map_or(true, |(_, capture, _)| capture),
         max_items: clipboard.map_or(default_max_items(), |(_, _, max)| max),
+        ai_enabled: legacy.as_ref().is_none_or(|item| item.cindy_notifications_enabled),
+        notify_done: legacy.as_ref().is_none_or(|item| item.cindy_notify_done),
+        notify_question: legacy.as_ref().is_none_or(|item| item.cindy_notify_question),
+        notify_scheduled: legacy.as_ref().is_none_or(|item| item.cindy_notify_scheduled),
+        notify_error: legacy.as_ref().is_none_or(|item| item.cindy_notify_error),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -92,10 +153,19 @@ struct LegacySettings {
     island_background_color: String,
     #[serde(default)]
     task_text_color: String,
+    #[serde(default = "default_true")]
+    cindy_notifications_enabled: bool,
+    #[serde(default = "default_true")]
+    cindy_notify_done: bool,
+    #[serde(default = "default_true")]
+    cindy_notify_question: bool,
+    #[serde(default = "default_true")]
+    cindy_notify_scheduled: bool,
+    #[serde(default = "default_true")]
+    cindy_notify_error: bool,
 }
 
-fn dark_from_legacy(raw: &str) -> Option<bool> {
-    let settings: LegacySettings = serde_json::from_str(raw).ok()?;
+fn dark_from_settings(settings: &LegacySettings) -> Option<bool> {
     if let Some((r, g, b)) = parse_hex(&settings.island_background_color) {
         return Some(luminance(r, g, b) < 0.5);
     }

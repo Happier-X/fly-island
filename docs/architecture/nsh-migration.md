@@ -135,10 +135,11 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 
 1. 剪贴板完整迁移（CF_DIB 写回、旧数据导入、变更监听）。
 2. 设置全量迁移（已完成：旧设置/主题导入、独立设置窗口、字段对照表）。
-3. AI 状态。
-4. 通知（Cindy / 微信 / QQ / 邮件）。
+3. AI 状态与 Cindy 通知（已完成，对照表见 [nsh-ai-notifications.md](nsh-ai-notifications.md)）。
+4. 微信 / QQ / 邮件通知。
 5. 媒体控制、翻译。
 6. 快捷启动器、文件中转、外设电量。
+7. 旧外观预设导入（Phase 3 收尾；发布前必须完成）。
 
 截图套件继续单独立项。
 
@@ -151,6 +152,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 独立设置窗口：NSH `window()` 创建，齿轮与托盘“设置”都能打开/关闭；含深/浅主题、中/英、剪贴板开关、记录图片、最多保留、清空历史，写入 `settings.json`。
 - 旧剪贴板设置：首次运行时从 Tauri `clipboard-history.json` 的 `settings` 读取 enabled / captureImages / maxItems。
 - 旧设置与主题：只读导入 WebView2 LevelDB 的 `focusd-island-settings`（按背景亮度映射深/浅主题）和 `focusd-island-locale`（`zh-CN` / `en`），字段白名单与默认值回退见 [nsh-settings-map.md](nsh-settings-map.md)；旧文件不修改、不删除。
+- AI 状态与 Cindy 通知：只读 Cindy SQLite，Codex / Claude Code 会话显示运行、完成、需关注三态；四类事件沿用 24 小时窗口与本地毫秒水位，点击聚焦 Cindy，Cindy 在前台时自动算已读。设置页增加 AI 总开关与四类提醒开关，旧 `cindy*` 字段随设置导入。
 
 验收：每个模块有“Tauri 版 vs NSH 版”功能清单；数据可互相读取或有一次迁移；回归页/手动清单覆盖窄窗口与中英文。
 
@@ -219,7 +221,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
 - **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板与设置全量迁移已完成，剩余 AI/通知/媒体/启动器等。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；剩余微信/QQ/邮件、媒体/翻译、启动器/文件架/电池，以及发布前必须完成的外观预设导入。
 
 ## Phase 1 验证记录
 
@@ -330,3 +332,26 @@ raw display hmon=0xA4E0151 primary=false rect=(2560,0)-(4800,1400) work=(2560,0)
 raw display hmon=0x4C90F95 primary=true rect=(0,0)-(2560,1440) work=(0,0)-(2560,1380) dpi=120x120 scale=1.25 logical=2048x1152
 ```
 热拔 `/internal` 后：`SM_CMONITORS=1`，2240×1400@144，岛 480×60@(880,12)；`/extend` 后只重排一次到主屏 400×50@(1080,10)，不再跳屏。
+
+## Phase 3 AI 状态与 Cindy 通知验收（2026-11-23）
+
+- 数据源：只读本机最新 Cindy 数据库（694 MB），查询 `sessions`、`messages`、`schedule_runs`、`subagent_runs`；未写库。
+- 三态：折叠岛显示“焦点岛 运行 4 30 条 ⌄”；展开后 AI 条为“AI 状态 运行 4”，列出 3 个 Codex 会话（car-bot、fly-island NSH、Native Shell），每个带“运行”状态。
+- 已读水位：把 `ai-watermark.json` 回拨 1 小时后重启，折叠岛出现未读角标 “2”；点击“聚焦 Cindy”后前台进程变为 `Cindy`，水位推进到当前读取时间，角标消失。
+- 点击失败不标记已读：`focus_cindy()` 返回 false 时不推进水位；Cindy 在前台时轮询会自动推进水位。
+- 设置页：新增“AI 状态”区，含总开关、完成/提问/定时与后台/出错四个开关，以及“已连接 Cindy 数据库 · 4 个会话”。关闭总开关后 AI 条消失，恢复后下一次轮询重新出现；四个开关写入 `settings.json` 的 `ai_enabled` 与 `notify_*`。
+- 旧设置：`cindyNotificationsEnabled` 与四个 `cindyNotify*` 字段从 WebView2 LevelDB 白名单导入。
+- 副屏 150%：设置窗口 `dpi=144`、`668×1022`，内容边界 `x 2709–3360 / y ≤ 1107`，无裁剪。
+- 证据：`docs/assets/nsh-settings/ai-panel-125.png`、`secondary-150-ai-zh.png`；对照表 [nsh-ai-notifications.md](nsh-ai-notifications.md)。
+- 验证：`cargo check`（nsh、nsh/host）、`cargo test --lib`（2 passed：三态与“已回答的提问不再算需关注”）、`nsh test nsh`、`pnpm check` 均通过。
+
+## 外观预设导入（Phase 3 收尾，发布前必须完成）
+
+旧外观预设（名称、颜色、字体、透明度等）不随应用设置一起导入，放在 Phase 3 收尾；这是发布前的必做项，不能带病发布。
+
+实现约束：
+
+- 优先只读解析 WebView2 LevelDB：先把 LevelDB 复制到临时目录，再打开副本解析；绝不改动原文件。
+- 如果解析不可靠，改为在现有 Tauri 版加一次性“导出外观预设”按钮；这条备选方案要先回报，得到确认后再动 `src/` / `src-tauri/`。
+- 导入结果逐项列出：预设名称、颜色、字体、透明度等字段；失败的预设保留在报告里，不静默跳过。
+- 现有旧设置原文已备份到 `legacy-settings.json`；预设数据后续单独定位与解析，不覆盖或删除旧数据。

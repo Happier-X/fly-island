@@ -11,6 +11,10 @@
 | `clipboard-history` 的 `captureImages` | `capture_images` | 同上 |
 | `clipboard-history` 的 `maxItems` | `max_items` | 夹在 5–200 |
 | `focusd-island-locale` | `locale` | 只接受 `zh-CN` / `en`；缺失或无效时跟随系统，设置窗口可切换 |
+| `cindyNotificationsEnabled` | `ai_enabled` | AI 状态与 Cindy 通知总开关；缺失按开 |
+| `cindyNotifyDone` / `cindyNotifyQuestion` / `cindyNotifyScheduled` / `cindyNotifyError` | `notify_done` / `notify_question` / `notify_scheduled` / `notify_error` | 四类事件提醒，缺失按开 |
+
+已有 NSH `settings.json` 的升级路径：首次启动时用 `legacy-ai-settings-imported.flag` 标记，一次性把 `cindy*` 五个字段补进来，不覆盖其他已保存的设置。
 
 ## 删除（待办/笔记相关）
 
@@ -36,6 +40,8 @@
 
 ## 暂不迁移（NSH 当前无等价能力）
 
+外观预设（名称、颜色、字体、透明度等）不在这张表的逐字段迁移范围内，按 [nsh-migration.md](nsh-migration.md) 的“外观预设导入”在 Phase 3 收尾单独解析与导入。
+
 | 旧字段组 | 处理 |
 |---|---|
 | `appearanceMode`、`fontFamily`、`glassIntensity`、`opacity`、`collapsedScale`、`expandedScale`、`marginY`、`islandMonitor`、`islandCornerRadius`、`islandCornerShape`、`maxPanelHeight`、`positionLocked` | 保留旧值但不应用；当前主题只有深/浅，尺寸固定在宿主 |
@@ -44,12 +50,13 @@
 | `music*` | 媒体控制迁移时再接 |
 | `shelf*` | 文件中转迁移时再接 |
 | `translation*` | 翻译窗口迁移时再接 |
-| `mail*`、`battery*`、`game*`、`cindyNotify*` | 对应功能迁移时再接 |
+| `mail*`、`battery*`、`game*` | 对应功能迁移时再接 |
 | `showTitle`、`showCollapsedText`、`collapsedLayout`、`collapsedShowCover`、`expandTrigger`、`hover*`、`autoTuck*`、`autoCollapse*`、`minimizeAction`、`tuckedHoverAction`、`revealOnMessage` | 岛屿行为迁移时再接；当前宿主只提供手动贴边/展开 |
 
 ## 验收
 
 - 旧设置导入后，设置窗口再次打开不丢项：主题、语言、剪贴板开关/图片/上限都来自新 `settings.json`；旧 LevelDB 与 `clipboard-history.json` 的哈希不变。
 - 修改主题/语言/外观即时生效并持久化。
+- AI 总开关与四类提醒开关导入后重新打开设置不丢项，并即时影响角标。
 - 设置窗口在副屏 150% 下布局正常，可缩放、可移动到另一块屏。
 - 关闭设置窗口后，岛内齿轮状态恢复，主题/语言继续生效。

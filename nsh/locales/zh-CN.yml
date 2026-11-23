@@ -24,4 +24,21 @@ island:
   max_items: 最多保留
   on: 开
   off: 关
+  ai: AI 状态
+  ai_enabled: AI 状态与 Cindy 通知
+  ai_running: 运行
+  ai_done: 完成
+  ai_attention: 需关注
+  ai_idle: AI 空闲
+  ai_running_count: "运行 %{count}"
+  ai_attention_count: "需关注 %{count}"
+  ai_done_count: "完成 %{count}"
+  ai_focus: 聚焦 Cindy
+  ai_source_ready: "已连接 Cindy 数据库 · %{count} 个会话"
+  ai_source_missing: 未找到 Cindy 数据库
+  ai_source_failed: "读取 Cindy 失败：%{error}"
+  notify_done: 完成时提醒
+  notify_question: 提问时提醒
+  notify_scheduled: 定时与后台任务
+  notify_error: 出错时提醒
   about: 焦点岛（NSH）%{version} · NSH 0.6.1

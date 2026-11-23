@@ -24,4 +24,21 @@ island:
   max_items: Keep
   on: On
   off: Off
+  ai: AI status
+  ai_enabled: AI status and Cindy notifications
+  ai_running: RUNNING
+  ai_done: DONE
+  ai_attention: NEEDS ATTENTION
+  ai_idle: AI idle
+  ai_running_count: "Running %{count}"
+  ai_attention_count: "Needs attention %{count}"
+  ai_done_count: "Done %{count}"
+  ai_focus: Focus Cindy
+  ai_source_ready: "Cindy database connected · %{count} sessions"
+  ai_source_missing: Cindy database not found
+  ai_source_failed: "Failed to read Cindy: %{error}"
+  notify_done: Notify when finished
+  notify_question: Notify when it asks
+  notify_scheduled: Scheduled and background tasks
+  notify_error: Notify on errors
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

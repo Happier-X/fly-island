@@ -4,6 +4,7 @@
 //! through AppView. The island keeps the capsule, adds a searchable
 //! text/image clipboard with favorites, and a small settings page.
 
+mod ai;
 mod clipboard;
 pub mod focus;
 #[cfg(feature = "embedded")]
@@ -15,6 +16,7 @@ use std::rc::Rc;
 
 use nsh_core::{element::input, prelude::*, Color};
 
+use ai::{AgentSession, AgentState, AiSnapshot};
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
 
 const COLLAPSED_WIDTH: f32 = 320.0;
@@ -32,6 +34,9 @@ struct Palette {
     row: Color,
     input: Color,
     accent: Color,
+    running: Color,
+    warning: Color,
+    success: Color,
 }
 
 fn palette(dark: bool) -> Palette {
@@ -45,6 +50,9 @@ fn palette(dark: bool) -> Palette {
             row: rgba(0xFFFFFF14).into(),
             input: rgba(0xFFFFFF1A).into(),
             accent: rgb(0x6ABF9B).into(),
+            running: rgb(0x5B9CF5).into(),
+            warning: rgb(0xE5A84A).into(),
+            success: rgb(0x4CB782).into(),
         }
     } else {
         Palette {
@@ -56,8 +64,20 @@ fn palette(dark: bool) -> Palette {
             row: rgba(0x0000000F).into(),
             input: rgba(0x0000000F).into(),
             accent: rgb(0x3A8F72).into(),
+            running: rgb(0x2F6FD0).into(),
+            warning: rgb(0xB57616).into(),
+            success: rgb(0x2E8B62).into(),
         }
     }
+}
+
+#[derive(Clone, Copy)]
+struct AiState {
+    enabled: Signal<bool>,
+    snapshot: Signal<AiSnapshot>,
+    sessions: Signal<Vec<AgentSession>>,
+    watermark: Signal<i64>,
+    kinds: [Signal<bool>; 4],
 }
 
 #[derive(Clone, Copy)]
@@ -66,6 +86,7 @@ struct SettingsState {
     clipboard_enabled: Signal<bool>,
     capture_images: Signal<bool>,
     max_items: Signal<usize>,
+    ai: AiState,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -85,11 +106,30 @@ pub fn App() -> impl IntoElement {
     let clipboard_enabled = signal(saved.clipboard_enabled);
     let capture_images = signal(saved.capture_images);
     let max_items = signal(saved.max_items.clamp(5, 200));
+    let ai_enabled = signal(saved.ai_enabled);
+    let notify_done = signal(saved.notify_done);
+    let notify_question = signal(saved.notify_question);
+    let notify_scheduled = signal(saved.notify_scheduled);
+    let notify_error = signal(saved.notify_error);
+    let ai_status = ai::start(ai_enabled);
+    let ai_sessions = signal(Vec::<AgentSession>::new());
+    effect(move || {
+        let list = ai_status.snapshot.get().sessions;
+        ai_sessions.set(list.into_iter().take(3).collect());
+    });
+    let ai_state = AiState {
+        enabled: ai_enabled,
+        snapshot: ai_status.snapshot,
+        sessions: ai_sessions,
+        watermark: ai_status.watermark,
+        kinds: [notify_done, notify_question, notify_scheduled, notify_error],
+    };
     let settings_state = SettingsState {
         dark,
         clipboard_enabled,
         capture_images,
         max_items,
+        ai: ai_state,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -124,10 +164,10 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark)
+            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state)
         }))
         .child(when(move || !expanded.get(), move || {
-            collapsed_island(expanded, items, dark)
+            collapsed_island(expanded, items, dark, ai_state)
         }))
         .child(settings_window(settings_open, settings_state, items))
 }
@@ -136,6 +176,7 @@ fn collapsed_island(
     expanded: Signal<bool>,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
+    ai: AiState,
 ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -150,14 +191,35 @@ fn collapsed_island(
         .h(px(COLLAPSED_HEIGHT))
         .w(px(COLLAPSED_WIDTH))
         .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
-        .child(dot(dark))
+        .child(ai_dot(dark, ai))
         .child(
             text(move || t!("island.title"))
                 .text_size(px(13.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || palette(dark.get()).fg),
         )
+        .child(when(
+            move || ai.enabled.get() && ai.snapshot.get().state().is_some(),
+            move || {
+                text(move || ai_inline_label(ai))
+                    .text_size(px(11.0))
+                    .text_color(move || ai_state_color(palette(dark.get()), ai.snapshot.get().state()))
+            },
+        ))
         .child(view().flex_1())
+        .child(when(move || ai_unseen(ai) > 0, move || {
+            view()
+                .px(px(6.0))
+                .py(px(1.0))
+                .rounded(px(9.0))
+                .bg(move || palette(dark.get()).warning)
+                .child(
+                    text(move || ai_unseen(ai).to_string())
+                        .text_size(px(9.0))
+                        .text_color(move || palette(dark.get()).bg),
+                )
+                .on_press(move || open_cindy(ai))
+        }))
         .child(
             text(move || t!("island.count", count = items.get().len()))
                 .text_size(px(12.0))
@@ -178,6 +240,7 @@ fn expanded_island(
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
+    ai: AiState,
 ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -188,7 +251,8 @@ fn expanded_island(
         .w(px(EXPANDED_WIDTH))
         .h(px(EXPANDED_HEIGHT))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, items, dark))
+        .child(expanded_header(expanded, settings_open, items, dark, ai))
+        .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
         .child(divider(dark))
         .child(search_and_list(query, items, visible, dark))
         .child(
@@ -205,6 +269,7 @@ fn expanded_header(
     settings_open: Signal<bool>,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
+    ai: AiState,
 ) -> impl IntoElement {
     view()
         .flex_row()
@@ -213,7 +278,7 @@ fn expanded_header(
         .px(px(18.0))
         .h(px(44.0))
         .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
-        .child(dot(dark))
+        .child(ai_dot(dark, ai))
         .child(
             text(move || t!("island.clipboard"))
             .text_size(px(14.0))
@@ -226,7 +291,19 @@ fn expanded_header(
                 .text_color(move || palette(dark.get()).faint),
         )
         .child(view().flex_1())
-
+        .child(when(move || ai_unseen(ai) > 0, move || {
+            view()
+                .px(px(6.0))
+                .py(px(1.0))
+                .rounded(px(9.0))
+                .bg(move || palette(dark.get()).warning)
+                .child(
+                    text(move || ai_unseen(ai).to_string())
+                        .text_size(px(9.0))
+                        .text_color(move || palette(dark.get()).bg),
+                )
+                .on_press(move || open_cindy(ai))
+        }))
         .child(
             text(move || if settings_open.get() { "✕" } else { "⚙" })
                 .text_size(px(14.0))
@@ -241,6 +318,163 @@ fn expanded_header(
                 .px(px(6.0))
                 .on_press(move || window::set_expanded(expanded, false)),
         )
+}
+
+fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(3.0))
+        .px(px(14.0))
+        .pb(px(6.0))
+        .child(ai_summary_row(ai, dark))
+        .child(each(ai.sessions, |session| session.id.clone(), move |session, _| {
+            ai_row(ai, session, dark)
+        }))
+}
+
+fn ai_summary_row(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            text(move || t!("island.ai"))
+                .text_size(px(12.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || ai_state_color(palette(dark.get()), ai.snapshot.get().state())),
+        )
+        .child(
+            text(move || ai_counts(ai))
+                .text_size(px(11.0))
+                .text_color(move || palette(dark.get()).muted),
+        )
+        .child(view().flex_1())
+        .child(
+            text(move || t!("island.ai_focus"))
+                .text_size(px(10.0))
+                .text_color(move || palette(dark.get()).accent)
+                .on_press(move || open_cindy(ai)),
+        )
+}
+
+fn ai_row(ai: AiState, session: ReadSignal<AgentSession>, dark: Signal<bool>) -> impl IntoElement {
+    let session = session.get();
+    let state = session.state;
+    let color = ai_state_color(palette(dark.get()), Some(state));
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(8.0))
+        .py(px(2.0))
+        .rounded(px(6.0))
+        .active(|style| style.bg(palette(dark.get()).row))
+        .on_press(move || open_cindy(ai))
+        .child(view().w(px(5.0)).h(px(5.0)).rounded(px(3.0)).bg(color))
+        .child(
+            text(ai_state_label(state))
+                .text_size(px(9.0))
+                .text_color(color),
+        )
+        .child(
+            text(session.agent.clone())
+                .text_size(px(10.0))
+                .text_color(move || palette(dark.get()).faint),
+        )
+        .child(
+            text(session.title.clone())
+                .flex_1()
+                .truncate()
+                .text_size(px(11.0))
+                .text_color(move || palette(dark.get()).fg),
+        )
+}
+
+fn ai_dot(dark: Signal<bool>, ai: AiState) -> impl IntoElement {
+    view()
+        .w(px(7.0))
+        .h(px(7.0))
+        .rounded(px(4.0))
+        .bg(move || {
+            if !ai.enabled.get() {
+                return palette(dark.get()).accent;
+            }
+            ai_state_color(palette(dark.get()), ai.snapshot.get().state())
+        })
+}
+
+fn ai_state_color(palette: Palette, state: Option<AgentState>) -> Color {
+    match state {
+        Some(AgentState::Attention) => palette.warning,
+        Some(AgentState::Running) => palette.running,
+        Some(AgentState::Done) => palette.success,
+        None => palette.faint,
+    }
+}
+
+fn ai_state_label(state: AgentState) -> String {
+    match state {
+        AgentState::Attention => t!("island.ai_attention"),
+        AgentState::Running => t!("island.ai_running"),
+        AgentState::Done => t!("island.ai_done"),
+    }
+}
+
+fn ai_inline_label(ai: AiState) -> String {
+    let snapshot = ai.snapshot.get();
+    match snapshot.state() {
+        Some(AgentState::Attention) => {
+            t!("island.ai_attention_count", count = snapshot.count(AgentState::Attention))
+        }
+        Some(AgentState::Running) => {
+            t!("island.ai_running_count", count = snapshot.count(AgentState::Running))
+        }
+        Some(AgentState::Done) => t!("island.ai_done"),
+        None => String::new(),
+    }
+}
+
+fn ai_counts(ai: AiState) -> String {
+    let snapshot = ai.snapshot.get();
+    let mut parts = Vec::new();
+    let running = snapshot.count(AgentState::Running);
+    let attention = snapshot.count(AgentState::Attention);
+    let done = snapshot.count(AgentState::Done);
+    if running > 0 {
+        parts.push(t!("island.ai_running_count", count = running));
+    }
+    if attention > 0 {
+        parts.push(t!("island.ai_attention_count", count = attention));
+    }
+    if done > 0 {
+        parts.push(t!("island.ai_done_count", count = done));
+    }
+    if parts.is_empty() {
+        t!("island.ai_idle")
+    } else {
+        parts.join(" · ")
+    }
+}
+
+fn ai_unseen(ai: AiState) -> usize {
+    ai::unseen(
+        &ai.snapshot.get(),
+        ai.watermark.get(),
+        [
+            ai.kinds[0].get(),
+            ai.kinds[1].get(),
+            ai.kinds[2].get(),
+            ai.kinds[3].get(),
+        ],
+    )
+}
+
+fn open_cindy(ai: AiState) {
+    spawn(async move {
+        if ai::focus_cindy() {
+            ai::mark_seen(ai.snapshot, ai.watermark);
+        }
+    });
 }
 
 fn search_and_list(
@@ -380,7 +614,7 @@ fn settings_window(
         .id("settings")
         .kind(nsh_core::desktop::WindowKind::Normal)
         .title(t!("island.settings"))
-        .default_size(size(px(520.0), px(600.0)))
+        .default_size(size(px(520.0), px(780.0)))
         .open(open)
         .on_open_change(move |event| open.set(event.open))
         .content(move || settings_content(open, state, items))
@@ -555,6 +789,17 @@ fn settings_content(
                     state.dark,
                 )),
         )
+        .child(section_label(move || t!("island.ai"), state))
+        .child(toggle_row(move || t!("island.ai_enabled"), state.ai.enabled, state))
+        .child(toggle_row(move || t!("island.notify_done"), state.ai.kinds[0], state))
+        .child(toggle_row(move || t!("island.notify_question"), state.ai.kinds[1], state))
+        .child(toggle_row(move || t!("island.notify_scheduled"), state.ai.kinds[2], state))
+        .child(toggle_row(move || t!("island.notify_error"), state.ai.kinds[3], state))
+        .child(
+            text(move || ai_source_label(state))
+                .text_size(px(10.0))
+                .text_color(move || palette(state.dark.get()).faint),
+        )
         .child(view().flex_1())
         .child(
             text(move || t!("island.about", version = "0.1.0"))
@@ -568,6 +813,52 @@ fn section_label(label: impl Fn() -> String + 'static, state: SettingsState) -> 
         .text_size(px(12.0))
         .text_color(move || palette(state.dark.get()).muted)
         .mt(px(6.0))
+}
+
+fn toggle_row(
+    label: impl Fn() -> String + 'static,
+    value: Signal<bool>,
+    state: SettingsState,
+) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            text(label)
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || palette(state.dark.get()).muted),
+        )
+        .child(pill(
+            move || t!("island.on"),
+            Rc::new(move || value.get()),
+            move || {
+                value.set(true);
+                save_settings(state);
+            },
+            state.dark,
+        ))
+        .child(pill(
+            move || t!("island.off"),
+            Rc::new(move || !value.get()),
+            move || {
+                value.set(false);
+                save_settings(state);
+            },
+            state.dark,
+        ))
+}
+
+fn ai_source_label(state: SettingsState) -> String {
+    let snapshot = state.ai.snapshot.get();
+    if let Some(error) = snapshot.error.as_deref() {
+        return t!("island.ai_source_failed", error = error);
+    }
+    if snapshot.database_path.is_empty() {
+        return t!("island.ai_source_missing");
+    }
+    t!("island.ai_source_ready", count = snapshot.sessions.len())
 }
 
 fn max_pill(value: usize, state: SettingsState, dark: Signal<bool>) -> impl IntoElement {
@@ -630,14 +921,6 @@ fn no_results(dark: Signal<bool>) -> impl IntoElement {
     )
 }
 
-fn dot(dark: Signal<bool>) -> impl IntoElement {
-    view()
-        .w(px(7.0))
-        .h(px(7.0))
-        .rounded(px(4.0))
-        .bg(move || palette(dark.get()).accent)
-}
-
 fn divider(dark: Signal<bool>) -> impl IntoElement {
     view()
         .h(px(1.0))
@@ -652,5 +935,10 @@ fn save_settings(state: SettingsState) {
         clipboard_enabled: state.clipboard_enabled.get_untracked(),
         capture_images: state.capture_images.get_untracked(),
         max_items: state.max_items.get_untracked(),
+        ai_enabled: state.ai.enabled.get_untracked(),
+        notify_done: state.ai.kinds[0].get_untracked(),
+        notify_question: state.ai.kinds[1].get_untracked(),
+        notify_scheduled: state.ai.kinds[2].get_untracked(),
+        notify_error: state.ai.kinds[3].get_untracked(),
     });
 }
