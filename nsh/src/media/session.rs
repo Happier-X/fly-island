@@ -23,6 +23,7 @@ use windows::{
 
 use super::audio::{read_master_volume, read_system_audio_peak, AUDIO_ACTIVE_THRESHOLD};
 use super::service::*;
+use super::source;
 use super::timeline::{self, TimelineSample};
 use super::{com, input};
 
@@ -99,6 +100,13 @@ pub(super) fn session_by_id(
 pub(super) fn target_session(
     manager: &MediaSessionManager,
 ) -> Result<Option<MediaSession>, String> {
+    let sessions = list_sessions(manager);
+    if let Some(id) = source::pick(&sessions, &source::order()) {
+        if let Some(session) = session_by_id(manager, &id)? {
+            return Ok(Some(session));
+        }
+    }
+
     let current_session = manager.GetCurrentSession().ok();
 
     if current_session.as_ref().is_some_and(is_playing) {
@@ -272,8 +280,12 @@ pub(super) fn read_media_state_from_manager(
     let audio_active = audio_peak > AUDIO_ACTIVE_THRESHOLD;
     let volume = read_master_volume().unwrap_or(-1.0);
     let sessions = list_sessions(manager);
+    let preferred = target
+        .map(str::to_string)
+        .filter(|id| !id.is_empty())
+        .or_else(|| source::pick(&sessions, &source::order()));
 
-    let Some(session) = resolve_session(manager, target)? else {
+    let Some(session) = resolve_session(manager, preferred.as_deref())? else {
         return Ok(MediaState {
             available: false,
             audio_active,

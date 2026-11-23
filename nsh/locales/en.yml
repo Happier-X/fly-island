@@ -42,6 +42,9 @@ island:
   notify_scheduled: Scheduled and background tasks
   notify_error: Notify on errors
   media_unknown: Unknown track
+  media_idle: Nothing playing
+  media_idle_hint: Start music in any player; the island will follow it
+  media_resume: Play
   wechat: WeChat reminder
   wechat_disabled: Disabled
   wechat_pending: Needs attention
@@ -49,6 +52,12 @@ island:
   wechat_missing: WeChat not running
   wechat_open: Open WeChat
   sound: Notification sounds
+  music_sources: Player order
+  music_sources_hint: With several players open, the island follows the first playing one listed here
+  music_source_playing: PLAYING
+  music_source_open: OPEN
+  music_source_closed: CLOSED
+  music_sources_empty: No players seen yet
   lyrics: Lyrics
   lyrics_folder: Local LRC folder
   lyrics_folder_placeholder: e.g. D:\Music\LRC

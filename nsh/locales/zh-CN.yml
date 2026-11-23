@@ -42,6 +42,9 @@ island:
   notify_scheduled: 定时与后台任务
   notify_error: 出错时提醒
   media_unknown: 未在播放
+  media_idle: 当前没有播放
+  media_idle_hint: 在任意播放器开始播放，岛屿会跟随它
+  media_resume: 播放
   wechat: 微信提醒
   wechat_disabled: 未启用
   wechat_pending: 需关注
@@ -49,6 +52,12 @@ island:
   wechat_missing: 微信未运行
   wechat_open: 打开微信
   sound: 提示音
+  music_sources: 播放器优先级
+  music_sources_hint: 多播放器时，优先跟随列表上方正在播放的那个
+  music_source_playing: 播放中
+  music_source_open: 已打开
+  music_source_closed: 未打开
+  music_sources_empty: 还没有发现播放器
   lyrics: 歌词
   lyrics_folder: 本地 LRC 文件夹
   lyrics_folder_placeholder: 例如 D:\Music\LRC

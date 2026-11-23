@@ -10,10 +10,12 @@ mod audio_device;
 mod com;
 mod input;
 mod service;
+mod source;
 mod session;
 mod timeline;
 
 pub use service::{AudioLevel, MediaState};
+pub use source::{remember as remember_sources, set_order as set_source_order, KnownSource};
 
 use service::MediaCommand;
 

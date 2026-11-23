@@ -255,11 +255,15 @@ async fn fetch_online(query: &LyricsQuery) -> Result<Option<Answer>, String> {
     let mut errors = Vec::new();
     let mut answered = false;
     for source in source_order(query) {
-        let result = match source {
-            "kugou" => kugou::fetch(title, artist, query.duration_ms).await,
-            "netease" => netease::fetch(title, artist, query.duration_ms, query.track_id.as_deref()).await,
-            _ => lrclib::fetch(title, artist, &query.album, query.duration_ms).await,
-        };
+        let result = tokio::time::timeout(Duration::from_secs(12), async {
+            match source {
+                "kugou" => kugou::fetch(title, artist, query.duration_ms).await,
+                "netease" => netease::fetch(title, artist, query.duration_ms, query.track_id.as_deref()).await,
+                _ => lrclib::fetch(title, artist, &query.album, query.duration_ms).await,
+            }
+        })
+        .await
+        .unwrap_or_else(|_| Err(format!("{source} did not answer in time")));
         match result {
             Ok(Some(found)) => return Ok(Some((source, found))),
             Ok(None) => answered = true,

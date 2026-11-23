@@ -17,7 +17,10 @@ pub mod embedded;
 mod preferences;
 mod window;
 
-use std::{rc::Rc, time::Duration};
+use std::{
+    rc::Rc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use nsh_core::{element::input, prelude::*, Color};
 
@@ -129,6 +132,7 @@ struct SettingsState {
     wechat_enabled: Signal<bool>,
     sound_enabled: Signal<bool>,
     lyrics: LyricsSettingsState,
+    music_sources: Signal<Vec<media::KnownSource>>,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -153,6 +157,7 @@ pub fn App() -> impl IntoElement {
     let lyrics_folder = signal(saved.lyrics_folder.clone());
     let lyrics_online = signal(saved.lyrics_online);
     let lyrics_chinese = signal(saved.lyrics_chinese);
+    let music_sources = signal(saved.music_sources.clone());
     wechat_set_enabled(saved.wechat_enabled);
     let ai_enabled = signal(saved.ai_enabled);
     let notify_done = signal(saved.notify_done);
@@ -225,6 +230,7 @@ pub fn App() -> impl IntoElement {
         wechat_enabled,
         sound_enabled,
         lyrics: LyricsSettingsState { folder: lyrics_folder, online: lyrics_online, chinese: lyrics_chinese },
+        music_sources,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -266,9 +272,17 @@ pub fn App() -> impl IntoElement {
     set_interval(Duration::from_secs(1), move || poll_wechat());
 
     let media_state = signal(Option::<MediaState>::None);
+    media::set_source_order(saved.music_sources.clone());
+    effect(move || media::set_source_order(music_sources.get()));
     let read_media = Rc::new(move || {
+        let order = music_sources.get_untracked();
         spawn(async move {
             if let Ok(next) = media::state() {
+                let mut sources = order;
+                if media::remember_sources(&mut sources, &next.sessions) {
+                    music_sources.set(sources);
+                    save_settings(settings_state);
+                }
                 media_state.set(Some(next));
             }
         });
@@ -293,7 +307,7 @@ pub fn App() -> impl IntoElement {
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
         }))
-        .child(settings_window(settings_open, settings_state, items))
+        .child(settings_window(settings_open, settings_state, items, media_state))
 }
 
 fn collapsed_island(
@@ -381,6 +395,10 @@ fn expanded_island(
         .child(when(
             move || media_state.get().as_ref().is_some_and(|media| media.available),
             move || media_panel(media_state, dark),
+        ))
+        .child(when(
+            move || !media_state.get().as_ref().is_some_and(|media| media.available),
+            move || media_idle(media_state, dark),
         ))
         .child(when(
             move || media_state.get().as_ref().is_some_and(|media| media.available),
@@ -812,67 +830,227 @@ fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>   ) -
         ))
 }
 
+const PROGRESS_WIDTH: f32 = 240.0;
+
+#[derive(Clone, Copy, PartialEq)]
+struct DragSeek {
+    start_x: f32,
+    current_x: f32,
+}
+
+fn unix_millis() -> i64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |time| time.as_millis() as i64)
+}
+
+fn media_position(media: &MediaState, drag: Option<DragSeek>, now: i64) -> i64 {
+    let duration = media.duration_ms.max(0);
+    if duration == 0 {
+        return 0;
+    }
+    if let Some(drag) = drag {
+        return ((drag.current_x.clamp(0.0, PROGRESS_WIDTH) / PROGRESS_WIDTH) as f64 * duration as f64).round() as i64;
+    }
+    let moved = if media.playback_status == "playing" { (now - media.updated_at).max(0) } else { 0 };
+    media.position_ms.saturating_add(moved).clamp(0, duration)
+}
+
+fn media_fraction(media: &MediaState, drag: Option<DragSeek>, now: i64) -> f32 {
+    if media.duration_ms <= 0 {
+        0.0
+    } else {
+        (media_position(media, drag, now) as f32 / media.duration_ms as f32).clamp(0.0, 1.0)
+    }
+}
+
+fn seek_progress(media_state: Signal<Option<MediaState>>, x: f32) {
+    let Some(media) = media_state.get_untracked() else {
+        return;
+    };
+    if !media.can_seek || media.duration_ms <= 0 {
+        return;
+    }
+    let duration = media.duration_ms;
+    let target = ((x.clamp(0.0, PROGRESS_WIDTH) / PROGRESS_WIDTH) as f64 * duration as f64).round() as i64;
+    let target = target.clamp(0, duration);
+    spawn(async move {
+        if let Ok(next) = media::seek(target) {
+            media_state.set(Some(next));
+        }
+    });
+}
+
 fn media_progress(
     media_state: Signal<Option<MediaState>>,
     dark: Signal<bool>,
 ) -> impl IntoElement {
-    let segments = signal((0..10u32).collect::<Vec<_>>());
+    let drag = signal(None::<DragSeek>);
+    let now = signal(unix_millis());
+    set_interval(Duration::from_millis(500), move || now.set(unix_millis()));
     view()
         .flex_row()
         .items_center()
         .gap(px(6.0))
         .child(
             view()
-                .flex_row()
-                .gap(px(1.0))
-                .on_press(move |event: &nsh_core::PressEvent| {
-                    let state = media_state.get_untracked();
-                    let duration = state.as_ref().map(|media| media.duration_ms).unwrap_or(0);
-                    if duration <= 0 || !state.as_ref().is_some_and(|media| media.can_seek) {
+                .relative()
+                .w(px(PROGRESS_WIDTH))
+                .h(px(14.0))
+                .items_center()
+                .child(
+                    view()
+                        .relative()
+                        .w(px(PROGRESS_WIDTH))
+                        .h(px(4.0))
+                        .rounded(px(2.0))
+                        .bg(move || palette(dark.get()).border)
+                        .child(
+                            view()
+                                .h(px(4.0))
+                                .rounded(px(2.0))
+                                .bg(move || media_color(media_state, dark))
+                                .w(move || {
+                                    let fraction = media_state
+                                        .get()
+                                        .as_ref()
+                                        .map_or(0.0, |media| media_fraction(media, drag.get(), now.get()));
+                                    px(fraction * PROGRESS_WIDTH)
+                                }),
+                        )
+                        .child(
+                            view()
+                                .absolute()
+                                .top(px(-1.0))
+                                .left(move || {
+                                    let fraction = media_state
+                                        .get()
+                                        .as_ref()
+                                        .map_or(0.0, |media| media_fraction(media, drag.get(), now.get()));
+                                    px(fraction * PROGRESS_WIDTH - 3.0)
+                                })
+                                .w(px(6.0))
+                                .h(px(6.0))
+                                .rounded(px(3.0))
+                                .bg(move || media_color(media_state, dark)),
+                        ),
+                )
+                .on_press_down(move |event: &nsh_core::PressEvent| {
+                    if !media_state
+                        .get_untracked()
+                        .is_some_and(|media| media.can_seek && media.duration_ms > 0)
+                    {
                         return;
                     }
-                    let fraction = (event.position.x.0 / 240.0).clamp(0.0, 1.0);
-                    let target = (fraction * duration as f32) as i64;
-                    spawn(async move {
-                        if let Ok(next) = media::seek(target) {
-                            media_state.set(Some(next));
-                        }
-                    });
+                    let x = event.position.x.0.clamp(0.0, PROGRESS_WIDTH);
+                    drag.set(Some(DragSeek { start_x: x, current_x: x }));
                 })
-                .child(each(
-                    segments,
-                    |index| *index,
-                    move |index, _| {
-                        view()
-                            .w(px(23.0))
-                            .h(px(4.0))
-                            .rounded(px(2.0))
-                            .bg(move || {
-                                let state = media_state.get();
-                                let fraction = state
-                                    .as_ref()
-                                    .map(|media| {
-                                        media.position_ms as f32 / media.duration_ms.max(1) as f32
-                                    })
-                                    .unwrap_or(0.0);
-                                if fraction > index.get() as f32 / 10.0 {
-                                    media_color(media_state, dark)
-                                } else {
-                                    palette(dark.get()).border
-                                }
-                            })
-                    },
-                )),
+                .on_mouse_move(move |event: &nsh_core::MouseEvent| {
+                    let Some(mut current) = drag.get_untracked() else {
+                        return;
+                    };
+                    if event.pressed_button.is_none() {
+                        return;
+                    }
+                    current.current_x = event.position.x.0.clamp(0.0, PROGRESS_WIDTH);
+                    drag.set(Some(current));
+                })
+                .on_mouse_up(move |event: &nsh_core::MouseEvent| {
+                    let Some(mut current) = drag.get_untracked() else {
+                        return;
+                    };
+                    current.current_x = event.position.x.0.clamp(0.0, PROGRESS_WIDTH);
+                    drag.set(None);
+                    seek_progress(media_state, current.current_x);
+                })
+                .on_pan_start(move |_event: &nsh_core::element::PanEvent| {
+                    if drag.get_untracked().is_none() {
+                        drag.set(Some(DragSeek { start_x: 0.0, current_x: 0.0 }));
+                    }
+                })
+                .on_pan_end(move |event: &nsh_core::element::PanEvent| {
+                    let Some(current) = drag.get_untracked() else {
+                        return;
+                    };
+                    drag.set(None);
+                    if event.cancelled {
+                        return;
+                    }
+                    seek_progress(media_state, current.start_x + event.translation.x.0);
+                }),
         )
         .child(
             text(move || {
                 let state = media_state.get();
-                let position = state.as_ref().map(|media| media.position_ms).unwrap_or(0);
-                let duration = state.as_ref().map(|media| media.duration_ms).unwrap_or(0);
+                let position = state
+                    .as_ref()
+                    .map_or(0, |media| media_position(media, drag.get(), now.get()));
+                let duration = state.as_ref().map_or(0, |media| media.duration_ms);
                 format!("{} / {}", media_time(position), media_time(duration))
             })
             .text_size(px(9.5))
             .text_color(move || palette(dark.get()).faint),
+        )
+}
+
+fn media_idle(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(8.0))
+        .px(px(14.0))
+        .pb(px(5.0))
+        .child(
+            view()
+                .w(px(28.0))
+                .h(px(28.0))
+                .rounded(px(14.0))
+                .items_center()
+                .justify_center()
+                .bg(move || palette(dark.get()).row)
+                .border(px(1.0))
+                .border_color(move || palette(dark.get()).border)
+                .child(
+                    view()
+                        .w(px(10.0))
+                        .h(px(10.0))
+                        .rounded(px(5.0))
+                        .items_center()
+                        .justify_center()
+                        .bg(move || palette(dark.get()).input)
+                        .child(view().w(px(2.0)).h(px(2.0)).rounded(px(1.0)).bg(move || palette(dark.get()).faint)),
+                ),
+        )
+        .child(
+            view()
+                .flex_col()
+                .child(
+                    text(move || t!("island.media_idle"))
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || palette(dark.get()).fg),
+                )
+                .child(
+                    text(move || t!("island.media_idle_hint"))
+                        .truncate()
+                        .text_size(px(9.5))
+                        .text_color(move || palette(dark.get()).faint),
+                ),
+        )
+        .child(view().flex_1())
+        .child(
+            text(move || format!("▶ {}", t!("island.media_resume")))
+                .px(px(8.0))
+                .py(px(3.0))
+                .rounded(px(6.0))
+                .bg(move || palette(dark.get()).input)
+                .text_size(px(10.0))
+                .text_color(move || palette(dark.get()).muted)
+                .on_press(move || {
+                    spawn(async move {
+                        if let Ok(next) = media::play_pause() {
+                            media_state.set(Some(next));
+                        }
+                    });
+                }),
         )
 }
 
@@ -1151,6 +1329,7 @@ fn settings_window(
     open: Signal<bool>,
     state: SettingsState,
     items: Signal<Vec<ClipItem>>,
+    media_state: Signal<Option<MediaState>>,
 ) -> impl IntoElement {
     nsh_core::element::desktop::window()
         .id("settings")
@@ -1159,13 +1338,14 @@ fn settings_window(
         .default_size(size(px(520.0), px(820.0)))
         .open(open)
         .on_open_change(move |event| open.set(event.open))
-        .content(move || settings_content(open, state, items))
+        .content(move || settings_content(open, state, items, media_state))
 }
 
 fn settings_content(
     open: Signal<bool>,
     state: SettingsState,
     items: Signal<Vec<ClipItem>>,
+    media_state: Signal<Option<MediaState>>,
    ) -> impl IntoElement {
     scroll()
         .flex_1()
@@ -1346,10 +1526,11 @@ fn settings_content(
                 .text_color(move || palette(state.dark.get()).faint),
         )
         .child(wechat_toggle_row(state))
+        .child(music_sources_section(state, media_state))
         .child(section_label(move || t!("island.lyrics"), state))
         .child(lyrics_folder_row(state))
-        .child(toggle_row(move || t!("lyrics_online"), state.lyrics.online, state))
-        .child(toggle_row(move || t!("lyrics_chinese"), state.lyrics.chinese, state))
+        .child(toggle_row(move || t!("island.lyrics_online"), state.lyrics.online, state))
+        .child(toggle_row(move || t!("island.lyrics_chinese"), state.lyrics.chinese, state))
         .child(view().flex_1())
         .child(
             text(move || t!("island.about", version = "0.1.0"))
@@ -1401,19 +1582,136 @@ fn toggle_row(
         ))
 }
 
+fn music_sources_section(state: SettingsState, media_state: Signal<Option<MediaState>>) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(4.0))
+        .child(section_label(move || t!("island.music_sources"), state))
+        .child(
+            text(move || t!("island.music_sources_hint"))
+                .text_size(px(10.0))
+                .text_color(move || palette(state.dark.get()).faint),
+        )
+        .child(when(move || state.music_sources.get().is_empty(), move || {
+            text(move || t!("island.music_sources_empty"))
+                .text_size(px(11.0))
+                .text_color(move || palette(state.dark.get()).faint)
+        }))
+        .child(each(state.music_sources, |source| source.id.clone(), move |source, index| {
+            music_source_row(state, media_state, source, index)
+        }))
+}
+
+fn music_source_row(
+    state: SettingsState,
+    media_state: Signal<Option<MediaState>>,
+    source: ReadSignal<media::KnownSource>,
+    index: ReadSignal<usize>,
+) -> impl IntoElement {
+    let id = source.get().id;
+    let playing_id = id.clone();
+    let open_id = id.clone();
+    let move_up = move || {
+        let mut list = state.music_sources.get_untracked();
+        let from = index.get_untracked();
+        if from > 0 && from < list.len() {
+            list.swap(from, from - 1);
+            state.music_sources.set(list);
+            save_settings(state);
+        }
+    };
+    let move_down = move || {
+        let mut list = state.music_sources.get_untracked();
+        let from = index.get_untracked();
+        if from + 1 < list.len() {
+            list.swap(from, from + 1);
+            state.music_sources.set(list);
+            save_settings(state);
+        }
+    };
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(6.0))
+        .py(px(3.0))
+        .rounded(px(6.0))
+        .bg(move || palette(state.dark.get()).row)
+        .child(
+            view()
+                .w(px(6.0))
+                .h(px(6.0))
+                .rounded(px(3.0))
+                .bg(move || {
+                    let media = media_state.get();
+                    let playing = media.as_ref().is_some_and(|media| media.sessions.iter().any(|session| session.id == playing_id && session.playing));
+                    let open = media.as_ref().is_some_and(|media| media.sessions.iter().any(|session| session.id == open_id));
+                    if playing {
+                        palette(state.dark.get()).accent
+                    } else if open {
+                        palette(state.dark.get()).muted
+                    } else {
+                        palette(state.dark.get()).faint
+                    }
+                }),
+        )
+        .child(
+            text(move || source.get().label)
+                .flex_1()
+                .truncate()
+                .text_size(px(12.0))
+                .text_color(move || palette(state.dark.get()).fg),
+        )
+        .child(
+            text(move || {
+                let media = media_state.get();
+                let playing = media.as_ref().is_some_and(|media| media.sessions.iter().any(|session| session.id == id && session.playing));
+                let open = media.as_ref().is_some_and(|media| media.sessions.iter().any(|session| session.id == id));
+                if playing {
+                    t!("island.music_source_playing")
+                } else if open {
+                    t!("island.music_source_open")
+                } else {
+                    t!("island.music_source_closed")
+                }
+            })
+            .text_size(px(9.0))
+            .text_color(move || palette(state.dark.get()).faint),
+        )
+        .child(
+            text("↑")
+                .px(px(5.0))
+                .py(px(1.0))
+                .rounded(px(4.0))
+                .bg(move || palette(state.dark.get()).input)
+                .text_size(px(10.0))
+                .text_color(move || palette(state.dark.get()).muted)
+                .on_press(move_up),
+        )
+        .child(
+            text("↓")
+                .px(px(5.0))
+                .py(px(1.0))
+                .rounded(px(4.0))
+                .bg(move || palette(state.dark.get()).input)
+                .text_size(px(10.0))
+                .text_color(move || palette(state.dark.get()).muted)
+                .on_press(move_down),
+        )
+}
 fn lyrics_folder_row(state: SettingsState) -> impl IntoElement {
     view()
         .flex_col()
         .gap(px(4.0))
         .child(
-            text(move || t!("lyrics_folder"))
+            text(move || t!("island.lyrics_folder"))
                 .text_size(px(13.0))
                 .text_color(move || palette(state.dark.get()).muted),
         )
         .child(
             input()
                 .value(move || state.lyrics.folder.get())
-                .placeholder(move || t!("lyrics_folder_placeholder"))
+                .placeholder(move || t!("island.lyrics_folder_placeholder"))
                 .placeholder_color(move || palette(state.dark.get()).faint)
                 .text_color(move || palette(state.dark.get()).fg)
                 .bg(move || palette(state.dark.get()).input)
@@ -1522,5 +1820,6 @@ fn save_settings(state: SettingsState) {
         lyrics_folder: state.lyrics.folder.get_untracked(),
         lyrics_online: state.lyrics.online.get_untracked(),
         lyrics_chinese: state.lyrics.chinese.get_untracked(),
+        music_sources: state.music_sources.get_untracked(),
     });
-}
+}

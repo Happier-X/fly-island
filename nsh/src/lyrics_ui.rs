@@ -5,7 +5,12 @@
 //! poll. The clock only moves the highlighted line, so a failed or missing source is a readable
 //! state rather than a blank row.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::mpsc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use nsh_core::prelude::*;
 
@@ -52,8 +57,18 @@ pub fn start(
     let offsets = signal(load_song_offsets());
     let signature = signal(String::new());
     let reload = signal(0u64);
+    let (result_tx, result_rx) = mpsc::channel::<(String, LyricsResponse)>();
+    let result_rx = Rc::new(RefCell::new(result_rx));
 
     set_interval(Duration::from_millis(250), move || clock.set(now_ms()));
+    set_interval(Duration::from_millis(100), move || {
+        while let Ok((signature_value, answer)) = result_rx.borrow_mut().try_recv() {
+            if signature.get_untracked() == signature_value {
+                loading.set(false);
+                response.set(Some(answer));
+            }
+        }
+    });
 
     effect(move || {
         let parsed = response
@@ -99,22 +114,38 @@ pub fn start(
         };
         loading.set(true);
         response.set(None);
-        spawn(async move {
-            let answer = crate::lyrics::get_lyrics(LyricsQuery {
-                title: media.title.clone().unwrap_or_default(),
-                artist: media.artist.clone().unwrap_or_default(),
-                album: media.album.clone().unwrap_or_default(),
-                duration_ms: media.duration_ms,
-                folder: folder_value.clone(),
-                online: online_value,
-                chinese: chinese_value,
-                track_id: media.track_id.clone(),
-            })
-            .await;
-            if signature.get_untracked() == next_signature {
-                loading.set(false);
-                response.set(Some(answer));
-            }
+        let query = LyricsQuery {
+            title: media.title.clone().unwrap_or_default(),
+            artist: media.artist.clone().unwrap_or_default(),
+            album: media.album.clone().unwrap_or_default(),
+            duration_ms: media.duration_ms,
+            folder: folder_value.clone(),
+            online: online_value,
+            chinese: chinese_value,
+            track_id: media.track_id.clone(),
+        };
+        // NSH's spawn runs on the engine thread. reqwest needs a tokio reactor, so the lookup
+        // runs in a blocking task with its own runtime; the result goes through a channel and is
+        // applied by the 100 ms poll above, which keeps the engine's signals on its own thread.
+        let sender = result_tx.clone();
+        let signature_value = next_signature.clone();
+        blocking(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    let _ = sender.send((signature_value, LyricsResponse {
+                        lyrics: None,
+                        cache: CacheState::NotUsed,
+                        error: Some(format!("Could not create the lyrics runtime: {error}")),
+                    }));
+                    return;
+                }
+            };
+            let answer = runtime.block_on(crate::lyrics::get_lyrics(query));
+            // A failed lookup can leave a DNS or TLS blocking task behind; do not make the
+            // island wait for it when the runtime is dropped.
+            runtime.shutdown_background();
+            let _ = sender.send((signature_value, answer));
         });
     });
 
@@ -179,35 +210,38 @@ pub fn collapsed(lyrics: LyricsState, media: Signal<Option<MediaState>>, dark: S
 fn status_hint(lyrics: LyricsState, media: Signal<Option<MediaState>>) -> String {
     let state = media.get();
     let Some(media) = state.as_ref() else {
-        return t!("lyrics_none");
+        return t!("island.lyrics_none");
     };
     if lyrics.loading.get() {
-        return t!("lyrics_loading");
+        return t!("island.lyrics_loading");
     }
     if let Some(answer) = lyrics.response.get() {
         if let Some(error) = answer.error.as_deref() {
             if error.contains("歌词目录") {
-                return t!("lyrics_folder_missing");
+                return t!("island.lyrics_folder_missing");
             }
-            return t!("lyrics_failed");
+            return t!("island.lyrics_failed");
         }
         if answer.lyrics.is_some() {
-            return t!("lyrics_no_lines");
+            return t!("island.lyrics_no_lines");
         }
     }
     if !lyrics.online.get() && lyrics.folder.get().trim().is_empty() {
-        return t!("lyrics_off");
+        return t!("island.lyrics_off");
     }
     let chinese_named = format!("{}{}", media.title.as_deref().unwrap_or_default(), media.artist.as_deref().unwrap_or_default())
         .chars()
         .any(|c| ('一'..='鿿').contains(&c));
     if chinese_named && !lyrics.chinese.get() {
-        return t!("lyrics_chinese_off");
+        return t!("island.lyrics_chinese_off");
     }
-    t!("lyrics_none")
+    t!("island.lyrics_none")
 }
 
 fn detail_hint(lyrics: LyricsState, media: Signal<Option<MediaState>>) -> String {
+    if lyrics.loading.get() {
+        return String::new();
+    }
     let state = media.get();
     let Some(media) = state.as_ref() else {
         return String::new();
@@ -215,28 +249,28 @@ fn detail_hint(lyrics: LyricsState, media: Signal<Option<MediaState>>) -> String
     if let Some(answer) = lyrics.response.get() {
         if let Some(error) = answer.error.as_deref() {
             if error.contains("歌词目录") {
-                return t!("lyrics_folder_missing_hint");
+                return t!("island.lyrics_folder_missing_hint");
             }
             return error.to_string();
         }
     }
     if !lyrics.online.get() && lyrics.folder.get().trim().is_empty() {
-        return t!("lyrics_off_hint");
+        return t!("island.lyrics_off_hint");
     }
     let chinese_named = format!("{}{}", media.title.as_deref().unwrap_or_default(), media.artist.as_deref().unwrap_or_default())
         .chars()
         .any(|c| ('一'..='鿿').contains(&c));
     if chinese_named && !lyrics.chinese.get() {
-        return t!("lyrics_chinese_off_hint");
+        return t!("island.lyrics_chinese_off_hint");
     }
-    t!("lyrics_none_hint")
+    t!("island.lyrics_none_hint")
 }
 
 fn cache_note(answer: &LyricsResponse) -> Option<String> {
     match answer.cache {
-        CacheState::Rejected => Some(t!("lyrics_cache_stale")),
-        CacheState::Expired => Some(t!("lyrics_cache_expired")),
-        CacheState::Failed => Some(t!("lyrics_cache_failed")),
+        CacheState::Rejected => Some(t!("island.lyrics_cache_stale")),
+        CacheState::Expired => Some(t!("island.lyrics_cache_expired")),
+        CacheState::Failed => Some(t!("island.lyrics_cache_failed")),
         CacheState::NotUsed | CacheState::Miss | CacheState::Hit => None,
     }
 }
@@ -347,7 +381,7 @@ pub fn panel(lyrics: LyricsState, media: Signal<Option<MediaState>>, dark: Signa
                             .text_color(move || palette(dark.get()).faint),
                     )
                     .child(when(move || !lyrics.loading.get(), move || {
-                        small_button(t!("lyrics_retry"), dark, move || retry(lyrics))
+                        small_button(t!("island.lyrics_retry"), dark, move || retry(lyrics))
                     }))
             },
         ))

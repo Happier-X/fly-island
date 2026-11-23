@@ -10,6 +10,8 @@ use std::{fs, path::PathBuf};
 use rusty_leveldb::{LdbIterator, Options};
 use serde::{Deserialize, Serialize};
 
+use crate::media::KnownSource;
+
 fn default_true() -> bool {
     true
 }
@@ -49,6 +51,8 @@ pub struct Preferences {
     pub lyrics_online: bool,
     #[serde(default = "default_true")]
     pub lyrics_chinese: bool,
+    #[serde(default)]
+    pub music_sources: Vec<KnownSource>,
 }
 
 impl Default for Preferences {
@@ -69,6 +73,7 @@ impl Default for Preferences {
             lyrics_folder: String::new(),
             lyrics_online: true,
             lyrics_chinese: true,
+            music_sources: Vec::new(),
         }
     }
 }
@@ -152,6 +157,7 @@ pub fn load() -> Preferences {
         lyrics_folder: legacy.as_ref().map_or_else(String::new, |item| item.lyrics_folder.clone()),
         lyrics_online: legacy.as_ref().is_none_or(|item| item.lyrics_online),
         lyrics_chinese: legacy.as_ref().is_none_or(|item| item.lyrics_chinese),
+        music_sources: Vec::new(),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
