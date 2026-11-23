@@ -1,0 +1,23 @@
+{
+  "name": "FocuSD Island (NSH)",
+  "id": "com.focusd.island.nsh",
+  "version": "0.1.0",
+  "build": 1,
+  "nsh": ">=0.6, <0.7",
+  "rust": ".",
+  "root": "App",
+  "appearance": "dark",
+  "icon": "assets/icon.png",
+  "window": {
+    "title": "FocuSD Island (NSH spike)",
+    "frame": "none",
+    "transparent": true,
+    "level": "aboveDock",
+    "taskbar": false,
+    "resizable": false,
+    "shadow": false,
+    "activate": false,
+    "defaultSize": { "width": 320, "height": 40 },
+    "defaultPosition": { "x": 800, "y": 8 }
+  }
+}

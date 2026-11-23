@@ -1,0 +1,10 @@
+island:
+  title: FocuSD Island
+  clipboard: Clipboard history
+  count: "%{count} items"
+  empty: Copy some text to see it here
+  copy: COPY
+  hint: Click an item to copy it back
+  toggle: Show or hide the island
+  show: Show island
+  quit: Quit

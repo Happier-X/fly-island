@@ -1,0 +1,10 @@
+island:
+  title: 焦点岛
+  clipboard: 剪贴板历史
+  count: "%{count} 条"
+  empty: 复制一段文字就会出现在这里
+  copy: 复制
+  hint: 点击条目可重新复制
+  toggle: 显示或收起岛屿
+  show: 显示岛屿
+  quit: 退出
