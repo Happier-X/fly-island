@@ -18,7 +18,7 @@ use windows::{
             PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
         },
         UI::WindowsAndMessaging::{
-            AllowSetForegroundWindow, EnumWindows, GetForegroundWindow,
+            AllowSetForegroundWindow, EnumWindows, GetClassNameW, GetForegroundWindow,
             GetWindowThreadProcessId, IsGUIThread, IsIconic, IsWindowVisible, RegisterShellHookWindow,
             RegisterWindowMessageW, SetForegroundWindow, ShowWindow, HSHELL_REDRAW,
             HSHELL_WINDOWACTIVATED, HSHELL_WINDOWCREATED, SW_RESTORE,
@@ -180,9 +180,23 @@ fn is_weixin(window: HWND) -> bool {
     if window.is_invalid() {
         return false;
     }
-    image_stem(process_id_of(window)).is_some_and(|name| {
-        name.eq_ignore_ascii_case("weixin") || name.eq_ignore_ascii_case("wechat")
-    })
+    let mut class = [0u16; 128];
+    // SAFETY: the buffer is writable and the call writes at most its length.
+    let length = unsafe { GetClassNameW(window, &mut class) } as usize;
+    if length > 0 {
+        let class = String::from_utf16_lossy(&class[..length]);
+        if class.eq_ignore_ascii_case("mmui::MainWindow") {
+            return true;
+        }
+    }
+    let mut title = [0u16; 256];
+    // SAFETY: the buffer is writable and the call writes at most its length.
+    let length = unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(window, &mut title) } as usize;
+    if length == 0 {
+        return false;
+    }
+    let title = String::from_utf16_lossy(&title[..length]);
+    title.contains("微信") || title.eq_ignore_ascii_case("weixin") || title.eq_ignore_ascii_case("wechat")
 }
 
 fn foreground_is_weixin() -> bool {
@@ -198,6 +212,7 @@ fn process_id_of(window: HWND) -> u32 {
     process_id
 }
 
+#[allow(dead_code)]
 fn image_stem(process_id: u32) -> Option<String> {
     // SAFETY: a handle returned by OpenProcess is owned here and closed below.
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) }.ok()?;
