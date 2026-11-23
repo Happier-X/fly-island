@@ -72,9 +72,10 @@ those in favor of its own.
 
 ## Known limits
 
-- The current session exposes one active display (seen at 150% and 125%).
-  Bounds and DPI are computed per monitor and re-applied on display changes,
-  but mixed 125%/150% needs a machine with two active monitors to verify.
+- Dual display verified 2026-11-23: 2560×1440 @125% plus 2240×1400 @150%.
+  Moving, expand/collapse, topmost, click-through, tray/hotkeys, unplug/replug
+  and edge straddling all re-center correctly. Evidence is in
+  `docs/assets/nsh-dpi/`.
 - The settings page is in-island; the independent settings window is Phase 3
   late work.
 - Drag works through the capsule grip; expanding or collapsing re-centers the

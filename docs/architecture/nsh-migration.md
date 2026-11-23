@@ -91,7 +91,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 
 ## Phase 2–4 里程碑
 
-### Phase 2：宿主、外壳与基础设施（已完成；双屏混合 DPI 待人工验收，不阻塞 Phase 3）
+### Phase 2：宿主、外壳与基础设施（已完成；双屏混合 DPI 已验收）
 
 范围：
 
@@ -112,7 +112,6 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 
 待完成：
 
-- 双屏 125%/150% 混合 DPI 列为待人工验收：第二块屏接上后补测，不阻塞 Phase 3；代码保留显示器/DPI 变化重新居中。
 - 独立设置窗口放到 Phase 3 后段。
 
 验收：
@@ -215,7 +214,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **数据迁移**：只迁移应用设置与外观主题、剪贴板历史与收藏。旧待办与笔记文件不读取、不删除、不迁移。
 - **自动更新**：接受更换端点与签名；先做手动更新，稳定后再做静默更新，保留一个 Tauri 过渡版本。
 - **截图套件**：单独立项，不并入主线。
-- **双屏 DPI**：列为待人工验收，不阻塞 Phase 3；代码保留显示器/DPI 变化重新居中。
+- **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：Phase 2 暂时接受 PNG-only；CF_DIB 在 Phase 3 早期补，验收标准是用记事本粘贴成功。
 - **设置页**：Phase 2 留在岛内；独立设置窗口放到 Phase 3 后段。
 - **Phase 2**：已启动；顺序为宿主/外壳 → 设置/主题/i18n → 剪贴板试点（图文历史、收藏、搜索）。
@@ -243,8 +242,8 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 穿透：`Ctrl+Shift+O` 后 `WindowFromPoint` 从 AppView 变为下层窗口（`app=false`），再按恢复；穿透时调用 `SetFocus(None)`，焦点探针由 `hwndFocus=app` 变为 `0`。
 - 托盘：溢出区“焦点岛”，菜单含显示/收起、切换穿透、下一块屏幕、退出。
 - 剪贴板试点：文本历史、图片条目、收藏（`★` 即时更新并写入 `clipboard.json`）、搜索过滤、设置页中文/English 与深/浅主题均通过 UI Automation 验证；浅色主题像素约 `240,240,239`，设置写入 `settings.json`。
-- 图片：剪贴板位图被规范化为 PNG 后显示；点击图片条目写回 `PNG` 格式（.NET 读到 412 字节 PNG），不是 `CF_DIB`；旧式应用可能需要 Phase 3 的 Win32 DIB 写入。
-- 当前会话只有一个活跃显示器（先 150%、后 125%），未能做同一时刻的双屏混合 DPI；代码在显示器/DPI 变化时会重新居中，需在双屏机器上补验。
+- 图片：剪贴板位图规范化为 PNG；Phase 3 已补 CF_DIB 写回（见下）。
+- 双屏混合 DPI 已于 2026-11-23 验收，见下方“双屏混合 DPI 验收”。
 - `nsh test nsh`：1 passed；`cargo check`（`nsh/host`）通过。
 - 现有 Tauri 未改动；`pnpm check` 在 Phase 1 时已通过（221 个测试），本阶段未改 `src/`。
 - 贴边隐藏：`Ctrl+Shift+T` 后窗口 y=-38（125%，约露出 10 points），鼠标移到顶部露出条即恢复；托盘和快捷键都能切换。
@@ -258,3 +257,23 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - CF_DIB：点击图片条目后剪贴板格式为 `PNG, Format17, Bitmap, System.Drawing.Bitmap, DeviceIndependentBitmap`，`Clipboard.ContainsImage()=true`；Notepad 手动粘贴待人工确认。
 - 焦点：输入框聚焦时进入穿透，日志为 `island input keeps focus` 且焦点不释放；按 Escape 让输入框失焦后进入穿透，日志为 `keyboard focus cleared`。
 - 变更监听：宿主注册 `AddClipboardFormatListener`；复制后 100 ms 内触发读取（日志验证）。
+
+## 双屏混合 DPI 验收（2026-11-23）
+
+显示器（host `log_displays`）：
+
+- 主屏：2560×1440 物理，work 2560×1380，125%，逻辑 2048×1152，原点 (0,0)。
+- 副屏：2240×1400 物理，work 2240×1328，150%，逻辑 1493×933，原点 (2560,0)。
+
+结果：
+
+- 切到副屏（Ctrl+Shift+M）：先按旧 DPI 放到 400×50@(3480,10)，DPI 变化后重算为 480×60@(3440,12)；展开 930×510@(3215,12)，均顶部居中。
+- 切回主屏：480×60@(1040,12) → 400×50@(1080,10)，尺寸与位置随之重算。
+- 置顶：副屏窗口 exstyle 为 `0x200008`（含 `WS_EX_TOPMOST`）；多次切屏后未丢失。
+- 穿透：副屏 `Ctrl+Shift+O` 后 `WindowFromPoint` 命中下层窗口（`app=false`），再按恢复 `app=true`。
+- 托盘：岛在副屏时点击托盘图标可收起，窗口仍在副屏 `480×60@(3440,12)`；快捷键 I/O/M/T 在副屏均生效。
+- 拔插：`DisplaySwitch /internal` 后只剩 2240×1328@150%，岛自动到 `480×60@(880,12)`；`/extend` 恢复双屏后岛保持 `480×60@(3440,12)`。
+- 跨屏边缘：把窗口强制放到两屏交界（720×90），宿主按所在屏重新应用为 `480×60@(3440,12)`，不跨屏。
+- 缩放修改：本环境没有安全的运行时 DPI 缩放 API，未直接改系统缩放；拔插与 120↔144 dpi 切屏已覆盖显示/DPI 变化路径。
+
+证据：`docs/assets/nsh-dpi/primary-125-collapsed.png`、`docs/assets/nsh-dpi/secondary-150-expanded.png`。

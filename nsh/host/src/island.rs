@@ -10,12 +10,13 @@ use windows::{
             MONITORINFO, MonitorFromWindow,
         },
         UI::{
-            HiDpi::GetDpiForWindow,
+            HiDpi::{GetDpiForMonitor, GetDpiForWindow, MDT_EFFECTIVE_DPI},
             Shell::SHQueryUserNotificationState,
             WindowsAndMessaging::{
                 GetClientRect, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
                 GWL_EXSTYLE, HWND_TOPMOST, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_HIDE,
-                SW_SHOWNOACTIVATE, SetWindowPos, ShowWindow, WS_EX_TOPMOST, WindowFromPoint,
+                MONITORINFOF_PRIMARY, SW_SHOWNOACTIVATE, SetWindowPos, ShowWindow, WS_EX_TOPMOST,
+                WindowFromPoint,
             },
         },
     },
@@ -218,6 +219,29 @@ pub fn watch() {
         center_on(monitor, EXPANDED.load(Ordering::Relaxed));
         return;
     }
+    if !TUCKED.load(Ordering::Relaxed) {
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            let _ = GetMonitorInfoW(monitor, &mut info);
+        }
+        let mut bounds = RECT::default();
+        unsafe {
+            let _ = GetWindowRect(app, &mut bounds);
+        }
+        let area = info.rcMonitor;
+        if bounds.left < area.left
+            || bounds.top < area.top
+            || bounds.right > area.right
+            || bounds.bottom > area.bottom
+        {
+            log::info!("window crosses display edge: re-centering");
+            center_on(monitor, EXPANDED.load(Ordering::Relaxed));
+            return;
+        }
+    }
     let mut rect = RECT::default();
     unsafe {
         let _ = GetWindowRect(app, &mut rect);
@@ -250,6 +274,42 @@ pub fn watch() {
     }
 }
 
+pub fn log_displays() {
+    let mut monitors: Vec<HMONITOR> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(
+            None,
+            None,
+            Some(collect_monitor),
+            LPARAM(&mut monitors as *mut _ as isize),
+        );
+    }
+    for monitor in monitors {
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            let _ = GetMonitorInfoW(monitor, &mut info);
+        }
+        let mut dpi_x = 96u32;
+        let mut dpi_y = 96u32;
+        let _ = unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y) };
+        let scale = dpi_x as f32 / 96.0;
+        let rect = info.rcMonitor;
+        let work = info.rcWork;
+        log::info!(
+            "display primary={} monitor=({},{})-({},{}) work=({},{})-({},{}) dpi={} scale={:.2} logical={:.0}x{:.0}",
+            info.dwFlags & MONITORINFOF_PRIMARY != 0,
+            rect.left, rect.top, rect.right, rect.bottom,
+            work.left, work.top, work.right, work.bottom,
+            dpi_x,
+            scale,
+            (rect.right - rect.left) as f32 / scale,
+            (rect.bottom - rect.top) as f32 / scale
+        );
+    }
+}
 pub fn last_foreground() -> HWND {
     HWND(LAST_FOREGROUND.load(Ordering::Relaxed) as *mut _)
 }

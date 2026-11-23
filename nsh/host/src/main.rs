@@ -281,6 +281,7 @@ mod host {
             )
             .appearance(Appearance::Dark);
         view.load(App::Rust(root));
+        island::log_displays();
         view.show();
 
         // SAFETY: host window exists; hotkeys and tray belong to this thread.
