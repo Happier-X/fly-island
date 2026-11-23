@@ -83,8 +83,13 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   settings page has a master switch.
 - Translation, the quick launcher and the file shelf are documented in
   docs/architecture/nsh-media-and-utilities.md and are not implemented yet.
-- The remaining media parity (cover/tint, lyrics, seek, shuffle/repeat,
-  multi-session source priority, idle/equalizer) is listed in
+- Lyrics come from a local .lrc folder, LRCLIB, Kugou (KRC word times and a
+  translation when the source has one) and NetEase. Answers and recent misses
+  are cached in APPDATA/com.focusd.island.nsh/lyrics-cache; the expanded page
+  has a three-line view and per-song -0.5 s / +0.5 s offset. Settings adds the
+  LRC folder, online lyrics and Chinese-source switches.
+- The remaining media parity (cover/tint, seek, shuffle/repeat, multi-session
+  source priority, idle/equalizer) is listed in
   docs/architecture/nsh-media-parity.md.
 
 ## WeChat reminder

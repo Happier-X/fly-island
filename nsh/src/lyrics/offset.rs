@@ -28,7 +28,7 @@ pub fn clamp_song_offset(ms: i64) -> i64 {
 
 /// Identifies the song for its own offset: title, artist and duration to 2 seconds.
 pub fn track_key(title: &str, artist: &str, duration_ms: i64) -> String {
-    format!("{title}{artist}{}", (duration_ms + 1000) / 2000)
+    format!("{title}\u{1f}{artist}\u{1f}{}", (duration_ms + 1000) / 2000)
 }
 
 /// Offsets in the order they were added or changed, so the oldest can be dropped.
@@ -140,6 +140,6 @@ mod tests {
         save_to(&path, &loaded);
         assert_eq!(load_from(&path), Some(loaded));
         fs::remove_file(&path).unwrap();
-        assert_eq!(track_key("A", "B", 123_000), "AB62");
+        assert_eq!(track_key("A", "B", 123_000), "A\u{1f}B\u{1f}62");
     }
 }

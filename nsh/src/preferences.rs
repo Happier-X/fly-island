@@ -43,6 +43,12 @@ pub struct Preferences {
     pub wechat_enabled: bool,
     #[serde(default = "default_true")]
     pub sound_enabled: bool,
+    #[serde(default)]
+    pub lyrics_folder: String,
+    #[serde(default = "default_true")]
+    pub lyrics_online: bool,
+    #[serde(default = "default_true")]
+    pub lyrics_chinese: bool,
 }
 
 impl Default for Preferences {
@@ -60,6 +66,9 @@ impl Default for Preferences {
             notify_error: true,
             wechat_enabled: true,
             sound_enabled: true,
+            lyrics_folder: String::new(),
+            lyrics_online: true,
+            lyrics_chinese: true,
         }
     }
 }
@@ -140,6 +149,9 @@ pub fn load() -> Preferences {
         notify_error: legacy.as_ref().is_none_or(|item| item.cindy_notify_error),
         wechat_enabled: true,
         sound_enabled: true,
+        lyrics_folder: legacy.as_ref().map_or_else(String::new, |item| item.lyrics_folder.clone()),
+        lyrics_online: legacy.as_ref().is_none_or(|item| item.lyrics_online),
+        lyrics_chinese: legacy.as_ref().is_none_or(|item| item.lyrics_chinese),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -171,6 +183,12 @@ struct LegacySettings {
     cindy_notify_scheduled: bool,
     #[serde(default = "default_true")]
     cindy_notify_error: bool,
+    #[serde(default)]
+    lyrics_folder: String,
+    #[serde(default = "default_true")]
+    lyrics_online: bool,
+    #[serde(default = "default_true")]
+    lyrics_chinese: bool,
 }
 
 fn dark_from_settings(settings: &LegacySettings) -> Option<bool> {

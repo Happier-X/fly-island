@@ -88,4 +88,4 @@ Tauri 有提示音：src/features/cindy-notifications/sounds/。
 - 已完成：媒体播放控制（核心）、系统音量、设备电量（BLE/HID/HID++）。
 - 已完成对照表、待实现：翻译、快捷启动器、文件中转。
 - 已做：Cindy 通知提示音（三份 WAV、0.7 音量、设置开关）。
-- 媒体其余 parity（封面/取色、歌词、进度拖动、随机循环、多会话、来源优先级、空闲/均衡器）见 nsh-media-parity.md，尚未完成。
+- 媒体其余 parity（封面/取色、进度拖动、随机循环、多会话、来源优先级、空闲/均衡器）见 nsh-media-parity.md，尚未完成。

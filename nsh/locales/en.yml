@@ -49,4 +49,24 @@ island:
   wechat_missing: WeChat not running
   wechat_open: Open WeChat
   sound: Notification sounds
+  lyrics: Lyrics
+  lyrics_folder: Local LRC folder
+  lyrics_folder_placeholder: e.g. D:\Music\LRC
+  lyrics_online: Online lyrics (LRCLIB)
+  lyrics_chinese: Chinese sources (Kugou, NetEase)
+  lyrics_loading: Looking up lyrics…
+  lyrics_none: No lyrics
+  lyrics_no_lines: The lyrics have no synced lines
+  lyrics_none_hint: No source has this track
+  lyrics_off: Lyrics sources are off
+  lyrics_off_hint: Turn on online lyrics or set a local LRC folder
+  lyrics_folder_missing: The LRC folder cannot be read
+  lyrics_folder_missing_hint: Check the folder path in Settings
+  lyrics_failed: Could not fetch lyrics
+  lyrics_chinese_off: Chinese sources are off
+  lyrics_chinese_off_hint: Turn on Chinese sources in Settings and retry
+  lyrics_cache_stale: Stale cache was replaced
+  lyrics_cache_expired: Expired cache was refreshed
+  lyrics_cache_failed: Cache is not writable; lyrics are not saved
+  lyrics_retry: Retry
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

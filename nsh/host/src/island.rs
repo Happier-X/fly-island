@@ -32,7 +32,7 @@ use crate::host::{EXPANDED, app_hwnd};
 const COLLAPSED_WIDTH: f32 = 320.0;
 const COLLAPSED_HEIGHT: f32 = 40.0;
 const EXPANDED_WIDTH: f32 = 620.0;
-const EXPANDED_HEIGHT: f32 = 340.0;
+const EXPANDED_HEIGHT: f32 = 420.0;
 const TOP_GAP: f32 = 8.0;
 const TUCKED_VISIBLE_EDGE: f32 = 10.0;
 

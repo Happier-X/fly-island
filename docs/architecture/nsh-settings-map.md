@@ -45,7 +45,8 @@
 | 旧字段组 | 处理 |
 |---|---|
 | `appearanceMode`、`fontFamily`、`glassIntensity`、`opacity`、`collapsedScale`、`expandedScale`、`marginY`、`islandMonitor`、`islandCornerRadius`、`islandCornerShape`、`maxPanelHeight`、`positionLocked` | 保留旧值但不应用；当前主题只有深/浅，尺寸固定在宿主 |
-| `chineseOffset`、`lyricsOffsetMs`、歌词字段 | 媒体/歌词迁移后再接 |
+| `lyricsFolder`、`lyricsOnline`、`lyricsChinese` | 已接入 NSH 设置；首启从旧设置导入，之后保存在 nsh settings.json |
+| `lyricsOffsetMs`、`chineseOffset` | 不迁移为全局偏移；改为每首歌的偏移，存在 nsh 数据目录 lyrics-offsets.json |
 | `agent*` | AI 状态迁移时再接 |
 | `music*` | 媒体控制迁移时再接 |
 | `shelf*` | 文件中转迁移时再接 |

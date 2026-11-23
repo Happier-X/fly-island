@@ -2581,6 +2581,7 @@ dependencies = [
  "rusty-leveldb",
  "serde",
  "serde_json",
+ "tokio",
  "windows",
 ]
 

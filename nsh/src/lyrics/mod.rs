@@ -10,10 +10,14 @@
 
 mod chinese;
 mod found;
+mod krc;
+mod kugou;
 mod local;
 mod lrclib;
 mod matching;
+mod netease;
 mod offset;
+mod parse;
 
 use std::{
     fs,
@@ -23,6 +27,9 @@ use std::{
 
 use found::FoundLyrics;
 use matching::{cache_key, named_in_simplified, stable_hash, traditional_chars};
+
+pub use offset::{load as load_song_offsets, save as save_song_offsets, track_key, SongOffsets, SONG_OFFSET_STEP_MS};
+pub use parse::{line_index_at, parse_lrc, playback_position, with_translations, LyricLine};
 
 
 
@@ -230,14 +237,40 @@ fn for_display(source: &'static str, found: FoundLyrics, title: &str, artist: &s
 
 /// The online sources to ask, in order. A song named in Chinese asks Kugou and NetEase first,
 /// as LRCLIB has few Chinese songs; a NetEase song the player named asks NetEase first.
-fn source_order(_query: &LyricsQuery) -> Vec<&'static str> {
-    vec!["lrclib"]
+fn source_order(query: &LyricsQuery) -> Vec<&'static str> {
+    if !query.chinese {
+        return vec!["lrclib"];
+    }
+    let chinese_named = format!("{}{}", query.title, query.artist).chars().any(|c| ('一'..='鿿').contains(&c));
+    match (netease::track_id(query.track_id.as_deref()).is_some(), chinese_named) {
+        (true, _) => vec!["netease", "kugou", "lrclib"],
+        (false, true) => vec!["kugou", "netease", "lrclib"],
+        (false, false) => vec!["lrclib", "kugou", "netease"],
+    }
 }
 
 /// The first source that has lyrics. Err only when every source asked failed to answer.
 async fn fetch_online(query: &LyricsQuery) -> Result<Option<Answer>, String> {
-    let found = lrclib::fetch(&query.title, &query.artist, &query.album, query.duration_ms).await?;
-    Ok(found.map(|found| ("lrclib", found)))
+    let (title, artist) = (query.title.as_str(), query.artist.as_str());
+    let mut errors = Vec::new();
+    let mut answered = false;
+    for source in source_order(query) {
+        let result = match source {
+            "kugou" => kugou::fetch(title, artist, query.duration_ms).await,
+            "netease" => netease::fetch(title, artist, query.duration_ms, query.track_id.as_deref()).await,
+            _ => lrclib::fetch(title, artist, &query.album, query.duration_ms).await,
+        };
+        match result {
+            Ok(Some(found)) => return Ok(Some((source, found))),
+            Ok(None) => answered = true,
+            Err(error) => errors.push(error),
+        }
+    }
+    if answered {
+        Ok(None)
+    } else {
+        Err(errors.join("; "))
+    }
 }
 
 /// Synced lyrics for the playing track. Errors only when no source could be reached; that answer
@@ -271,7 +304,7 @@ async fn get_lyrics_with_cache(query: LyricsQuery, cache_dir: Option<&Path>) -> 
     // A miss with LRCLIB alone says nothing about the Chinese sources.
     let mut key = cache_key(&query.title, &query.artist, query.duration_ms);
     if query.chinese {
-        key.push_str("cn");
+        key.push_str("\u{1f}cn");
     }
     let lookup = cache_dir.map_or(CacheLookup::Miss, |dir| read_cache(dir, &key, now_secs()));
     if let CacheLookup::Hit(answer) = lookup {
@@ -358,6 +391,24 @@ mod tests {
     }
 
     #[test]
+    fn chinese_songs_ask_the_chinese_sources_first() {
+        let query = |title: &str, chinese: bool, track_id: Option<&str>| LyricsQuery {
+            title: title.into(),
+            artist: String::new(),
+            album: String::new(),
+            duration_ms: 0,
+            folder: String::new(),
+            online: true,
+            chinese,
+            track_id: track_id.map(Into::into),
+        };
+        assert_eq!(source_order(&query("余香", false, None)), ["lrclib"]);
+        assert_eq!(source_order(&query("余香", true, None)), ["kugou", "netease", "lrclib"]);
+        assert_eq!(source_order(&query("Yesterday", true, None)), ["lrclib", "kugou", "netease"]);
+        assert_eq!(source_order(&query("Yesterday", true, Some("NCM-1"))), ["netease", "kugou", "lrclib"]);
+    }
+
+    #[test]
     fn pruning_keeps_the_newest_files() {
         let dir = std::env::temp_dir().join(format!("nsh-lyrics-prune-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -399,4 +450,57 @@ mod tests {
         assert!(missing.error.as_deref().is_some_and(|error| error.contains("歌词目录")));
         fs::remove_dir_all(&root).unwrap();
     }
+    fn network_query(title: &str, artist: &str, duration_ms: i64, online: bool, chinese: bool) -> LyricsQuery {
+        LyricsQuery {
+            title: title.into(),
+            artist: artist.into(),
+            album: String::new(),
+            duration_ms,
+            folder: String::new(),
+            online,
+            chinese,
+            track_id: None,
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "network: asks the live LRCLIB"]
+    async fn live_lrclib_finds_yesterday() {
+        let found = lrclib::fetch("Yesterday", "The Beatles", "Help!", 125_000).await.unwrap().unwrap();
+        assert!(found.lrc.to_lowercase().contains("yesterday"));
+    }
+
+    #[tokio::test]
+    #[ignore = "network: asks live Kugou and NetEase"]
+    async fn live_chinese_sources_find_yu_xiang() {
+        let kugou = kugou::fetch("余香", "张小九", 246_000).await.unwrap().unwrap();
+        assert!(kugou.lrc.contains("划") && kugou.lrc.contains("<00:"));
+        let netease = netease::fetch("余香", "张小九", 246_000, None).await.unwrap().unwrap();
+        assert!(!netease.lrc.trim().is_empty());
+    }
+
+    #[tokio::test]
+    #[ignore = "network: asks the live Kugou for KRC with a translation"]
+    async fn live_kugou_returns_krc_translation() {
+        let found = kugou::fetch("Yesterday", "The Beatles", 125_000).await.unwrap().unwrap();
+        assert!(found.translation.as_deref().is_some_and(|text| !text.trim().is_empty()));
+    }
+
+    #[tokio::test]
+    #[ignore = "network: checks that an unreachable proxy reports an error"]
+    async fn live_an_unreachable_proxy_is_an_error() {
+        // SAFETY: this ignored test runs on its own and restores both variables before it ends.
+        unsafe {
+            std::env::set_var("HTTPS_PROXY", "http://127.0.0.1:9");
+            std::env::set_var("HTTP_PROXY", "http://127.0.0.1:9");
+        }
+        let result = fetch_online(&network_query("Yesterday", "The Beatles", 125_000, true, true)).await;
+        // SAFETY: as above; no other thread reads these variables in this test.
+        unsafe {
+            std::env::remove_var("HTTPS_PROXY");
+            std::env::remove_var("HTTP_PROXY");
+        }
+        assert!(result.is_err(), "a refused proxy should be reported as a failure");
+    }
+
 }

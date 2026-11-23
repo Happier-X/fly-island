@@ -7,6 +7,7 @@
 mod ai;
 mod battery;
 mod lyrics;
+mod lyrics_ui;
 mod media;
 mod sound;
 mod clipboard;
@@ -23,6 +24,7 @@ use nsh_core::{element::input, prelude::*, Color};
 use ai::{AgentSession, AgentState, AiSnapshot};
 use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
+use lyrics_ui::LyricsState;
 use media::MediaState;
 
 #[cfg(feature = "embedded")]
@@ -52,7 +54,7 @@ fn wechat_request_focus() {}
 const COLLAPSED_WIDTH: f32 = 320.0;
 const COLLAPSED_HEIGHT: f32 = 40.0;
 const EXPANDED_WIDTH: f32 = 620.0;
-const EXPANDED_HEIGHT: f32 = 340.0;
+const EXPANDED_HEIGHT: f32 = 420.0;
 
 #[derive(Clone, Copy)]
 struct Palette {
@@ -111,6 +113,13 @@ struct AiState {
 }
 
 #[derive(Clone, Copy)]
+struct LyricsSettingsState {
+    folder: Signal<String>,
+    online: Signal<bool>,
+    chinese: Signal<bool>,
+}
+
+#[derive(Clone, Copy)]
 struct SettingsState {
     dark: Signal<bool>,
     clipboard_enabled: Signal<bool>,
@@ -119,6 +128,7 @@ struct SettingsState {
     ai: AiState,
     wechat_enabled: Signal<bool>,
     sound_enabled: Signal<bool>,
+    lyrics: LyricsSettingsState,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -140,6 +150,9 @@ pub fn App() -> impl IntoElement {
     let max_items = signal(saved.max_items.clamp(5, 200));
     let wechat_enabled = signal(saved.wechat_enabled);
     let sound_enabled = signal(saved.sound_enabled);
+    let lyrics_folder = signal(saved.lyrics_folder.clone());
+    let lyrics_online = signal(saved.lyrics_online);
+    let lyrics_chinese = signal(saved.lyrics_chinese);
     wechat_set_enabled(saved.wechat_enabled);
     let ai_enabled = signal(saved.ai_enabled);
     let notify_done = signal(saved.notify_done);
@@ -211,6 +224,7 @@ pub fn App() -> impl IntoElement {
         ai: ai_state,
         wechat_enabled,
         sound_enabled,
+        lyrics: LyricsSettingsState { folder: lyrics_folder, online: lyrics_online, chinese: lyrics_chinese },
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -262,6 +276,7 @@ pub fn App() -> impl IntoElement {
     read_media();
     let poll_media = read_media.clone();
     set_interval(Duration::from_millis(1500), move || poll_media());
+    let lyrics = lyrics_ui::start(media_state, lyrics_folder, lyrics_online, lyrics_chinese);
 
     window::configure(expanded);
     window::install_tray(expanded);
@@ -273,10 +288,10 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, batteries, wechat, wechat_enabled)
+            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, lyrics, batteries, wechat, wechat_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
-            collapsed_island(expanded, items, dark, ai_state)
+            collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
         }))
         .child(settings_window(settings_open, settings_state, items))
 }
@@ -286,6 +301,8 @@ fn collapsed_island(
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
+    media_state: Signal<Option<MediaState>>,
+    lyrics: LyricsState,
    ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -301,12 +318,6 @@ fn collapsed_island(
         .w(px(COLLAPSED_WIDTH))
         .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
         .child(ai_dot(dark, ai))
-        .child(
-            text(move || t!("island.title"))
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(move || palette(dark.get()).fg),
-        )
         .child(when(
             move || ai.enabled.get() && ai.snapshot.get().state().is_some(),
             move || {
@@ -315,7 +326,7 @@ fn collapsed_island(
                     .text_color(move || ai_state_color(palette(dark.get()), ai.snapshot.get().state()))
             },
         ))
-        .child(view().flex_1())
+        .child(lyrics_ui::collapsed(lyrics, media_state, dark))
         .child(when(move || ai_unseen(ai) > 0, move || {
             view()
                 .px(px(6.0))
@@ -351,6 +362,7 @@ fn expanded_island(
     dark: Signal<bool>,
     ai: AiState,
     media_state: Signal<Option<MediaState>>,
+    lyrics: LyricsState,
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
     wechat: Signal<(bool, Option<u64>)>,
     wechat_enabled: Signal<bool>,
@@ -369,6 +381,10 @@ fn expanded_island(
         .child(when(
             move || media_state.get().as_ref().is_some_and(|media| media.available),
             move || media_panel(media_state, dark),
+        ))
+        .child(when(
+            move || media_state.get().as_ref().is_some_and(|media| media.available),
+            move || lyrics_ui::panel(lyrics, media_state, dark),
         ))
         .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
         .child(wechat_panel(wechat, wechat_enabled, dark))
@@ -1151,14 +1167,16 @@ fn settings_content(
     state: SettingsState,
     items: Signal<Vec<ClipItem>>,
    ) -> impl IntoElement {
-    view()
+    scroll()
         .flex_1()
         .bg(move || palette(state.dark.get()).bg)
-        .text_color(move || palette(state.dark.get()).fg)
-        .p(px(20.0))
-        .flex_col()
-        .gap(px(14.0))
         .child(
+            view()
+                .flex_col()
+                .gap(px(14.0))
+                .p(px(20.0))
+                .text_color(move || palette(state.dark.get()).fg)
+                .child(
             view()
                 .flex_row()
                 .items_center()
@@ -1328,11 +1346,16 @@ fn settings_content(
                 .text_color(move || palette(state.dark.get()).faint),
         )
         .child(wechat_toggle_row(state))
+        .child(section_label(move || t!("island.lyrics"), state))
+        .child(lyrics_folder_row(state))
+        .child(toggle_row(move || t!("lyrics_online"), state.lyrics.online, state))
+        .child(toggle_row(move || t!("lyrics_chinese"), state.lyrics.chinese, state))
         .child(view().flex_1())
         .child(
             text(move || t!("island.about", version = "0.1.0"))
                 .text_size(px(11.0))
                 .text_color(move || palette(state.dark.get()).faint),
+        )
         )
 }
 
@@ -1376,6 +1399,32 @@ fn toggle_row(
             },
             state.dark,
         ))
+}
+
+fn lyrics_folder_row(state: SettingsState) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(4.0))
+        .child(
+            text(move || t!("lyrics_folder"))
+                .text_size(px(13.0))
+                .text_color(move || palette(state.dark.get()).muted),
+        )
+        .child(
+            input()
+                .value(move || state.lyrics.folder.get())
+                .placeholder(move || t!("lyrics_folder_placeholder"))
+                .placeholder_color(move || palette(state.dark.get()).faint)
+                .text_color(move || palette(state.dark.get()).fg)
+                .bg(move || palette(state.dark.get()).input)
+                .h(px(30.0))
+                .px(px(10.0))
+                .rounded(px(8.0))
+                .on_change(move |text: &str| {
+                    state.lyrics.folder.set(text.to_string());
+                    save_settings(state);
+                }),
+        )
 }
 
 fn ai_source_label(state: SettingsState) -> String {
@@ -1470,5 +1519,8 @@ fn save_settings(state: SettingsState) {
         notify_error: state.ai.kinds[3].get_untracked(),
         wechat_enabled: state.wechat_enabled.get_untracked(),
         sound_enabled: state.sound_enabled.get_untracked(),
+        lyrics_folder: state.lyrics.folder.get_untracked(),
+        lyrics_online: state.lyrics.online.get_untracked(),
+        lyrics_chinese: state.lyrics.chinese.get_untracked(),
     });
-}
+}

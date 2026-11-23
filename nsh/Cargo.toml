@@ -26,6 +26,9 @@ image = { version = "0.25", default-features = false, features = ["bmp", "png"] 
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 flate2 = "1"
 
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "time", "net"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 nsh-platform-linux = { version = "0.6.1", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term", "websocket", "updater", "svg", "net", "sound"] }
 

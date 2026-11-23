@@ -49,4 +49,24 @@ island:
   wechat_missing: 微信未运行
   wechat_open: 打开微信
   sound: 提示音
+  lyrics: 歌词
+  lyrics_folder: 本地 LRC 文件夹
+  lyrics_folder_placeholder: 例如 D:\Music\LRC
+  lyrics_online: 在线歌词（LRCLIB）
+  lyrics_chinese: 中文源（酷狗、网易云）
+  lyrics_loading: 正在查找歌词…
+  lyrics_none: 暂无歌词
+  lyrics_no_lines: 歌词没有可显示的同步行
+  lyrics_none_hint: 各个歌词源都没有这首歌
+  lyrics_off: 歌词源已关闭
+  lyrics_off_hint: 打开在线歌词，或设置本地 LRC 文件夹
+  lyrics_folder_missing: 本地歌词目录不可用
+  lyrics_folder_missing_hint: 在设置里检查文件夹路径
+  lyrics_failed: 歌词获取失败
+  lyrics_chinese_off: 中文源已关闭
+  lyrics_chinese_off_hint: 在设置里打开中文源后重试
+  lyrics_cache_stale: 缓存已失效，已重新获取
+  lyrics_cache_expired: 缓存已过期，已重新获取
+  lyrics_cache_failed: 缓存不可写，歌词未保存
+  lyrics_retry: 重试
   about: 焦点岛（NSH）%{version} · NSH 0.6.1
