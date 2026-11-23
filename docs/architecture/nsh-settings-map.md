@@ -48,7 +48,7 @@
 | `lyricsFolder`、`lyricsOnline`、`lyricsChinese` | 已接入 NSH 设置；首启从旧设置导入，之后保存在 nsh settings.json |
 | `lyricsOffsetMs`、`chineseOffset` | 不迁移为全局偏移；改为每首歌的偏移，存在 nsh 数据目录 lyrics-offsets.json |
 | `agent*` | AI 状态迁移时再接 |
-| `music*` | 媒体控制迁移时再接 |
+| `music*`（播放器优先级） | 已接入：settings.json 的 music_sources 存 id/label 顺序；其余 music* 仍未接 |
 | `shelf*` | 文件中转迁移时再接 |
 | `translation*` | 翻译窗口迁移时再接 |
 | `mail*`、`battery*`、`game*` | 对应功能迁移时再接 |

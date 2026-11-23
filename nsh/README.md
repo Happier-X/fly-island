@@ -88,9 +88,14 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   are cached in APPDATA/com.focusd.island.nsh/lyrics-cache; the expanded page
   has a three-line view and per-song -0.5 s / +0.5 s offset. Settings adds the
   LRC folder, online lyrics and Chinese-source switches.
-- The remaining media parity (cover/tint, seek, shuffle/repeat, multi-session
-  source priority, idle/equalizer) is listed in
-  docs/architecture/nsh-media-parity.md.
+- The progress bar can be clicked or dragged: the position freezes while the
+  pointer is down, the seek is sent on release, and both ends clamp.
+- With no media session the expanded island keeps an idle row (record, text and
+  a Play button) instead of disappearing.
+- Settings -> Player order lists the sessions seen; the first playing one in
+  the list is followed, then the first open one. The order is saved in
+  settings.json. Media parity is complete; the equalizer is still the
+  block-character level.
 
 ## WeChat reminder
 
