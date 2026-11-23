@@ -42,4 +42,10 @@ island:
   notify_scheduled: 定时与后台任务
   notify_error: 出错时提醒
   media_unknown: 未在播放
+  wechat: 微信提醒
+  wechat_disabled: 未启用
+  wechat_pending: 需关注
+  wechat_listening: 监听中
+  wechat_missing: 微信未运行
+  wechat_open: 打开微信
   about: 焦点岛（NSH）%{version} · NSH 0.6.1

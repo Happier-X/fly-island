@@ -5,7 +5,7 @@
 //! no NSH signal is touched from the host's UI thread.
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     OnceLock,
 };
 
@@ -16,6 +16,11 @@ use std::time::Duration;
 static EXPANDED: AtomicBool = AtomicBool::new(false);
 static POINTER_THROUGH: AtomicBool = AtomicBool::new(false);
 static CLIPBOARD_DIRTY: AtomicBool = AtomicBool::new(false);
+static WECHAT_PENDING: AtomicBool = AtomicBool::new(false);
+static WECHAT_LAST_ATTENTION: AtomicU64 = AtomicU64::new(0);
+static WECHAT_ENABLED: AtomicBool = AtomicBool::new(true);
+static WECHAT_AVAILABLE: AtomicBool = AtomicBool::new(false);
+static WECHAT_FOCUS_REQUEST: AtomicBool = AtomicBool::new(false);
 static SETTINGS_REQUEST: AtomicBool = AtomicBool::new(false);
 static ON_EXPAND: OnceLock<fn(bool)> = OnceLock::new();
 
@@ -59,6 +64,47 @@ pub fn mark_clipboard_dirty() {
 
 pub fn take_clipboard_dirty() -> bool {
     CLIPBOARD_DIRTY.swap(false, Ordering::Relaxed)
+}
+
+pub fn set_wechat_enabled(enabled: bool) {
+    WECHAT_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+pub fn wechat_enabled() -> bool {
+    WECHAT_ENABLED.load(Ordering::Relaxed)
+}
+
+pub fn set_wechat_available(available: bool) {
+    WECHAT_AVAILABLE.store(available, Ordering::Relaxed);
+}
+
+pub fn wechat_available() -> bool {
+    WECHAT_AVAILABLE.load(Ordering::Relaxed)
+}
+
+pub fn set_wechat_pending(pending: bool, at: u64) {
+    WECHAT_PENDING.store(pending, Ordering::Relaxed);
+    WECHAT_LAST_ATTENTION.store(at, Ordering::Relaxed);
+}
+
+pub fn clear_wechat_pending() {
+    WECHAT_PENDING.store(false, Ordering::Relaxed);
+}
+
+pub fn wechat_pending() -> Option<u64> {
+    if WECHAT_PENDING.load(Ordering::Relaxed) {
+        Some(WECHAT_LAST_ATTENTION.load(Ordering::Relaxed))
+    } else {
+        None
+    }
+}
+
+pub fn request_focus_wechat() {
+    WECHAT_FOCUS_REQUEST.store(true, Ordering::Relaxed);
+}
+
+pub fn take_focus_wechat_request() -> bool {
+    WECHAT_FOCUS_REQUEST.swap(false, Ordering::Relaxed)
 }
 
 pub fn pointer_through() -> bool {

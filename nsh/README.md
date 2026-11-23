@@ -82,6 +82,17 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   documented in docs/architecture/nsh-media-and-utilities.md and are not
   implemented yet.
 
+## WeChat reminder
+
+- The host listens for SHELLHOOK/HSHELL_FLASH and matches only the Weixin.exe /
+  WeChat.exe process. No chat content is read and no client setting is changed.
+- The expanded island shows one row: disabled, listening, needs attention, or
+  WeChat not running, plus "Open WeChat". The pending state clears only when the
+  window was actually brought to the front.
+- QQ notifications and IMAP mail are not implemented yet; their constraints,
+  failure states and the manual integration checklist are in
+  docs/architecture/nsh-messaging.md.
+
 ## Focus policy
 
 - Entering click-through releases keyboard focus to the last foreground

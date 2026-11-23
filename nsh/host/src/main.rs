@@ -21,6 +21,8 @@ fn main() -> std::process::ExitCode {
 mod island;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod wechat;
 
 #[cfg(windows)]
 mod host {
@@ -51,7 +53,7 @@ mod host {
         core::PCWSTR,
     };
 
-    use crate::{island, tray};
+    use crate::{island, tray, wechat};
 
     pub const APP_ID: &str = "com.focusd.island.nsh";
     pub const HOTKEY_TOGGLE: i32 = 1;
@@ -158,6 +160,9 @@ mod host {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
+        if wechat::handle(message, wparam, lparam) {
+            return LRESULT(0);
+        }
         match message {
             WM_HOST_EXPAND => {
                 set_expanded(wparam.0 != 0);
@@ -185,6 +190,10 @@ mod host {
             }
             WM_TIMER if wparam.0 == WM_HOST_TIMER => {
                 island::watch();
+                wechat::tick();
+                if nsh_app_focusd_island_nsh::embedded::take_focus_wechat_request() {
+                    let _ = wechat::focus();
+                }
                 LRESULT(0)
             }
             WM_DESTROY => {
@@ -249,6 +258,9 @@ mod host {
             }
         };
         HOST_HWND.store(host.0 as isize, Ordering::Relaxed);
+        if let Err(error) = wechat::register(host) {
+            log::warn!("{error}");
+        }
 
         nsh_app_focusd_island_nsh::embedded::install(on_expand);
         nsh_app_focusd_island_nsh::embedded::set_host_expanded(false);

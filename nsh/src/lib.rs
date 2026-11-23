@@ -23,6 +23,30 @@ use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
 use media::MediaState;
 
+#[cfg(feature = "embedded")]
+fn wechat_set_enabled(enabled: bool) {
+    embedded::set_wechat_enabled(enabled);
+}
+#[cfg(not(feature = "embedded"))]
+fn wechat_set_enabled(_enabled: bool) {}
+
+#[cfg(feature = "embedded")]
+fn wechat_status() -> (bool, Option<u64>) {
+    (embedded::wechat_available(), embedded::wechat_pending())
+}
+#[cfg(not(feature = "embedded"))]
+fn wechat_status() -> (bool, Option<u64>) {
+    (false, None)
+}
+
+#[cfg(feature = "embedded")]
+fn wechat_request_focus() {
+    embedded::request_focus_wechat();
+}
+#[cfg(not(feature = "embedded"))]
+fn wechat_request_focus() {}
+
+
 const COLLAPSED_WIDTH: f32 = 320.0;
 const COLLAPSED_HEIGHT: f32 = 40.0;
 const EXPANDED_WIDTH: f32 = 620.0;
@@ -91,6 +115,7 @@ struct SettingsState {
     capture_images: Signal<bool>,
     max_items: Signal<usize>,
     ai: AiState,
+    wechat_enabled: Signal<bool>,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -110,6 +135,8 @@ pub fn App() -> impl IntoElement {
     let clipboard_enabled = signal(saved.clipboard_enabled);
     let capture_images = signal(saved.capture_images);
     let max_items = signal(saved.max_items.clamp(5, 200));
+    let wechat_enabled = signal(saved.wechat_enabled);
+    wechat_set_enabled(saved.wechat_enabled);
     let ai_enabled = signal(saved.ai_enabled);
     let notify_done = signal(saved.notify_done);
     let notify_question = signal(saved.notify_question);
@@ -134,6 +161,7 @@ pub fn App() -> impl IntoElement {
         capture_images,
         max_items,
         ai: ai_state,
+        wechat_enabled,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -168,6 +196,12 @@ pub fn App() -> impl IntoElement {
     let poll_batteries = read_batteries.clone();
     set_interval(Duration::from_secs(60), move || poll_batteries());
 
+    let wechat = signal(wechat_status());
+    let read_wechat = Rc::new(move || wechat.set(wechat_status()));
+    read_wechat();
+    let poll_wechat = read_wechat.clone();
+    set_interval(Duration::from_secs(1), move || poll_wechat());
+
     let media_state = signal(Option::<MediaState>::None);
     let read_media = Rc::new(move || {
         spawn(async move {
@@ -190,7 +224,7 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, batteries)
+            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, batteries, wechat, wechat_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state)
@@ -269,6 +303,8 @@ fn expanded_island(
     ai: AiState,
     media_state: Signal<Option<MediaState>>,
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
+    wechat: Signal<(bool, Option<u64>)>,
+    wechat_enabled: Signal<bool>,
 ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -286,6 +322,7 @@ fn expanded_island(
             move || media_panel(media_state, dark),
         ))
         .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
+        .child(wechat_panel(wechat, wechat_enabled, dark))
         .child(divider(dark))
         .child(search_and_list(query, items, visible, dark))
         .child(
@@ -537,6 +574,90 @@ fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<b
             .text_size(px(10.5))
             .text_color(move || palette(dark.get()).muted),
         )
+}
+
+fn wechat_panel(
+    wechat: Signal<(bool, Option<u64>)>,
+    enabled: Signal<bool>,
+    dark: Signal<bool>,
+) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(14.0))
+        .pb(px(6.0))
+        .child(
+            text("💬")
+                .text_size(px(12.0))
+                .text_color(move || palette(dark.get()).accent),
+        )
+        .child(
+            text(move || t!("island.wechat"))
+                .text_size(px(11.0))
+                .text_color(move || palette(dark.get()).fg),
+        )
+        .child(
+            text(move || {
+                if !enabled.get() {
+                    t!("island.wechat_disabled")
+                } else {
+                    let (available, pending) = wechat.get();
+                    if available && pending.is_some() {
+                        t!("island.wechat_pending")
+                    } else if available {
+                        t!("island.wechat_listening")
+                    } else {
+                        t!("island.wechat_missing")
+                    }
+                }
+            })
+            .flex_1()
+            .text_size(px(10.0))
+            .text_color(move || palette(dark.get()).muted),
+        )
+        .child(when(
+            move || enabled.get() && wechat.get().0,
+            move || {
+                text(move || t!("island.wechat_open"))
+                    .text_size(px(10.0))
+                    .text_color(move || palette(dark.get()).accent)
+                    .on_press(wechat_request_focus)
+            },
+        ))
+}
+
+fn wechat_toggle_row(state: SettingsState) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            text(move || t!("island.wechat"))
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || palette(state.dark.get()).muted),
+        )
+        .child(pill(
+            move || t!("island.on"),
+            Rc::new(move || state.wechat_enabled.get()),
+            move || {
+                state.wechat_enabled.set(true);
+                wechat_set_enabled(true);
+                save_settings(state);
+            },
+            state.dark,
+        ))
+        .child(pill(
+            move || t!("island.off"),
+            Rc::new(move || !state.wechat_enabled.get()),
+            move || {
+                state.wechat_enabled.set(false);
+                wechat_set_enabled(false);
+                save_settings(state);
+            },
+            state.dark,
+        ))
 }
 
 fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
@@ -799,7 +920,7 @@ fn settings_window(
         .id("settings")
         .kind(nsh_core::desktop::WindowKind::Normal)
         .title(t!("island.settings"))
-        .default_size(size(px(520.0), px(780.0)))
+        .default_size(size(px(520.0), px(820.0)))
         .open(open)
         .on_open_change(move |event| open.set(event.open))
         .content(move || settings_content(open, state, items))
@@ -985,6 +1106,7 @@ fn settings_content(
                 .text_size(px(10.0))
                 .text_color(move || palette(state.dark.get()).faint),
         )
+        .child(wechat_toggle_row(state))
         .child(view().flex_1())
         .child(
             text(move || t!("island.about", version = "0.1.0"))
@@ -1125,5 +1247,6 @@ fn save_settings(state: SettingsState) {
         notify_question: state.ai.kinds[1].get_untracked(),
         notify_scheduled: state.ai.kinds[2].get_untracked(),
         notify_error: state.ai.kinds[3].get_untracked(),
+        wechat_enabled: state.wechat_enabled.get_untracked(),
     });
 }

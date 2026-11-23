@@ -42,4 +42,10 @@ island:
   notify_scheduled: Scheduled and background tasks
   notify_error: Notify on errors
   media_unknown: Unknown track
+  wechat: WeChat reminder
+  wechat_disabled: Disabled
+  wechat_pending: Needs attention
+  wechat_listening: Listening
+  wechat_missing: WeChat not running
+  wechat_open: Open WeChat
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

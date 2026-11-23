@@ -140,7 +140,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 5. 翻译窗口与服务（对照表已列，待实现）。
 6. 快捷启动器（对照表已列，待实现）。
 7. 文件中转（对照表已列，待实现）。
-8. 微信 / QQ / 邮件通知（需要本机客户端登录状态联调）。
+8. 微信任务栏关注提醒（已完成）；QQ / 邮箱（待实现，需客户端登录/凭据联调）。
 9. 旧外观预设导入（本机不适用；发布前对目标旧库做条件性检查）。
 
 截图套件继续单独立项。
@@ -223,7 +223,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
 - **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；媒体/音量/设备电量已完成；剩余翻译、启动器、文件中转、微信/QQ/邮件；外观预设本机旧库无数据，发布前做条件性扫描。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；媒体/音量/设备电量已完成；剩余翻译、启动器、文件中转、QQ/邮箱；微信任务栏关注提醒已完成；外观预设本机旧库无数据，发布前做条件性扫描。
 
 ## Phase 1 验证记录
 
@@ -395,3 +395,11 @@ focusd-island-translation-settings
 - 测试结束后已关闭临时 Media Player、删除临时音频与浏览器配置，并恢复系统音量。
 - 提示音：Tauri 有开关和 complete/question/error 三类 WAV；NSH 本阶段有意不做，理由与代码依据见 [nsh-media-and-utilities.md](nsh-media-and-utilities.md)。
 - 验证：cargo check / cargo build（nsh、nsh/host）通过；cargo test --lib 16 passed（1 ignored 的实机外设探针）；nsh test nsh 17 passed / 1 skipped；媒体与电量均用 UI Automation / PostMessage 实测。
+
+## Phase 3 微信关注提醒验收（2026-11-23）
+
+- 探测：微信运行中，Weixin 主窗口 pid 20376；QQ 未运行；邮箱无 focusd-island-qq-mail-settings 与 com.focusd.island.qq-mail 凭据。
+- 宿主注册 SHELLHOOK，只按进程名 Weixin/WeChat 过滤；不读聊天内容。
+- 启动后展开岛显示“微信提醒 监听中 打开微信”；向宿主注入 SHELLHOOK/HSHELL_FLASH（目标为真实微信窗口）后变为“需关注”；微信正在后台闪烁，状态与真实事件一致。
+- 锁屏状态下聚焦失败，pending 保留；解锁后点击“打开微信”应清除，已列入联调清单。
+- QQ/邮箱对照表、失败态与联调清单见 [nsh-messaging.md](nsh-messaging.md)。
