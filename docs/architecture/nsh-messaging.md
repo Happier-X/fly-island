@@ -17,7 +17,7 @@
 | 开关 | focusd-island-wechat-reminders-enabled，默认开 | settings.json 的 wechat_enabled，默认开 | 已完成 |
 | 失败态 | 安装/监听错误显示在状态里 | 未运行显示“微信未运行”，监听失败写日志 | 已完成 |
 
-验证：启动宿主后显示“监听中”；向宿主发送 SHELLHOOK/HSHELL_FLASH 且目标是真实微信窗口，状态变为“需关注”；微信当前确实在后台闪烁，未读内容。锁屏状态下聚焦失败，pending 保留，符合“聚焦成功才清除”的约定。
+验证：启动宿主后显示“监听中”；向宿主发送 SHELLHOOK/HSHELL_FLASH 且目标是真实微信窗口，状态变为“需关注”；微信当前确实在后台闪烁，未读内容。锁屏下 SetForegroundWindow 失败，pending 保留；解锁后点击“打开微信”才清除。该项列为待人工验收，不绕开系统限制。
 
 ## QQ 通知（待实现，先列约束）
 
