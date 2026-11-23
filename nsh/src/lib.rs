@@ -6,6 +6,7 @@
 
 mod ai;
 mod battery;
+mod lyrics;
 mod media;
 mod sound;
 mod clipboard;
