@@ -41,6 +41,8 @@ pub struct Preferences {
     pub notify_error: bool,
     #[serde(default = "default_true")]
     pub wechat_enabled: bool,
+    #[serde(default = "default_true")]
+    pub sound_enabled: bool,
 }
 
 impl Default for Preferences {
@@ -57,6 +59,7 @@ impl Default for Preferences {
             notify_scheduled: true,
             notify_error: true,
             wechat_enabled: true,
+            sound_enabled: true,
         }
     }
 }
@@ -136,6 +139,7 @@ pub fn load() -> Preferences {
         notify_scheduled: legacy.as_ref().is_none_or(|item| item.cindy_notify_scheduled),
         notify_error: legacy.as_ref().is_none_or(|item| item.cindy_notify_error),
         wechat_enabled: true,
+        sound_enabled: true,
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);

@@ -393,7 +393,7 @@ focusd-island-translation-settings
 - 媒体：没有系统媒体会话时媒体条不占用空间；用临时静音 WAV 打开 Media Player 后，展开岛出现媒体条（标题 IMG_1298 (1)、音量 10%），播放/暂停按钮在 ▶/⏸ 间切换，音量 10% → 30% → 10%，关闭播放器后轮询自动隐藏。
 - 设备电量：展开岛显示“🔋 MCHOSE G3 A 11% · keycool 5.0 1% · MCHOSE X75 V2 5.0 100%”，启动时读取并每 60 秒刷新。
 - 测试结束后已关闭临时 Media Player、删除临时音频与浏览器配置，并恢复系统音量。
-- 提示音：Tauri 有开关和 complete/question/error 三类 WAV；NSH 本阶段有意不做，理由与代码依据见 [nsh-media-and-utilities.md](nsh-media-and-utilities.md)。
+- 提示音：Tauri 有开关和 complete/question/error 三类 WAV；NSH 已复制三份 WAV，PCM 乘 0.7 后用 PlaySoundW 异步播放，设置开关默认开；来源与许可见 [nsh-media-parity.md](nsh-media-parity.md)。
 - 验证：cargo check / cargo build（nsh、nsh/host）通过；cargo test --lib 16 passed（1 ignored 的实机外设探针）；nsh test nsh 17 passed / 1 skipped；媒体与电量均用 UI Automation / PostMessage 实测。
 
 ## Phase 3 微信关注提醒验收（2026-11-23）

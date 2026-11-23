@@ -78,9 +78,14 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - Peripheral battery levels come from the same BLE Battery Service, HID Battery
   Strength and Logitech HID++ readers as Tauri. Up to four devices are listed in
   one row and refreshed every 60 seconds; the laptop battery is never read.
-- Translation, the quick launcher, the file shelf and notification sounds are
-  documented in docs/architecture/nsh-media-and-utilities.md and are not
-  implemented yet.
+- Notification sounds: the three thumb-piano WAVs are copied to
+  nsh/assets/sounds, scaled to 0.7 in memory and played with PlaySoundW; the
+  settings page has a master switch.
+- Translation, the quick launcher and the file shelf are documented in
+  docs/architecture/nsh-media-and-utilities.md and are not implemented yet.
+- The remaining media parity (cover/tint, lyrics, seek, shuffle/repeat,
+  multi-session source priority, idle/equalizer) is listed in
+  docs/architecture/nsh-media-parity.md.
 
 ## WeChat reminder
 

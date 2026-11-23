@@ -7,6 +7,7 @@
 mod ai;
 mod battery;
 mod media;
+mod sound;
 mod clipboard;
 pub mod focus;
 #[cfg(feature = "embedded")]
@@ -116,6 +117,7 @@ struct SettingsState {
     max_items: Signal<usize>,
     ai: AiState,
     wechat_enabled: Signal<bool>,
+    sound_enabled: Signal<bool>,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -136,6 +138,7 @@ pub fn App() -> impl IntoElement {
     let capture_images = signal(saved.capture_images);
     let max_items = signal(saved.max_items.clamp(5, 200));
     let wechat_enabled = signal(saved.wechat_enabled);
+    let sound_enabled = signal(saved.sound_enabled);
     wechat_set_enabled(saved.wechat_enabled);
     let ai_enabled = signal(saved.ai_enabled);
     let notify_done = signal(saved.notify_done);
@@ -148,6 +151,50 @@ pub fn App() -> impl IntoElement {
         let list = ai_status.snapshot.get().sessions;
         ai_sessions.set(list.into_iter().take(4).collect());
     });
+    let known_sound_keys = signal(Vec::<String>::new());
+    let sound_ready = signal(false);
+    effect(move || {
+        let snapshot = ai_status.snapshot.get();
+        let current: Vec<String> = snapshot.events.iter().map(|event| event.key.clone()).collect();
+        if !sound_ready.get_untracked() {
+            sound_ready.set(true);
+            known_sound_keys.set(current);
+            return;
+        }
+        let previous = known_sound_keys.get_untracked();
+        let watermark = ai_status.watermark.get_untracked();
+        let kinds = [
+            notify_done.get_untracked(),
+            notify_question.get_untracked(),
+            notify_scheduled.get_untracked(),
+            notify_error.get_untracked(),
+        ];
+        let fresh: Vec<&str> = snapshot
+            .events
+            .iter()
+            .filter(|event| !previous.contains(&event.key) && event.at > watermark)
+            .filter(|event| match event.kind {
+                "done" => kinds[0],
+                "question" => kinds[1],
+                "scheduled" => kinds[2],
+                "error" => kinds[3],
+                _ => false,
+            })
+            .map(|event| event.kind)
+            .collect();
+        known_sound_keys.set(current);
+        if fresh.is_empty() || !sound_enabled.get_untracked() {
+            return;
+        }
+        if fresh.contains(&"error") {
+            sound::play("error");
+        } else if fresh.contains(&"question") {
+            sound::play("question");
+        } else {
+            sound::play("complete");
+        }
+    });
+
     let ai_state = AiState {
         enabled: ai_enabled,
         snapshot: ai_status.snapshot,
@@ -162,6 +209,7 @@ pub fn App() -> impl IntoElement {
         max_items,
         ai: ai_state,
         wechat_enabled,
+        sound_enabled,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -1101,6 +1149,7 @@ fn settings_content(
         .child(toggle_row(move || t!("island.notify_question"), state.ai.kinds[1], state))
         .child(toggle_row(move || t!("island.notify_scheduled"), state.ai.kinds[2], state))
         .child(toggle_row(move || t!("island.notify_error"), state.ai.kinds[3], state))
+        .child(toggle_row(move || t!("island.sound"), state.sound_enabled, state))
         .child(
             text(move || ai_source_label(state))
                 .text_size(px(10.0))
@@ -1248,5 +1297,6 @@ fn save_settings(state: SettingsState) {
         notify_scheduled: state.ai.kinds[2].get_untracked(),
         notify_error: state.ai.kinds[3].get_untracked(),
         wechat_enabled: state.wechat_enabled.get_untracked(),
+        sound_enabled: state.sound_enabled.get_untracked(),
     });
 }

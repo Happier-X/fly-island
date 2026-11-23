@@ -48,4 +48,5 @@ island:
   wechat_listening: Listening
   wechat_missing: WeChat not running
   wechat_open: Open WeChat
+  sound: Notification sounds
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

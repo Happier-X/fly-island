@@ -81,10 +81,11 @@ Tauri 有提示音：src/features/cindy-notifications/sounds/。
 - 同时到达多条时按 error > question > done > scheduled 只播一条；音量固定 0.7。
 - 游戏模式或通知总开关关闭时不播。
 
-NSH 当前没有音频播放实现，也没有对应音频资源。本阶段有意不做提示音，只保留角标与三态，不增加一个无效的开关。理由：NSH Windows 平台未接入声音播放，直接加开关会给出无法兑现的设置；等音频能力接入后再补开关与三类音效。此决定记录在此，发布前如需 parity 再作为独立项排期。
+提示音已实现：nsh/assets/sounds/thumb-piano 下三份 WAV（来自 src/assets/sounds，原创、MIT），加载时把 16-bit PCM 乘 0.7，用 winmm PlaySoundW(SND_MEMORY|SND_ASYNC|SND_NODEFAULT) 播放；设置页增加 sound_enabled，默认开；新事件按 error > question > done/scheduled 只播一条。
 
 ## 本轮实现状态
 
 - 已完成：媒体播放控制（核心）、系统音量、设备电量（BLE/HID/HID++）。
 - 已完成对照表、待实现：翻译、快捷启动器、文件中转。
-- 有意不做：Cindy 通知提示音（本阶段）。
+- 已做：Cindy 通知提示音（三份 WAV、0.7 音量、设置开关）。
+- 媒体其余 parity（封面/取色、歌词、进度拖动、随机循环、多会话、来源优先级、空闲/均衡器）见 nsh-media-parity.md，尚未完成。
