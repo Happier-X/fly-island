@@ -1,6 +1,9 @@
 //! Host-side bounds, tuck, fullscreen and monitor/DPI probes.
 
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, Ordering};
+use std::{
+    sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use windows::{
     Win32::{
@@ -13,9 +16,10 @@ use windows::{
             HiDpi::{GetDpiForMonitor, GetDpiForWindow, MDT_EFFECTIVE_DPI},
             Shell::SHQueryUserNotificationState,
             WindowsAndMessaging::{
-                GetClientRect, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
+                GetClientRect, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect,
                 GWL_EXSTYLE, HWND_TOPMOST, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_HIDE,
-                MONITORINFOF_PRIMARY, SW_SHOWNOACTIVATE, SetWindowPos, ShowWindow, WS_EX_TOPMOST,
+                MONITORINFOF_PRIMARY, SM_CMONITORS, SW_SHOWNOACTIVATE, SetWindowPos, ShowWindow,
+                WS_EX_TOPMOST,
                 WindowFromPoint,
             },
         },
@@ -38,8 +42,17 @@ static LAST_TOP: AtomicI32 = AtomicI32::new(-1);
 static LAST_HIT: AtomicI32 = AtomicI32::new(-1);
 static LAST_FG: AtomicI32 = AtomicI32::new(-1);
 static LAST_FOREGROUND: AtomicIsize = AtomicIsize::new(0);
+static LAST_DISPLAYS: AtomicU64 = AtomicU64::new(0);
+static DISPLAY_SETTLE_UNTIL: AtomicU64 = AtomicU64::new(0);
 static TUCKED: AtomicBool = AtomicBool::new(false);
 static FULLSCREEN_HIDDEN: AtomicBool = AtomicBool::new(false);
+
+fn monitor_dpi(monitor: HMONITOR) -> u32 {
+    let mut dpi_x = 96u32;
+    let mut dpi_y = 96u32;
+    let _ = unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y) };
+    dpi_x
+}
 
 fn size(open: bool) -> (f32, f32) {
     if open {
@@ -69,7 +82,8 @@ fn center_on(monitor: HMONITOR, open: bool) {
     unsafe {
         let _ = GetMonitorInfoW(monitor, &mut info);
     }
-    let dpi = unsafe { GetDpiForWindow(app) };
+    let dpi = monitor_dpi(monitor);
+    let window_dpi = unsafe { GetDpiForWindow(app) };
     let scale = dpi as f32 / 96.0;
     let (width, height) = size(open);
     let w = (width * scale).round() as i32;
@@ -88,7 +102,7 @@ fn center_on(monitor: HMONITOR, open: bool) {
         log::warn!("SetWindowPos: {error}");
     }
     log::info!(
-        "island open={open} tucked={} dpi={dpi} work=({},{})-({},{}) at=({x},{y}) {}x{}",
+        "island open={open} tucked={} monitor_dpi={dpi} window_dpi={window_dpi} work=({},{})-({},{}) at=({x},{y}) {}x{}",
         TUCKED.load(Ordering::Relaxed),
         work.left,
         work.top,
@@ -189,14 +203,18 @@ pub fn watch() {
     if app.0.is_null() {
         return;
     }
+    refresh_displays();
     check_fullscreen();
+    if now_ms() < DISPLAY_SETTLE_UNTIL.load(Ordering::Relaxed) {
+        return;
+    }
     if FULLSCREEN_HIDDEN.load(Ordering::Relaxed) {
         return;
     }
     reveal_if_hovered();
     // SAFETY: the live view window; the calls only read state.
     let monitor = unsafe { MonitorFromWindow(app, MONITOR_DEFAULTTONEAREST) };
-    let dpi = unsafe { GetDpiForWindow(app) };
+    let dpi = monitor_dpi(monitor);
     if monitor.0 as isize != LAST_MONITOR.load(Ordering::Relaxed)
         || dpi as i32 != LAST_DPI.load(Ordering::Relaxed)
     {
@@ -274,7 +292,61 @@ pub fn watch() {
     }
 }
 
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_millis() as u64)
+}
+
+fn mix(hash: &mut u64, value: u64) {
+    *hash ^= value;
+    *hash = hash.wrapping_mul(0x100000001b3);
+}
+
+fn display_signature() -> u64 {
+    let mut monitors: Vec<HMONITOR> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(
+            None,
+            None,
+            Some(collect_monitor),
+            LPARAM(&mut monitors as *mut _ as isize),
+        );
+    }
+    let mut hash = 0xcbf29ce484222325u64;
+    for monitor in monitors {
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            let _ = GetMonitorInfoW(monitor, &mut info);
+        }
+        let mut dpi_x = 96u32;
+        let mut dpi_y = 96u32;
+        let _ = unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y) };
+        let rect = info.rcMonitor;
+        mix(&mut hash, monitor.0 as isize as u64);
+        mix(&mut hash, rect.left as u32 as u64);
+        mix(&mut hash, rect.top as u32 as u64);
+        mix(&mut hash, rect.right as u32 as u64);
+        mix(&mut hash, rect.bottom as u32 as u64);
+        mix(&mut hash, dpi_x as u64);
+    }
+    hash
+}
+
+pub fn refresh_displays() {
+    let signature = display_signature();
+    if signature != LAST_DISPLAYS.load(Ordering::Relaxed) {
+        DISPLAY_SETTLE_UNTIL.store(now_ms() + 800, Ordering::Relaxed);
+        log_displays();
+    }
+}
+
 pub fn log_displays() {
+    let count = unsafe { GetSystemMetrics(SM_CMONITORS) };
+    log::info!("raw SM_CMONITORS={count}");
     let mut monitors: Vec<HMONITOR> = Vec::new();
     unsafe {
         let _ = EnumDisplayMonitors(
@@ -299,16 +371,19 @@ pub fn log_displays() {
         let rect = info.rcMonitor;
         let work = info.rcWork;
         log::info!(
-            "display primary={} monitor=({},{})-({},{}) work=({},{})-({},{}) dpi={} scale={:.2} logical={:.0}x{:.0}",
+            "raw display hmon=0x{:X} primary={} rect=({},{})-({},{}) work=({},{})-({},{}) dpi={}x{} scale={:.2} logical={:.0}x{:.0}",
+            monitor.0 as isize,
             info.dwFlags & MONITORINFOF_PRIMARY != 0,
             rect.left, rect.top, rect.right, rect.bottom,
             work.left, work.top, work.right, work.bottom,
             dpi_x,
+            dpi_y,
             scale,
             (rect.right - rect.left) as f32 / scale,
             (rect.bottom - rect.top) as f32 / scale
         );
     }
+    LAST_DISPLAYS.store(display_signature(), Ordering::Relaxed);
 }
 pub fn last_foreground() -> HWND {
     HWND(LAST_FOREGROUND.load(Ordering::Relaxed) as *mut _)

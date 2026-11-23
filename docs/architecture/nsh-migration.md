@@ -275,7 +275,8 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 托盘：岛在副屏时点击托盘图标可收起，窗口仍在副屏 `480×60@(3440,12)`；快捷键 I/O/M/T 在副屏均生效。
 - 拔插：`DisplaySwitch /internal` 后只剩 2240×1328@150%，岛自动到 `480×60@(880,12)`；`/extend` 恢复双屏后岛保持 `480×60@(3440,12)`。
 - 跨屏边缘：把窗口强制放到两屏交界（720×90），宿主按所在屏重新应用为 `480×60@(3440,12)`，不跨屏。
-- 缩放修改：通过“设置 → 显示 → 缩放”把副屏 150% 改为 125%，宿主从 144 dpi 重算为 120 dpi，岛从 `480×60@(3440,12)` 变为 `400×50@(3480,10)`；再改回 150% 后恢复 `480×60@(3440,12)`。
+- 缩放修改（副屏）：150%→125%，宿主 144→120 dpi，岛 480×60@(3440,12) → 400×50@(3480,10)；改回 150% 后恢复。
+- 缩放修改（主屏）：125%→150%，主屏逻辑 2048×1152→1707×960，岛 400×50@(1080,10) → 480×60@(1040,12)；改回 125% 后恢复 400×50@(1080,10)。
 
 证据：`docs/assets/nsh-dpi/primary-125-collapsed.png`、`docs/assets/nsh-dpi/secondary-150-expanded.png`。
 
@@ -287,3 +288,22 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 关闭记录剪贴板后复制测试文本，clipboard.json 数量 28→28；重新开启后 28→29。
 - 选择最多保留 10 后下一次复制把历史截到 10 条；测试后恢复 30，并重新从旧历史导入 30 条。
 - 旧剪贴板设置（enabled/captureImages/maxItems）在首次运行时从 Tauri clipboard-history.json 读取；旧外观预设仍在 WebView2 LevelDB，尚未映射。
+
+### 双屏探针修复记录（2026-11-23）
+
+**为什么曾只看到一台**：不是 NSH `displays()` 快照，也不是进程 DPI 虚拟化。宿主本身以 PMv2 运行，探针一直用 `EnumDisplayMonitors + GetDpiForMonitor`。之前的“单显示器”记录出现在副屏未接通或执行 `DisplaySwitch /internal` 的时间段；当时的原始日志确实只有一台。
+
+**修复前的失败**：热拔后宿主用 `GetDpiForWindow` 计算尺寸，窗口 DPI 仍停留在旧屏（120），而 NSH 按新屏（144）布局，出现 `client 199x34 != 400x50` 的反复重设；`/extend` 时还会跟随过渡布局短跳。
+
+**修复**：
+- 尺寸改按目标显示器的 `GetDpiForMonitor(MDT_EFFECTIVE_DPI)`，不再信任可能滞后的 `GetDpiForWindow`。
+- 探针每次显示签名变化都重新枚举并输出原始 `SM_CMONITORS`、`hmon`、`rect`、`work`、`dpi`。
+- 显示配置变化后 800ms 内不重排，只按最终布局居中，避免过渡布局跳屏。
+
+**修复后原始输出**：
+```text
+raw SM_CMONITORS=2
+raw display hmon=0xA4E0151 primary=false rect=(2560,0)-(4800,1400) work=(2560,0)-(4800,1328) dpi=144x144 scale=1.50 logical=1493x933
+raw display hmon=0x4C90F95 primary=true rect=(0,0)-(2560,1440) work=(0,0)-(2560,1380) dpi=120x120 scale=1.25 logical=2048x1152
+```
+热拔 `/internal` 后：`SM_CMONITORS=1`，2240×1400@144，岛 480×60@(880,12)；`/extend` 后只重排一次到主屏 400×50@(1080,10)，不再跳屏。
