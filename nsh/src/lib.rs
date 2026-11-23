@@ -5,6 +5,7 @@
 //! text/image clipboard with favorites, and a small settings page.
 
 mod clipboard;
+pub mod focus;
 #[cfg(feature = "embedded")]
 pub mod embedded;
 mod preferences;
@@ -268,6 +269,8 @@ fn search_and_list(
                     .h(px(30.0))
                     .px(px(10.0))
                     .rounded(px(8.0))
+                    .on_focus(move || focus::set_input_focused(true))
+                    .on_blur(move || focus::set_input_focused(false))
                     .on_change(move |text: &str| {
                         query.set(text.to_string());
                     }),
@@ -346,7 +349,9 @@ fn history_row(
                     ClipKind::Text => set_clipboard(copy.text.clone()),
                     ClipKind::Image => {
                         if let Some(url) = copy.image_url.clone() {
-                            set_clipboard_image(url);
+                            if !clipboard::write_image(&url) {
+                                set_clipboard_image(url);
+                            }
                         }
                     }
                 })

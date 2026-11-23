@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, Ordering};
 
 use windows::{
     Win32::{
-        Foundation::{LPARAM, POINT, RECT},
+        Foundation::{HWND, LPARAM, POINT, RECT},
         Graphics::Gdi::{
             EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST,
             MONITORINFO, MonitorFromWindow,
@@ -36,6 +36,7 @@ static LAST_DPI: AtomicI32 = AtomicI32::new(0);
 static LAST_TOP: AtomicI32 = AtomicI32::new(-1);
 static LAST_HIT: AtomicI32 = AtomicI32::new(-1);
 static LAST_FG: AtomicI32 = AtomicI32::new(-1);
+static LAST_FOREGROUND: AtomicIsize = AtomicIsize::new(0);
 static TUCKED: AtomicBool = AtomicBool::new(false);
 static FULLSCREEN_HIDDEN: AtomicBool = AtomicBool::new(false);
 
@@ -231,7 +232,11 @@ pub fn watch() {
         log::info!("hit test at center: app={} hwnd={:?}", hit_app == 1, hit.0);
         LAST_HIT.store(hit_app, Ordering::Relaxed);
     }
-    let fg = if unsafe { GetForegroundWindow() } == app { 1 } else { 0 };
+    let foreground = unsafe { GetForegroundWindow() };
+    if foreground != app && !foreground.0.is_null() {
+        LAST_FOREGROUND.store(foreground.0 as isize, Ordering::Relaxed);
+    }
+    let fg = if foreground == app { 1 } else { 0 };
     if fg != LAST_FG.load(Ordering::Relaxed) {
         log::info!("foreground: app={}", fg == 1);
         LAST_FG.store(fg, Ordering::Relaxed);
@@ -243,6 +248,10 @@ pub fn watch() {
         log::warn!("topmost changed: {topmost}");
         LAST_TOP.store(top_int, Ordering::Relaxed);
     }
+}
+
+pub fn last_foreground() -> HWND {
+    HWND(LAST_FOREGROUND.load(Ordering::Relaxed) as *mut _)
 }
 
 /// Moves the island to the next monitor, for the mixed-DPI probe.

@@ -1,13 +1,15 @@
-//! Clipboard history: text and images, favorites, and a small JSON store.
+//! Clipboards: text and image history, favorites, persistence, legacy import.
 //!
-//! Reading is polling (NSH has no change event). Images are normalised to a
-//! PNG data URL so they can be written back, and are kept for the session
-//! only because the clipboard URL is temporary.
+//! Text and images are polled; the Win32 host also posts a dirty flag from
+//! WM_CLIPBOARDUPDATE, so an embedded run picks a copy up in ~100 ms. Images
+//! are stored as PNG files and written back as CF_DIB through arboard.
 
 use std::{
+    borrow::Cow,
     fs,
     io::Cursor,
-    path::PathBuf,
+    path::{Path, PathBuf},
+    rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
@@ -47,7 +49,7 @@ impl ClipboardHistory {
         let items = signal(load());
         let last_text = signal(String::new());
         let last_image = signal(String::new());
-        let read = move || {
+        let read = Rc::new(move || {
             spawn(async move {
                 let text = clipboard_string().await;
                 let trimmed = text.trim();
@@ -79,22 +81,64 @@ impl ClipboardHistory {
                     );
                 }
             });
-        };
+        });
         read();
-        set_interval(POLL_INTERVAL, read);
+        let poll = read.clone();
+        set_interval(POLL_INTERVAL, move || poll());
+        #[cfg(feature = "embedded")]
+        {
+            let immediate = read.clone();
+            set_interval(Duration::from_millis(100), move || {
+                if crate::embedded::take_clipboard_dirty() {
+                    immediate();
+                }
+            });
+        }
         Self { items }
     }
 }
 
+/// Writes an image as CF_DIB (what Notepad and most Windows apps paste),
+/// from a PNG data URL or a file path.
+pub fn write_image(url: &str) -> bool {
+    let bytes = if url.starts_with("data:") {
+        decode_data_url(url)
+    } else {
+        fs::read(url).ok()
+    };
+    let Some(bytes) = bytes else {
+        return false;
+    };
+    let Ok(image) = image::load_from_memory(&bytes) else {
+        return false;
+    };
+    let rgba = image.to_rgba8();
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    let Ok(mut clipboard) = arboard::Clipboard::new() else {
+        return false;
+    };
+    clipboard
+        .set_image(arboard::ImageData {
+            width,
+            height,
+            bytes: Cow::Owned(rgba.into_raw()),
+        })
+        .is_ok()
+}
+
 fn to_png_url(url: &str) -> Option<String> {
-    let encoded = url.strip_prefix("data:image/")?.split_once(',')?.1;
-    let bytes = STANDARD.decode(encoded).ok()?;
+    let bytes = decode_data_url(url)?;
     let image = image::load_from_memory(&bytes).ok()?;
     let mut png = Vec::new();
     image
         .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
         .ok()?;
     Some(format!("data:image/png;base64,{}", STANDARD.encode(png)))
+}
+
+fn decode_data_url(url: &str) -> Option<Vec<u8>> {
+    let encoded = url.strip_prefix("data:")?.split_once(',')?.1;
+    STANDARD.decode(encoded).ok()
 }
 
 fn capture_text(items: Signal<Vec<ClipItem>>, text: String) {
@@ -158,16 +202,54 @@ pub fn clear(items: Signal<Vec<ClipItem>>) {
     save(&items.get_untracked());
 }
 
+fn data_dir() -> Option<PathBuf> {
+    let base = std::env::var_os("APPDATA")?;
+    Some(PathBuf::from(base).join("com.focusd.island.nsh"))
+}
+
+fn image_dir() -> Option<PathBuf> {
+    Some(data_dir()?.join("clipboard-images"))
+}
+
 fn data_file() -> Option<PathBuf> {
+    Some(data_dir()?.join("clipboard.json"))
+}
+
+fn import_flag() -> Option<PathBuf> {
+    Some(data_dir()?.join("legacy-clipboard-imported.flag"))
+}
+
+fn legacy_file() -> Option<PathBuf> {
     let base = std::env::var_os("APPDATA")?;
     Some(
         PathBuf::from(base)
-            .join("com.focusd.island.nsh")
-            .join("clipboard.json"),
+            .join("com.focusd.island")
+            .join("clipboard-history.json"),
     )
 }
 
 fn load() -> Vec<ClipItem> {
+    let items = load_new();
+    if !items.is_empty() || import_flag().is_some_and(|path| path.exists()) {
+        return items;
+    }
+    let Some(legacy) = import_legacy() else {
+        return items;
+    };
+    if let Some(flag) = import_flag() {
+        if let Some(parent) = flag.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(flag, b"1");
+    }
+    if legacy.is_empty() {
+        return items;
+    }
+    save(&legacy);
+    legacy
+}
+
+fn load_new() -> Vec<ClipItem> {
     let Some(path) = data_file() else {
         return Vec::new();
     };
@@ -175,11 +257,101 @@ fn load() -> Vec<ClipItem> {
         return Vec::new();
     };
     let mut items: Vec<ClipItem> = serde_json::from_str(&text).unwrap_or_default();
-    items.retain(|item| item.kind == ClipKind::Text);
+    items.retain(|item| match item.kind {
+        ClipKind::Text => !item.text.is_empty(),
+        ClipKind::Image => item.image_url.as_deref().is_some_and(|url| url.starts_with("data:") || Path::new(url).exists()),
+    });
     for item in &mut items {
         NEXT_ID.fetch_max(item.id + 1, Ordering::Relaxed);
     }
     items
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyHistory {
+    items: Vec<LegacyItem>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyItem {
+    kind: String,
+    #[serde(default)]
+    favorite: bool,
+    text: Option<String>,
+    image: Option<LegacyImage>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyImage {
+    width: u32,
+    height: u32,
+    original_path: String,
+}
+
+fn import_legacy() -> Option<Vec<ClipItem>> {
+    let path = legacy_file()?;
+    let text = fs::read_to_string(path).ok()?;
+    let history: LegacyHistory = serde_json::from_str(&text).ok()?;
+    let mut items = Vec::new();
+    for old in history.items {
+        if old.kind == "text" {
+            let Some(text) = old.text.filter(|text| !text.is_empty()) else {
+                continue;
+            };
+            items.push(ClipItem {
+                id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+                kind: ClipKind::Text,
+                text,
+                image_url: None,
+                width: 0,
+                height: 0,
+                favorite: old.favorite,
+            });
+        } else if old.kind == "image" {
+            let Some(image) = old.image else {
+                continue;
+            };
+            let Ok(bytes) = fs::read(&image.original_path) else {
+                continue;
+            };
+            let Ok(decoded) = image::load_from_memory(&bytes) else {
+                continue;
+            };
+            let rgba = decoded.to_rgba8();
+            let mut png = Vec::new();
+            if rgba
+                .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+                .is_err()
+            {
+                continue;
+            }
+            let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+            let Some(dir) = image_dir() else {
+                continue;
+            };
+            let _ = fs::create_dir_all(&dir);
+            let target = dir.join(format!("legacy-{id}.png"));
+            if fs::write(&target, png).is_err() {
+                continue;
+            }
+            items.push(ClipItem {
+                id,
+                kind: ClipKind::Image,
+                text: String::new(),
+                image_url: Some(target.to_string_lossy().to_string()),
+                width: image.width.max(rgba.width()),
+                height: image.height.max(rgba.height()),
+                favorite: old.favorite,
+            });
+        }
+        if items.len() >= MAX_ITEMS {
+            break;
+        }
+    }
+    Some(items)
 }
 
 fn save(items: &[ClipItem]) {
@@ -189,11 +361,31 @@ fn save(items: &[ClipItem]) {
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let text_items: Vec<&ClipItem> = items
+    let persisted: Vec<ClipItem> = items
         .iter()
-        .filter(|item| item.kind == ClipKind::Text)
+        .filter_map(|item| {
+            if item.kind == ClipKind::Text {
+                return Some(item.clone());
+            }
+            persist_image(item)
+        })
         .collect();
-    if let Ok(json) = serde_json::to_string_pretty(&text_items) {
+    if let Ok(json) = serde_json::to_string_pretty(&persisted) {
         let _ = fs::write(path, json);
     }
+}
+
+fn persist_image(item: &ClipItem) -> Option<ClipItem> {
+    let source = item.image_url.as_ref()?;
+    if !source.starts_with("data:") && Path::new(source).exists() {
+        return Some(item.clone());
+    }
+    let bytes = decode_data_url(source)?;
+    let dir = image_dir()?;
+    fs::create_dir_all(&dir).ok()?;
+    let target = dir.join(format!("{}.png", item.id));
+    fs::write(&target, bytes).ok()?;
+    let mut stored = item.clone();
+    stored.image_url = Some(target.to_string_lossy().to_string());
+    Some(stored)
 }

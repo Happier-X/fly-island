@@ -32,6 +32,7 @@ mod host {
             Foundation::{HWND, LPARAM, LRESULT, WPARAM},
             UI::Input::KeyboardAndMouse::{RegisterHotKey, SetFocus, MOD_CONTROL, MOD_SHIFT},
             System::{
+                DataExchange::{AddClipboardFormatListener, RemoveClipboardFormatListener},
                 LibraryLoader::GetModuleHandleW,
                 Ole::{OleInitialize, OleUninitialize},
                 Threading::GetCurrentProcessId,
@@ -39,10 +40,11 @@ mod host {
             UI::{
                 HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
                 WindowsAndMessaging::{
-                    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, MSG, PostMessageW,
+                    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetGUIThreadInfo, GetMessageW,
+                    GetWindowThreadProcessId, GUITHREADINFO, IsChild, MSG, PostMessageW,
                     PostQuitMessage, RegisterClassW, SetForegroundWindow,
                     SetTimer, ShowWindow, TranslateMessage, WNDCLASSW, WM_APP, WM_DESTROY,
-                    WM_HOTKEY, WM_TIMER, WS_OVERLAPPED, SW_SHOW,
+                    WM_CLIPBOARDUPDATE, WM_HOTKEY, WM_TIMER, WS_OVERLAPPED, SW_SHOW,
                 },
             },
         },
@@ -113,15 +115,44 @@ mod host {
         let through = !nsh_app_focusd_island_nsh::embedded::pointer_through();
         nsh_app_focusd_island_nsh::embedded::set_pointer_through(through);
         if through {
-            // SAFETY: clearing this thread window's focus is always valid.
-            unsafe {
-                let _ = SetFocus(None);
-            }
+            release_focus();
         }
         log::info!("pointer through: {through}");
     }
 
-    unsafe extern "system" fn host_proc(
+    fn release_focus() {
+        let app = app_hwnd();
+        let tid = unsafe { GetWindowThreadProcessId(app, None) };
+        let mut info = GUITHREADINFO {
+            cbSize: std::mem::size_of::<GUITHREADINFO>() as u32,
+            ..Default::default()
+        };
+        if nsh_app_focusd_island_nsh::focus::input_focused() {
+            log::info!("pointer through: island input keeps focus");
+            return;
+        }
+        let known = unsafe { GetGUIThreadInfo(tid, &mut info) }.is_ok();
+        if known
+            && !info.hwndFocus.0.is_null()
+            && info.hwndFocus != app
+            && unsafe { IsChild(app, info.hwndFocus) }.as_bool()
+        {
+            log::info!("pointer through: island input keeps focus");
+            return;
+        }
+        let last = island::last_foreground();
+        if !last.0.is_null() && last != app {
+            let moved = unsafe { SetForegroundWindow(last) }.as_bool();
+            log::info!("pointer through: focus returned to previous foreground ({moved})");
+            if moved {
+                return;
+            }
+        }
+        unsafe {
+            let _ = SetFocus(None);
+        }
+        log::info!("pointer through: keyboard focus cleared");
+    }    unsafe extern "system" fn host_proc(
         hwnd: HWND,
         message: u32,
         wparam: WPARAM,
@@ -144,6 +175,10 @@ mod host {
                 }
                 LRESULT(0)
             }
+            WM_CLIPBOARDUPDATE => {
+                nsh_app_focusd_island_nsh::embedded::mark_clipboard_dirty();
+                LRESULT(0)
+            }
             WM_HOST_TRAY => {
                 tray::on_message(hwnd, lparam);
                 LRESULT(0)
@@ -155,6 +190,7 @@ mod host {
             WM_DESTROY => {
                 // SAFETY: the tray icon belongs to this window.
                 unsafe {
+                    let _ = RemoveClipboardFormatListener(hwnd);
                     tray::remove(hwnd);
                     PostQuitMessage(0);
                 }
@@ -241,7 +277,7 @@ mod host {
             .app_id(APP_ID)
             .translations_json(include_str!(concat!(env!("OUT_DIR"), "/translations.json")))
             .capabilities_json(
-                r#"{"windows":{"kinds":["normal","overlay","panel","dialog"],"levels":["normal","floating","aboveDock"],"max":8,"overlay":true},"clipboard":true,"application":true}"#
+                r#"{"windows":{"kinds":["normal","overlay","panel","dialog"],"levels":["normal","floating","aboveDock"],"max":8,"overlay":true},"clipboard":true,"application":true,"fs":{"read":["${dataDir}"]}}"#
             )
             .appearance(Appearance::Dark);
         view.load(App::Rust(root));
@@ -270,6 +306,9 @@ mod host {
             }
             if let Err(error) = RegisterHotKey(Some(host), HOTKEY_TUCK, MOD_CONTROL | MOD_SHIFT, 'T' as u32) {
                 log::warn!("Ctrl+Shift+T not registered: {error}");
+            }
+            if AddClipboardFormatListener(host).is_err() {
+                log::warn!("AddClipboardFormatListener failed");
             }
             tray::add(host);
             island::apply(false);

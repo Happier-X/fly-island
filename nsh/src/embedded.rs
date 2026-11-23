@@ -15,6 +15,7 @@ use std::time::Duration;
 
 static EXPANDED: AtomicBool = AtomicBool::new(false);
 static POINTER_THROUGH: AtomicBool = AtomicBool::new(false);
+static CLIPBOARD_DIRTY: AtomicBool = AtomicBool::new(false);
 static ON_EXPAND: OnceLock<fn(bool)> = OnceLock::new();
 
 /// The host installs the function it uses to resize its window.
@@ -43,6 +44,14 @@ pub fn set_pointer_through(through: bool) {
     POINTER_THROUGH.store(through, Ordering::Relaxed);
 }
 
+pub fn mark_clipboard_dirty() {
+    CLIPBOARD_DIRTY.store(true, Ordering::Relaxed);
+}
+
+pub fn take_clipboard_dirty() -> bool {
+    CLIPBOARD_DIRTY.swap(false, Ordering::Relaxed)
+}
+
 pub fn pointer_through() -> bool {
     POINTER_THROUGH.load(Ordering::Relaxed)
 }
@@ -66,8 +75,6 @@ pub fn start(expanded: Signal<bool>) {
                 } else {
                     nsh_core::desktop::WindowPointerEvents::Auto
                 });
-                attributes.focusable = Some(!next);
-                attributes.activate = Some(!next);
                 nsh_core::element::desktop::current_window().set(attributes);
             }
         }
