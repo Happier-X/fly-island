@@ -8,3 +8,14 @@ island:
   toggle: 显示或收起岛屿
   show: 显示岛屿
   quit: 退出
+  settings: 设置
+  theme: 外观
+  dark: 深色
+  light: 浅色
+  language: 语言
+  search: 搜索剪贴板
+  no_results: 没有匹配项
+  image: "%{width} x %{height} 图片"
+  image_missing: 图片已过期
+  back: 返回
+  clear: 清空历史（保留收藏）

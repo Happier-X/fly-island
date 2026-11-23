@@ -8,3 +8,14 @@ island:
   toggle: Show or hide the island
   show: Show island
   quit: Quit
+  settings: Settings
+  theme: Appearance
+  dark: Dark
+  light: Light
+  language: Language
+  search: Search clipboard
+  no_results: No matches
+  image: "%{width} x %{height} image"
+  image_missing: Image expired
+  back: Back
+  clear: Clear history (keep favorites)

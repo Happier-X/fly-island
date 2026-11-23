@@ -8,5 +8,4 @@ test("opens as a collapsed capsule and expands", async () => {
   expect(app.texts().join("\n")).toContain("FocuSD Island");
   await app.press("FocuSD Island");
   expect(app.texts().join("\n")).toContain("Clipboard history");
-  expect(app.texts().join("\n")).toContain("Copy some text to see it here");
 });

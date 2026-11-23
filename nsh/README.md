@@ -1,56 +1,69 @@
-# FocuSD Island on NSH (Phase 1 spike)
+# FocuSD Island on NSH (Phase 2)
 
-This directory is the Phase 1 feasibility spike for migrating FocuSD Island
-from Tauri 2 + React to NSH. It is independent of `../src` and `../src-tauri`;
-the Tauri app keeps building and shipping untouched.
+This directory is the NSH migration of FocuSD Island. It is independent of
+`../src` and `../src-tauri`; the Tauri app keeps building and shipping
+untouched.
 
-## What it does
+**NSH version:** 0.6.1, pinned. `nsh.json` requires exactly `=0.6.1`; an
+upgrade needs its own verification run. The CLI is installed at
+`%LOCALAPPDATA%\nsh` (PATH is set for new terminals).
 
-- A frameless, translucent, always-on-top capsule at the top center of the
-  primary display. Click it to expand the window (320×40 → 620×340) and show
-  the clipboard history; click ⌃ to collapse it.
-- The history is real: it polls the system clipboard through NSH's
-  `clipboard_string()`, dedupes, keeps the newest 20 texts, and clicking a row
-  copies it back. Images, files and persistence are not in the spike.
-- A tray icon (assets/tray.svg) with a menu, and one global shortcut:
-  `Ctrl+Shift+I` toggles the island.
-- English and Simplified Chinese from `locales/`, switched by the EN / 中文
-  button; the switch calls NSH's `set_locale`.
-- The window uses `level: "aboveDock"`, `frame: "none"`, `transparent: true`,
-  `taskbar: false`, `activate: false`, and a normal window kind. Overlay is
-  click-through and never focusable, so it is not the island base.
+## What runs
 
-## Run it
+- `src/` is the app root: island capsule, clipboard history, settings page
+  and i18n. It builds standalone with `nsh run nsh`.
+- `host/` is the Phase 2 Win32 host: a message loop, hotkeys, tray, bounds
+  and DPI handling around one NSH `AppView`.
+- NSH's child-window `AppView` disables `transparent`, so the host uses a
+  top-level `AppView` and owns its HWND after creation. Per-pixel alpha,
+  topmost and click-through come from NSH; Win32 owns positioning, tray,
+  hotkeys and probes.
+
+## Run the host
 
 ```powershell
-# from the repository root, with NSH installed and on PATH
-nsh run nsh
+cargo run --manifest-path nsh/host/Cargo.toml
 ```
 
-`nsh run` builds the Rust runner from `nsh.json` (with the locales compiled
-in) and opens the capsule. `cargo run --manifest-path nsh/Cargo.toml` also
-works, but shows translation keys because it does not get the generated
-runner's translations.
+or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
+`RUST_LOG=info` prints the host probes.
 
-Headless test:
+- `Ctrl+Shift+I`: show/collapse the island.
+- `Ctrl+Shift+O`: toggle click-through.
+- `Ctrl+Shift+M`: move to the next monitor.
+- Tray (overflow area, "焦点岛"): show/collapse, click-through, next monitor,
+  quit.
+
+## Clipboard pilot
+
+The expanded island has a searchable history:
+
+- Text and images are captured by polling the clipboard every 800 ms. Image
+  entries live for the session; text entries are saved to
+  `%APPDATA%\com.focusd.island.nsh\clipboard.json`.
+- Click an entry to copy it back. `☆` / `★` toggles a favorite; clearing the
+  history keeps favorites.
+- Settings (`⚙`) switches dark/light and Chinese/English; both are saved to
+  `%APPDATA%\com.focusd.island.nsh\settings.json`.
+
+## Standalone run
 
 ```powershell
+nsh run nsh
 nsh test nsh
 ```
 
-## Logs
+The standalone app still has NSH's tray and global shortcut; the host disables
+those in favor of its own.
 
-The app writes its logs to the terminal that runs `nsh run`. A shortcut that
-another app already holds logs `mod+shift+i is taken`.
+## Known limits
 
-## Known spike limits
-
-- The window is positioned on the primary display only. It re-centers when
-  displays change, but moving it to another display is not handled.
-- Window resizing is an instant `setBounds`; only macOS has animated resizes.
-- The clipboard poll is 800 ms and text-only; there is no
-  `WM_CLIPBOARDUPDATE` listener, no image/file capture and no history
-  persistence yet.
-- Clicking the capsule when the window is unfocused goes through NSH's normal
-  activation rules; the window is created with `activate: false` and is
-  focused only by the global shortcut or the tray.
+- The current session exposes one active display (seen at 150% and 125%).
+  Bounds and DPI are computed per monitor and re-applied on display changes,
+  but mixed 125%/150% needs a machine with two active monitors to verify.
+- Window resizes are immediate `SetWindowPos` calls; no animation yet.
+- Clipboard capture is polling, text/image only; no `WM_CLIPBOARDUPDATE`
+  listener, file clipboard or drag-out yet.
+- Image history is session-only; the clipboard image URL is temporary. Images are normalised to PNG before copy-back, which writes the Windows PNG clipboard format (some legacy apps read only CF_DIB; a Win32 DIB writer is Phase 3).
+- The settings page is in-island for Phase 2; the separate settings window
+  migration is still open.

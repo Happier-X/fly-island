@@ -1,27 +1,36 @@
-//! The main window as an island: frameless, translucent, above the taskbar,
-//! top-centered on the primary display; a tray icon and one global shortcut.
-
-use std::time::Duration;
+//! The island window: in the standalone app NSH owns it; in the Phase 2
+//! host the Win32 side owns it and this module only forwards expand/collapse.
 
 use nsh_core::{
-    desktop::{WindowAttributes, WindowFrame, WindowFrameStyle, WindowKind, WindowLevel},
-    element::desktop::{
-        current_window, displays, main_window, quit, register_global_shortcut, set_tray, tray,
-        MenuItem,
-    },
+    desktop::{WindowAttributes, WindowKind, WindowLevel},
+    element::desktop::current_window,
     prelude::*,
 };
 
+#[cfg(not(feature = "embedded"))]
+use std::time::Duration;
+
+#[cfg(not(feature = "embedded"))]
+use nsh_core::{
+    desktop::WindowFrame,
+    element::desktop::{
+        displays, main_window, quit, register_global_shortcut, set_tray, tray, MenuItem,
+    },
+};
+
+#[cfg(not(feature = "embedded"))]
 use crate::{COLLAPSED_HEIGHT, COLLAPSED_WIDTH, EXPANDED_HEIGHT, EXPANDED_WIDTH};
 
+#[cfg(not(feature = "embedded"))]
 const SHORTCUT: &str = "mod+shift+i";
+#[cfg(not(feature = "embedded"))]
 const TOP_GAP: f32 = 8.0;
 
 pub fn configure(expanded: Signal<bool>) {
     let mut attributes = WindowAttributes::for_kind(WindowKind::Normal);
     attributes.level = Some(WindowLevel::AboveDock);
     attributes.transparent = Some(true);
-    attributes.frame = Some(WindowFrameStyle::None);
+    attributes.frame = Some(nsh_core::desktop::WindowFrameStyle::None);
     attributes.taskbar = Some(false);
     attributes.resizable = Some(false);
     attributes.shadow = Some(false);
@@ -32,19 +41,29 @@ pub fn configure(expanded: Signal<bool>) {
     win.set(attributes);
     let close_win = win.clone();
     win.on_close_press(move |_| close_win.hide());
-    // The platform applies nsh.json's position after the first commit: place
-    // again once the frame is up, and on every display change.
-    effect(move || {
-        let _ = displays();
-        set_timeout(Duration::ZERO, move || place(expanded.get()));
-    });
+
+    #[cfg(not(feature = "embedded"))]
+    {
+        // The platform applies nsh.json's position after the first commit:
+        // place again once the frame is up, and on every display change.
+        effect(move || {
+            let _ = displays();
+            set_timeout(Duration::ZERO, move || place(expanded.get()));
+        });
+    }
+    #[cfg(feature = "embedded")]
+    let _ = expanded;
 }
 
 pub fn set_expanded(expanded: Signal<bool>, open: bool) {
     expanded.set(open);
+    #[cfg(feature = "embedded")]
+    crate::embedded::request_expanded(open);
+    #[cfg(not(feature = "embedded"))]
     place(open);
 }
 
+#[cfg(not(feature = "embedded"))]
 pub fn install_tray(expanded: Signal<bool>) {
     effect(move || {
         let show = t!("island.show");
@@ -63,6 +82,10 @@ pub fn install_tray(expanded: Signal<bool>) {
     });
 }
 
+#[cfg(feature = "embedded")]
+pub fn install_tray(_expanded: Signal<bool>) {}
+
+#[cfg(not(feature = "embedded"))]
 pub fn install_shortcut(expanded: Signal<bool>) {
     let taken = register_global_shortcut(SHORTCUT, move || toggle_island(expanded));
     spawn(async move {
@@ -72,6 +95,10 @@ pub fn install_shortcut(expanded: Signal<bool>) {
     });
 }
 
+#[cfg(feature = "embedded")]
+pub fn install_shortcut(_expanded: Signal<bool>) {}
+
+#[cfg(not(feature = "embedded"))]
 fn toggle_island(expanded: Signal<bool>) {
     let win = main_window();
     let visible = win.state().map_or(true, |state| state.visible);
@@ -86,6 +113,7 @@ fn toggle_island(expanded: Signal<bool>) {
 
 /// Centers the window on the primary display's top edge. NSH has no
 /// top-center preset, so the app computes the frame and sets it.
+#[cfg(not(feature = "embedded"))]
 fn place(expanded: bool) {
     let (width, height) = if expanded {
         (EXPANDED_WIDTH, EXPANDED_HEIGHT)
