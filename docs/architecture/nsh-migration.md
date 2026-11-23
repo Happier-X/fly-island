@@ -136,10 +136,12 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 1. 剪贴板完整迁移（CF_DIB 写回、旧数据导入、变更监听）。
 2. 设置全量迁移（已完成：旧设置/主题导入、独立设置窗口、字段对照表）。
 3. AI 状态与 Cindy 通知（已完成，对照表见 [nsh-ai-notifications.md](nsh-ai-notifications.md)）。
-4. 微信 / QQ / 邮件通知。
-5. 媒体控制、翻译。
-6. 快捷启动器、文件中转、外设电量。
-7. 旧外观预设导入（本机不适用；发布前对目标旧库做条件性检查）。
+4. 媒体播放控制、系统音量、设备电量（已完成核心，对照表见 [nsh-media-and-utilities.md](nsh-media-and-utilities.md)）。
+5. 翻译窗口与服务（对照表已列，待实现）。
+6. 快捷启动器（对照表已列，待实现）。
+7. 文件中转（对照表已列，待实现）。
+8. 微信 / QQ / 邮件通知（需要本机客户端登录状态联调）。
+9. 旧外观预设导入（本机不适用；发布前对目标旧库做条件性检查）。
 
 截图套件继续单独立项。
 
@@ -221,7 +223,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
 - **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；剩余微信/QQ/邮件、媒体/翻译、启动器/文件架/电池；外观预设本机旧库无数据，发布前做条件性扫描。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；媒体/音量/设备电量已完成；剩余翻译、启动器、文件中转、微信/QQ/邮件；外观预设本机旧库无数据，发布前做条件性扫描。
 
 ## Phase 1 验证记录
 
@@ -385,3 +387,11 @@ focusd-island-translation-settings
 - 如果解析不可靠，改为在现有 Tauri 版加一次性“导出外观预设”按钮；这条备选方案要先回报，得到确认后再动 `src/` / `src-tauri/`。
 - 导入结果逐项列出：预设名称、颜色、字体、透明度等字段；失败的预设保留在报告里，不静默跳过。
 - 现有旧设置原文已备份到 `legacy-settings.json`；预设数据后续单独定位与解析，不覆盖或删除旧数据。
+
+## Phase 3 媒体与设备电量验收（2026-11-23）
+
+- 媒体：没有系统媒体会话时媒体条不占用空间；用临时静音 WAV 打开 Media Player 后，展开岛出现媒体条（标题 IMG_1298 (1)、音量 10%），播放/暂停按钮在 ▶/⏸ 间切换，音量 10% → 30% → 10%，关闭播放器后轮询自动隐藏。
+- 设备电量：展开岛显示“🔋 MCHOSE G3 A 11% · keycool 5.0 1% · MCHOSE X75 V2 5.0 100%”，启动时读取并每 60 秒刷新。
+- 测试结束后已关闭临时 Media Player、删除临时音频与浏览器配置，并恢复系统音量。
+- 提示音：Tauri 有开关和 complete/question/error 三类 WAV；NSH 本阶段有意不做，理由与代码依据见 [nsh-media-and-utilities.md](nsh-media-and-utilities.md)。
+- 验证：cargo check / cargo build（nsh、nsh/host）通过；cargo test --lib 16 passed（1 ignored 的实机外设探针）；nsh test nsh 17 passed / 1 skipped；媒体与电量均用 UI Automation / PostMessage 实测。

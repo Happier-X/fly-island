@@ -41,4 +41,5 @@ island:
   notify_question: 提问时提醒
   notify_scheduled: 定时与后台任务
   notify_error: 出错时提醒
+  media_unknown: 未在播放
   about: 焦点岛（NSH）%{version} · NSH 0.6.1

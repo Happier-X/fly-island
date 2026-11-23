@@ -2428,6 +2428,7 @@ dependencies = [
  "nsh-platform-linux",
  "nsh-platform-macos",
  "nsh-platform-windows",
+ "pollster",
  "rusqlite",
  "rusty-leveldb",
  "serde",

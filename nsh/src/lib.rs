@@ -5,6 +5,8 @@
 //! text/image clipboard with favorites, and a small settings page.
 
 mod ai;
+mod battery;
+mod media;
 mod clipboard;
 pub mod focus;
 #[cfg(feature = "embedded")]
@@ -12,12 +14,14 @@ pub mod embedded;
 mod preferences;
 mod window;
 
-use std::rc::Rc;
+use std::{rc::Rc, time::Duration};
 
 use nsh_core::{element::input, prelude::*, Color};
 
 use ai::{AgentSession, AgentState, AiSnapshot};
+use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
+use media::MediaState;
 
 const COLLAPSED_WIDTH: f32 = 320.0;
 const COLLAPSED_HEIGHT: f32 = 40.0;
@@ -154,6 +158,28 @@ pub fn App() -> impl IntoElement {
     });
 
 
+    let batteries = signal(Vec::<PeripheralBatteryDevice>::new());
+    let read_batteries = Rc::new(move || {
+        spawn(async move {
+            batteries.set(battery::read_batteries());
+        });
+    });
+    read_batteries();
+    let poll_batteries = read_batteries.clone();
+    set_interval(Duration::from_secs(60), move || poll_batteries());
+
+    let media_state = signal(Option::<MediaState>::None);
+    let read_media = Rc::new(move || {
+        spawn(async move {
+            if let Ok(next) = media::state() {
+                media_state.set(Some(next));
+            }
+        });
+    });
+    read_media();
+    let poll_media = read_media.clone();
+    set_interval(Duration::from_millis(1500), move || poll_media());
+
     window::configure(expanded);
     window::install_tray(expanded);
     window::install_shortcut(expanded);
@@ -164,7 +190,7 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state)
+            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, batteries)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state)
@@ -241,6 +267,8 @@ fn expanded_island(
     visible: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
+    media_state: Signal<Option<MediaState>>,
+    batteries: Signal<Vec<PeripheralBatteryDevice>>,
 ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -253,6 +281,11 @@ fn expanded_island(
         .flex_col()
         .child(expanded_header(expanded, settings_open, items, dark, ai))
         .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
+        .child(when(
+            move || media_state.get().as_ref().is_some_and(|media| media.available),
+            move || media_panel(media_state, dark),
+        ))
+        .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
         .child(divider(dark))
         .child(search_and_list(query, items, visible, dark))
         .child(
@@ -475,6 +508,158 @@ fn open_cindy(ai: AiState) {
             ai::mark_seen(ai.snapshot, ai.watermark);
         }
     });
+}
+
+fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(14.0))
+        .pb(px(6.0))
+        .child(
+            text("🔋")
+                .text_size(px(12.0))
+                .text_color(move || palette(dark.get()).muted),
+        )
+        .child(
+            text(move || {
+                batteries
+                    .get()
+                    .iter()
+                    .take(4)
+                    .map(|device| format!("{} {}%", device.name, device.level))
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            })
+            .flex_1()
+            .truncate()
+            .text_size(px(10.5))
+            .text_color(move || palette(dark.get()).muted),
+        )
+}
+
+fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(14.0))
+        .pb(px(6.0))
+        .child(
+            text("♪")
+                .text_size(px(13.0))
+                .text_color(move || palette(dark.get()).accent),
+        )
+        .child(media_control("⏮", media_state, dark, media::previous))
+        .child(media_play_control(media_state, dark))
+        .child(media_control("⏭", media_state, dark, media::next))
+        .child(
+            text(move || {
+                let state = media_state.get();
+                let title = state
+                    .as_ref()
+                    .and_then(|media| media.title.clone())
+                    .unwrap_or_else(|| t!("island.media_unknown"));
+                let artist = state
+                    .as_ref()
+                    .and_then(|media| media.artist.clone())
+                    .unwrap_or_default();
+                if artist.is_empty() {
+                    title
+                } else {
+                    format!("{title} — {artist}")
+                }
+            })
+            .flex_1()
+            .truncate()
+            .text_size(px(11.5))
+            .text_color(move || palette(dark.get()).fg),
+        )
+        .child(media_volume_control("−", -0.1, media_state, dark))
+        .child(
+            text(move || {
+                let volume = media_state
+                    .get()
+                    .as_ref()
+                    .map(|media| media.volume)
+                    .unwrap_or(0.0);
+                format!("{:.0}%", volume * 100.0)
+            })
+            .text_size(px(10.0))
+            .text_color(move || palette(dark.get()).muted),
+        )
+        .child(media_volume_control("+", 0.1, media_state, dark))
+}
+
+fn media_control(
+    label: &'static str,
+    media_state: Signal<Option<MediaState>>,
+    dark: Signal<bool>,
+    command: fn() -> Result<MediaState, String>,
+) -> impl IntoElement {
+    text(label)
+        .text_size(px(14.0))
+        .text_color(move || palette(dark.get()).muted)
+        .px(px(4.0))
+        .on_press(move || {
+            spawn(async move {
+                if let Ok(next) = command() {
+                    media_state.set(Some(next));
+                }
+            });
+        })
+}
+
+fn media_play_control(
+    media_state: Signal<Option<MediaState>>,
+    dark: Signal<bool>,
+) -> impl IntoElement {
+    text(move || {
+        if media_state
+            .get()
+            .as_ref()
+            .is_some_and(|media| media.playback_status == "playing")
+        {
+            "⏸"
+        } else {
+            "▶"
+        }
+    })
+    .text_size(px(14.0))
+    .text_color(move || palette(dark.get()).muted)
+    .px(px(4.0))
+    .on_press(move || {
+        spawn(async move {
+            if let Ok(next) = media::play_pause() {
+                media_state.set(Some(next));
+            }
+        });
+    })
+}
+
+fn media_volume_control(
+    label: &'static str,
+    delta: f32,
+    media_state: Signal<Option<MediaState>>,
+    dark: Signal<bool>,
+) -> impl IntoElement {
+    text(label)
+        .text_size(px(13.0))
+        .text_color(move || palette(dark.get()).muted)
+        .px(px(4.0))
+        .on_press(move || {
+            let level = media_state
+                .get_untracked()
+                .as_ref()
+                .map(|media| media.volume)
+                .unwrap_or(0.5);
+            spawn(async move {
+                if let Ok(next) = media::set_volume((level + delta).clamp(0.0, 1.0)) {
+                    media_state.set(Some(next));
+                }
+            });
+        })
 }
 
 fn search_and_list(

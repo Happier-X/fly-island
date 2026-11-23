@@ -70,6 +70,18 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - Known limits: no notification sound yet and no per-session deep link (Cindy
   runs every session in one window).
 
+## Media and peripherals
+
+- When Windows has a media session, the expanded island shows one compact row:
+  previous / play-pause / next, title and artist, and volume -/+ (10% steps).
+  State is polled every 1.5 seconds and the row disappears with the session.
+- Peripheral battery levels come from the same BLE Battery Service, HID Battery
+  Strength and Logitech HID++ readers as Tauri. Up to four devices are listed in
+  one row and refreshed every 60 seconds; the laptop battery is never read.
+- Translation, the quick launcher, the file shelf and notification sounds are
+  documented in docs/architecture/nsh-media-and-utilities.md and are not
+  implemented yet.
+
 ## Focus policy
 
 - Entering click-through releases keyboard focus to the last foreground
