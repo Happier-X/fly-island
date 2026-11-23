@@ -134,7 +134,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 顺序建议（按依赖与风险从低到高）：
 
 1. 剪贴板完整迁移（CF_DIB 写回、旧数据导入、变更监听）。
-2. 设置全量迁移（独立设置窗口已完成；旧外观预设映射待补）。
+2. 设置全量迁移（已完成：旧设置/主题导入、独立设置窗口、字段对照表）。
 3. AI 状态。
 4. 通知（Cindy / 微信 / QQ / 邮件）。
 5. 媒体控制、翻译。
@@ -150,6 +150,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 焦点策略：输入框 `on_focus` / `on_blur` 上报；穿透时输入框有焦点则保留，否则交回最近前台窗口或 `SetFocus(None)`。
 - 独立设置窗口：NSH `window()` 创建，齿轮与托盘“设置”都能打开/关闭；含深/浅主题、中/英、剪贴板开关、记录图片、最多保留、清空历史，写入 `settings.json`。
 - 旧剪贴板设置：首次运行时从 Tauri `clipboard-history.json` 的 `settings` 读取 enabled / captureImages / maxItems。
+- 旧设置与主题：只读导入 WebView2 LevelDB 的 `focusd-island-settings`（按背景亮度映射深/浅主题）和 `focusd-island-locale`（`zh-CN` / `en`），字段白名单与默认值回退见 [nsh-settings-map.md](nsh-settings-map.md)；旧文件不修改、不删除。
 
 验收：每个模块有“Tauri 版 vs NSH 版”功能清单；数据可互相读取或有一次迁移；回归页/手动清单覆盖窄窗口与中英文。
 
@@ -212,13 +213,13 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 
 - **路线**：主体 NSH + 少量 Win32 辅助模块。岛屿必须有 `HWND`，Phase 2 采用自有 Win32 消息循环 + `AppView` 顶层窗口的混合宿主。NSH 的子窗口 `AppView` 会关闭 `transparent`，因此没有采用父子窗口方案；宿主仍完全控制 HWND、消息循环、托盘、快捷键与尺寸。
 - **NSH 版本**：锁定 0.6.1，`nsh.json` 写 `=0.6.1`；升级需单独验证。
-- **数据迁移**：只迁移应用设置与外观主题、剪贴板历史与收藏。旧待办与笔记文件不读取、不删除、不迁移。
+- **数据迁移**：只迁移应用设置与外观主题、剪贴板历史与收藏。旧待办与笔记文件不读取、不删除、不迁移。字段对照见 [nsh-settings-map.md](nsh-settings-map.md)。
 - **自动更新**：接受更换端点与签名；先做手动更新，稳定后再做静默更新，保留一个 Tauri 过渡版本。
 - **截图套件**：单独立项，不并入主线。
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
-- **设置页**：独立设置窗口已完成；旧外观预设与完整设置项映射待补。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板与独立设置窗口已完成，剩余 AI/通知/媒体/启动器等。
+- **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板与设置全量迁移已完成，剩余 AI/通知/媒体/启动器等。
 
 ## Phase 1 验证记录
 
@@ -287,7 +288,29 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 切换浅色后 settings.json 为 dark:false；切换 English 后 locale:en。
 - 关闭记录剪贴板后复制测试文本，clipboard.json 数量 28→28；重新开启后 28→29。
 - 选择最多保留 10 后下一次复制把历史截到 10 条；测试后恢复 30，并重新从旧历史导入 30 条。
-- 旧剪贴板设置（enabled/captureImages/maxItems）在首次运行时从 Tauri clipboard-history.json 读取；旧外观预设仍在 WebView2 LevelDB，尚未映射。
+- 旧剪贴板设置（enabled/captureImages/maxItems）从 Tauri `clipboard-history.json` 的 `settings` 读取；旧外观设置从 WebView2 LevelDB 读取，详见下一节。
+
+## Phase 3 设置全量迁移验收（2026-11-23）
+
+**旧数据导入（只读）**
+
+- `focusd-island-settings`：导入 `appearanceMode:"classic"` 与背景 `#000000`，按亮度映射为深色主题；`islandBackgroundColor` 优先于 `taskTextColor`。
+- `focusd-island-locale`：本机旧库没有该键（旧版未手动切换过语言），`locale` 回退为空并跟随系统；键存在时只接受 `zh-CN` / `en`。
+- 旧剪贴板选项：`enabled=true`、`captureImages=true`、`maxItems=30`，夹在 5–200。
+- 首次导入后 `legacy-settings.json` 保存 1954 字节旧设置原文；旧 `clipboard-history.json` 未改动；旧待办/笔记文件没有读取。
+- LevelDB 导入后哈希（旧 Tauri 进程仍占用 `.log` / `LOCK`，只记录可读的 `.ldb` 段）：`000005.ldb 45A1FFFC…`、`000008.ldb B00FBEDB…`、`000011.ldb D7B21C70…`；`clipboard-history.json` 为 `5FBA3739…`。
+- 字段白名单、默认值回退与删除项见 [nsh-settings-map.md](nsh-settings-map.md)。
+
+**设置窗口与持久化**
+
+- 主题：深色 → 浅色 → 深色，`settings.json` 即时写入；浅色时设置页像素为 `235,235,234`，深色为 `27,29,32`。
+- 语言：中文 ↔ English 即时切换整页文案；`settings.json` 的 `locale` 在切到 English 后为 `en`，切回后为 `zh-CN`。
+- 备份：每次写入前把上一版复制为 `settings.json.bak`；验证时 `.bak` 内容为切换前的 `dark:false`。
+- 重启：结束宿主并重新启动后，岛与设置页仍为中文 + 深色，`settings.json` 的修改时间未变（未重复导入）。
+- 状态同步：关闭设置窗口后，岛内入口由 `✕` 恢复为 `⚙`；主题与语言继续生效。
+- 多屏：设置窗口移到副屏后 `dpi=144`（150%），窗口 `668×797`，内容边界 `x 2709–3360 / y ≤ 882`，全部落在窗口内、无裁剪；证据 `docs/assets/nsh-settings/secondary-150-light-zh.png`。
+- 说明：NSH 窗口跨屏移动时保持原物理尺寸，不按新 DPI 重排（在 150% 屏上显得略小，但布局完整）；窗口再次打开仍在主屏级联位置，这是当前 NSH 行为，不影响使用。
+- 证据：`docs/assets/nsh-settings/primary-125-dark-zh.png`、`primary-125-light-zh.png`、`secondary-150-light-zh.png`。
 
 ### 双屏探针修复记录（2026-11-23）
 

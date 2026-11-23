@@ -1,7 +1,13 @@
 //! Persisted app settings: theme, language and clipboard options.
+//!
+//! On first run it reads the Tauri settings read-only: `focusd-island-settings`
+//! and `focusd-island-locale` from the WebView2 LevelDB, and
+//! `clipboard-history.json` for clipboard options. Only whitelisted fields are
+//! imported; the old files are never modified or deleted.
 
 use std::{fs, path::PathBuf};
 
+use rusty_leveldb::{LdbIterator, Options};
 use serde::{Deserialize, Serialize};
 
 fn default_true() -> bool {
@@ -37,13 +43,13 @@ impl Default for Preferences {
     }
 }
 
-fn data_file() -> Option<PathBuf> {
+fn new_dir() -> Option<PathBuf> {
     let base = std::env::var_os("APPDATA")?;
-    Some(
-        PathBuf::from(base)
-            .join("com.focusd.island.nsh")
-            .join("settings.json"),
-    )
+    Some(PathBuf::from(base).join("com.focusd.island.nsh"))
+}
+
+fn data_file() -> Option<PathBuf> {
+    Some(new_dir()?.join("settings.json"))
 }
 
 pub fn load() -> Preferences {
@@ -54,14 +60,132 @@ pub fn load() -> Preferences {
             }
         }
     }
-    legacy_clipboard_settings()
-        .map(|(enabled, capture_images, max_items)| Preferences {
-            clipboard_enabled: enabled,
-            capture_images,
-            max_items,
-            ..Preferences::default()
-        })
-        .unwrap_or_default()
+    if !nsh_core::prelude::os().is_desktop() {
+        return Preferences::default();
+    }
+    let LegacyLocalStorage { settings, locale } = legacy_local_storage().unwrap_or_default();
+    let clipboard = legacy_clipboard_settings();
+    let preferences = Preferences {
+        dark: settings.as_deref().and_then(dark_from_legacy).unwrap_or(true),
+        locale: locale.unwrap_or_default(),
+        clipboard_enabled: clipboard.map_or(true, |(enabled, _, _)| enabled),
+        capture_images: clipboard.map_or(true, |(_, capture, _)| capture),
+        max_items: clipboard.map_or(default_max_items(), |(_, _, max)| max),
+    };
+    if let Some(dir) = new_dir() {
+        let _ = fs::create_dir_all(&dir);
+        if let Some(raw) = settings.as_deref() {
+            let _ = fs::write(dir.join("legacy-settings.json"), raw);
+        }
+
+    }
+    save(&preferences);
+    preferences
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacySettings {
+    #[serde(default)]
+    appearance_mode: String,
+    #[serde(default)]
+    island_background_color: String,
+    #[serde(default)]
+    task_text_color: String,
+}
+
+fn dark_from_legacy(raw: &str) -> Option<bool> {
+    let settings: LegacySettings = serde_json::from_str(raw).ok()?;
+    if let Some((r, g, b)) = parse_hex(&settings.island_background_color) {
+        return Some(luminance(r, g, b) < 0.5);
+    }
+    if let Some((r, g, b)) = parse_hex(&settings.task_text_color) {
+        return Some(luminance(r, g, b) > 0.5);
+    }
+    Some(settings.appearance_mode != "glass")
+}
+
+fn parse_hex(text: &str) -> Option<(u8, u8, u8)> {
+    let hex = text.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    let value = u32::from_str_radix(hex, 16).ok()?;
+    Some((
+        ((value >> 16) & 0xFF) as u8,
+        ((value >> 8) & 0xFF) as u8,
+        (value & 0xFF) as u8,
+    ))
+}
+
+fn luminance(r: u8, g: u8, b: u8) -> f32 {
+    (0.2126 * r as f32 + 0.7152 * g as f32 + 0.0722 * b as f32) / 255.0
+}
+
+#[derive(Default)]
+struct LegacyLocalStorage {
+    settings: Option<String>,
+    locale: Option<String>,
+}
+
+fn legacy_local_storage() -> Option<LegacyLocalStorage> {
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    let src = PathBuf::from(base)
+        .join("com.focusd.island")
+        .join("EBWebView")
+        .join("Default")
+        .join("Local Storage")
+        .join("leveldb");
+    let dst = std::env::temp_dir().join(format!("nsh-legacy-settings-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dst);
+    fs::create_dir_all(&dst).ok()?;
+    for entry in fs::read_dir(src).ok()? {
+        let entry = entry.ok()?;
+        if entry.file_name() == "LOCK" {
+            continue;
+        }
+        if entry.file_type().ok()?.is_file() {
+            let _ = fs::copy(entry.path(), dst.join(entry.file_name()));
+        }
+    }
+    let mut db = rusty_leveldb::DB::open(&dst, Options::default()).ok()?;
+    let mut iter = db.new_iter().ok()?;
+    let mut found = LegacyLocalStorage::default();
+    while let Some((key, value)) = iter.next() {
+        let key = String::from_utf8_lossy(&key);
+        if key.ends_with("focusd-island-settings") {
+            found.settings.get_or_insert_with(|| legacy_json(&value));
+        } else if key.ends_with("focusd-island-locale") {
+            found.locale.get_or_insert_with(|| legacy_locale(&value));
+        }
+    }
+    found.settings = found
+        .settings
+        .filter(|text| text.trim_start().starts_with('{'));
+    found.locale = found.locale.filter(|text| text == "zh-CN" || text == "en");
+    Some(found)
+}
+
+fn legacy_json(value: &[u8]) -> String {
+    let body = value.strip_prefix(&[1u8]).unwrap_or(value);
+    String::from_utf8_lossy(body).into_owned()
+}
+
+fn legacy_locale(value: &[u8]) -> String {
+    if let Some(body) = value.strip_prefix(&[1u8]) {
+        return String::from_utf8_lossy(body)
+            .trim()
+            .trim_matches('"')
+            .to_string();
+    }
+    if let Some(body) = value.strip_prefix(&[0u8]) {
+        let units: Vec<u16> = body
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        return String::from_utf16_lossy(&units).trim().to_string();
+    }
+    String::new()
 }
 
 fn legacy_clipboard_settings() -> Option<(bool, bool, usize)> {
@@ -73,11 +197,11 @@ fn legacy_clipboard_settings() -> Option<(bool, bool, usize)> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct LegacyHistory {
-        settings: LegacySettings,
+        settings: LegacyClipboard,
     }
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
-    struct LegacySettings {
+    struct LegacyClipboard {
         enabled: bool,
         capture_images: bool,
         max_items: usize,
@@ -96,6 +220,9 @@ pub fn save(preferences: &Preferences) {
     };
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
+    }
+    if path.exists() {
+        let _ = fs::copy(&path, path.with_file_name("settings.json.bak"));
     }
     if let Ok(json) = serde_json::to_string_pretty(preferences) {
         let _ = fs::write(path, json);

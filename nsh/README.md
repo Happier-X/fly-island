@@ -78,9 +78,15 @@ those in favor of its own.
   Moving, expand/collapse, topmost, click-through, tray/hotkeys, unplug/replug
   and edge straddling all re-center correctly. Evidence is in
   `docs/assets/nsh-dpi/`.
-- Tauri settings live in WebView2 LevelDB; only the old clipboard options
-  (enabled/captureImages/maxItems) are imported from `clipboard-history.json`.
-  Old appearance presets are not mapped yet.
+- First run imports the old Tauri settings read-only: appearance maps to the
+  dark/light theme, `focusd-island-locale` maps to the language, and the old
+  clipboard options (enabled/captureImages/maxItems) come from
+  `clipboard-history.json`. The raw old settings are kept in
+  `legacy-settings.json`; every save keeps the previous file as
+  `settings.json.bak`. Field mapping: `docs/architecture/nsh-settings-map.md`.
+- Settings from the old app that have no NSH equivalent yet (layout, presets,
+  media, agent, shelf, translation, mail, battery) are kept in the old data but
+  not applied.
 - Drag works through the capsule grip; expanding or collapsing re-centers the
   window, so a dragged position is not preserved yet.
 - This app does not implement todo, daily notes or the archive. Old Tauri data
