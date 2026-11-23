@@ -130,6 +130,7 @@ fn collapsed_island(
         .px(px(16.0))
         .h(px(COLLAPSED_HEIGHT))
         .w(px(COLLAPSED_WIDTH))
+        .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
         .child(dot(dark))
         .child(
             text(move || t!("island.title"))
@@ -197,6 +198,7 @@ fn expanded_header(
         .gap(px(10.0))
         .px(px(18.0))
         .h(px(44.0))
+        .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
         .child(dot(dark))
         .child(
             text(move || {

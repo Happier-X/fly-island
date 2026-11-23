@@ -31,8 +31,10 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - `Ctrl+Shift+I`: show/collapse the island.
 - `Ctrl+Shift+O`: toggle click-through.
 - `Ctrl+Shift+M`: move to the next monitor.
-- Tray (overflow area, "焦点岛"): show/collapse, click-through, next monitor,
-  quit.
+- `Ctrl+Shift+T`: tuck the collapsed island above the top edge; hover the
+  visible strip to reveal it.
+- Tray (overflow area, "焦点岛"): show/collapse, click-through, tuck, next
+  monitor, quit.
 
 ## Clipboard pilot
 
@@ -67,3 +69,7 @@ those in favor of its own.
 - Image history is session-only; the clipboard image URL is temporary. Images are normalised to PNG before copy-back, which writes the Windows PNG clipboard format (some legacy apps read only CF_DIB; a Win32 DIB writer is Phase 3).
 - The settings page is in-island for Phase 2; the separate settings window
   migration is still open.
+- Drag works through the capsule grip; expanding or collapsing re-centers the
+  window, so a dragged position is not preserved yet.
+- This app does not implement todo, daily notes or the archive. Old Tauri data
+  for them is not read, migrated or deleted.

@@ -66,6 +66,8 @@ pub fn start(expanded: Signal<bool>) {
                 } else {
                     nsh_core::desktop::WindowPointerEvents::Auto
                 });
+                attributes.focusable = Some(!next);
+                attributes.activate = Some(!next);
                 nsh_core::element::desktop::current_window().set(attributes);
             }
         }

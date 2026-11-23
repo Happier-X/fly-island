@@ -30,7 +30,7 @@ mod host {
     use windows::{
         Win32::{
             Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-            UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_CONTROL, MOD_SHIFT},
+            UI::Input::KeyboardAndMouse::{RegisterHotKey, SetFocus, MOD_CONTROL, MOD_SHIFT},
             System::{
                 LibraryLoader::GetModuleHandleW,
                 Ole::{OleInitialize, OleUninitialize},
@@ -55,6 +55,7 @@ mod host {
     pub const HOTKEY_TOGGLE: i32 = 1;
     pub const HOTKEY_THROUGH: i32 = 2;
     pub const HOTKEY_MONITOR: i32 = 3;
+    pub const HOTKEY_TUCK: i32 = 4;
     pub const WM_HOST_EXPAND: u32 = WM_APP + 1;
     pub const WM_HOST_TRAY: u32 = WM_APP + 2;
     pub const WM_HOST_TIMER: usize = 1;
@@ -111,6 +112,12 @@ mod host {
     pub fn toggle_pointer_through() {
         let through = !nsh_app_focusd_island_nsh::embedded::pointer_through();
         nsh_app_focusd_island_nsh::embedded::set_pointer_through(through);
+        if through {
+            // SAFETY: clearing this thread window's focus is always valid.
+            unsafe {
+                let _ = SetFocus(None);
+            }
+        }
         log::info!("pointer through: {through}");
     }
 
@@ -132,6 +139,8 @@ mod host {
                     toggle_pointer_through();
                 } else if wparam.0 as i32 == HOTKEY_MONITOR {
                     island::next_monitor();
+                } else if wparam.0 as i32 == HOTKEY_TUCK {
+                    island::toggle_tuck();
                 }
                 LRESULT(0)
             }
@@ -258,6 +267,9 @@ mod host {
             }
             if let Err(error) = RegisterHotKey(Some(host), HOTKEY_MONITOR, MOD_CONTROL | MOD_SHIFT, 'M' as u32) {
                 log::warn!("Ctrl+Shift+M not registered: {error}");
+            }
+            if let Err(error) = RegisterHotKey(Some(host), HOTKEY_TUCK, MOD_CONTROL | MOD_SHIFT, 'T' as u32) {
+                log::warn!("Ctrl+Shift+T not registered: {error}");
             }
             tray::add(host);
             island::apply(false);
