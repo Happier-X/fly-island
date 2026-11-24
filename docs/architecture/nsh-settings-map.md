@@ -51,7 +51,7 @@
 | `lyricsOffsetMs`、`chineseOffset` | 不迁移为全局偏移；改为每首歌的偏移，存在 nsh 数据目录 lyrics-offsets.json |
 | `agent*` | AI 状态迁移时再接 |
 | `music*`（播放器优先级） | 已接入：settings.json 的 music_sources 存 id/label 顺序；其余 music* 仍未接 |
-| `shelf*` | 文件中转核心已接入；当前固定默认开启/100 条/0 天清理，设置页字段未接 |
+| `shelf*` | 已接上限（20–200）、双击打开/定位、折叠条数量；清理天数未接 |
 | `translation*` | 已接入：provider/model/方向/快捷键/开关/自动翻译从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
 | `launcher*` | 已接入：启用、触发方式/快捷键、搜索项、搜索引擎、目录从旧 LevelDB 导入并写入 settings.json |
 | `qq*`、`mail*` | 已接入：QQ 开关、邮箱 accounts/host/enabled 从旧 LevelDB 导入；授权码保留在 Windows 凭据管理器 |

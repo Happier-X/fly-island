@@ -1,57 +1,56 @@
 # NSH 文件中转（File shelf）对照与验收
 
-状态：2026-11-24。对应 Tauri 代码为 src/features/file-shelf/ 与 src-tauri/src/file_shelf/。
+状态：2026-11-25。对应 Tauri 代码为 src/features/file-shelf/ 与 src-tauri/src/file_shelf/。
 
 ## 对照表
 
-| 能力 | Tauri 现版 | NSH 当前实现 | 状态 / 差异 |
+| 能力 | Tauri 现版 | NSH 当前实现 | 状态 |
 |---|---|---|---|
-| 添加入口 | 岛内拖放、文件选择、CLI 参数 | 宿主在 AppView 上 DragAcceptFiles + WM_DROPFILES；只接受文件路径 | 拖入完成；文件选择/CLI 未接 |
-| 多文件 | 一次加入多个路径 | 一次取全部 HDROP 路径 | 完成 |
-| 非文件拖入 | 文本不进入文件中转 | 只处理 WM_DROPFILES，文本不进入 | 完成 |
-| 存储 | file-shelf.json，最多 100 条，原子写 | NSH 数据目录 com.focusd.island.nsh/file-shelf.json，最多 100 条，临时文件 + rename | 完成 |
-| 条目字段 | id/path/name/isDir/size/addedAt/pinned/missing/unreachable | 同左；missing/unreachable 读取时计算 | 完成 |
-| 去重 | 路径大小写与斜杠不敏感，重复项移到顶部 | path_key 同规则；重复拖入不增加条目 | 完成 |
-| 数量上限 | 默认 100，可设 20–200；置顶不占上限 | 默认 100；normalize 支持 20–200 与置顶豁免 | 设置页未接，当前用默认 100 |
-| 清理 | 可按天数清理、可移除缺失项 | 支持天数/缺失项规则；当前固定 0 天、移除缺失 | 设置页未接 |
-| 列表布局 | ≤4 个大卡片，>4 两列紧凑行 | ≤4 卡片，>4 两列行 | 完成 |
-| 图标 | Explorer Shell 图标、图片缩略图 | 类型徽标（PDF/DIR/TXT…）+ 文件名/大小/路径 | 未接 Shell 图标与缩略图 |
-| 打开 | 双击/Enter 打开；可配置双击定位 | 单击选中，450ms 内双击打开；行内 ↗ 打开 | 无“双击定位”设置 |
-| 定位 | Explorer 中显示并选中 | ShellExecuteW 调 explorer.exe /select,"path" | 完成，已验选中中文文件 |
-| 复制 | 复制文件列表（CF_HDROP） | 复制路径文本（用户本轮要求） | 行为有意不同 |
-| 移除/清空 | 单项移除，清空需确认 | 单项 ✕；清空二次确认 | 完成 |
-| 拖出 | OLE 拖出文件 | 未实现 | 后续打磨 |
-| 置顶 | ★，置顶不占上限、不自动清理 | ★ 置顶，规则同左 | 完成 |
-| 搜索/多选 | 搜索、Ctrl/Shift 多选 | 未实现 | 后续打磨 |
-| 重启恢复 | 读取 JSON | 启动读取 JSON，重启后恢复 | 完成 |
-| 大文件 | 只存路径，无文件大小上限；>40 MB 不做缩略图 | 只存路径，无大小限制；无缩略图 | 50 MB 文件已验，正常加入 |
-| 失败态 | 缺失/不可达、命令错误 | 缺失/不可达标记；打开/定位/复制错误显示在页面底部 | 完成 |
-| 折叠条 | 可显示文件中转数量 | 未加折叠条数量 | 后续打磨 |
+| 添加入口 | 岛内拖放、文件选择、CLI | 宿主 WM_DROPFILES；IFileOpenDialog 多选；CLI 绝对路径 | 完成 |
+| 多文件 | 一次加入多个路径 | 同左 | 完成 |
+| 非文件拖入 | 文本不进入文件中转 | 只处理文件拖放 | 完成 |
+| 存储 | file-shelf.json，最多 100 条 | NSH 数据目录 JSON，原子写 | 完成 |
+| 条目 | id/path/name/isDir/size/addedAt/pinned/missing/unreachable | 同左 | 完成 |
+| 去重 | 路径大小写/斜杠不敏感，重复移到顶部 | 同左 | 完成 |
+| 上限 | 20–200，默认 100；置顶不占上限 | 设置页输入并夹紧 20–200，默认 100 | 完成 |
+| 清理 | 按天数/缺失项清理 | 规则已有；当前固定 0 天/移除缺失，设置页未接 | 部分 |
+| 列表 | ≤4 卡片，>4 两列行 | 同左；搜索时布局保持 | 完成 |
+| 图标 | Explorer Shell 图标 | SHGetFileInfo 图标，按类型/自身缓存 | 完成 |
+| 缩略图 | 图片预览；视频走 Shell | 图片/视频 IShellItemImageFactory；图片解码回退；失败回退类型徽标 | 完成 |
+| 打开 | 双击/Enter；可配置双击定位 | 双击打开；设置可切“打开/定位” | 完成 |
+| 定位 | Explorer 中显示并选中 | explorer.exe /select 并选中 | 完成 |
+| 复制 | 复制文件列表 | 复制路径文本（本轮要求）；5 次重试 + 页面重试按钮 | 完成（锁屏下为错误态） |
+| 移除/清空 | 单项移除、清空确认 | 单项 ✕、批量移除选中、清空二次确认、设置页清空 | 完成 |
+| 拖出 | OLE 拖出文件到 Explorer/聊天窗口 | IDataObject + SHDoDragDrop，经宿主 UI 线程桥接 | 已实现，实拖待解锁复核 |
+| 搜索 | 名称/路径过滤 | 同左 | 完成 |
+| 多选 | Ctrl 切换、Shift 范围、批量移除 | 同左；选择逻辑有 Rust 单测 | 完成 |
+| 重启恢复 | JSON | 同左 | 完成 |
+| 大文件 | 只存路径；40 MB 只影响缩略图 | 同左；50 MB 文件正常加入 | 完成 |
+| 折叠条 | 可显示文件中转数量 | 可开关，显示“文件 n” | 完成 |
+| 鼠标手拖入 | Explorer 拖放 | 只投递 WM_DROPFILES，未做鼠标手拖 | 环境限制 |
 
-## 实机验收（2026-11-24）
+## 实机验收（2026-11-25，锁屏远程桌面）
 
-环境：Windows 11，主屏 125%，副屏 150%；宿主 nsh/host 嵌入 NSH AppView。
-
-- 拖入：向 AppView 发送真实 WM_DROPFILES（3 个路径：中文名、267 字符长路径、50 MB 文件），宿主日志 file drops: 3 files，岛自动展开到 775×525（125%）。
-- 持久化：关闭并重启宿主，3 条仍从 file-shelf.json 恢复，计数“3 个文件”。
-- 去重：同一组 3 个路径再次拖入，仍是 3 条，顺序移到顶部。
-- 大文件：large-50mb.bin 52428800 字节，正常加入并显示 50 MB；Tauri 的 40 MB 只是缩略图源限制，不是加入限制。
-- 打开：点击中文文件的 ↗，Notepad 打开“中文 报告 2026.txt”。
-- 定位：点击 ⌖，Explorer 打开 focusd-shelf-test 并选中“中文 报告 2026.txt”（Shell.Application 读取确认）。
-- 复制路径：点击 ⧉ 后页面显示“复制路径失败：OSError(5): 拒绝访问。”；当前桌面锁屏且剪贴板所有者为高完整性进程 ego，OpenClipboard 返回 access denied。成功路径待解锁后复核。
-- 移除：点击一个 ✕，计数从 3 → 2，JSON 同步为 2。
-- 清空：点“清空”再点“确认清空”，计数 0，JSON 为空，显示空态。
-- 副屏：宿主切到 150% 显示器，日志 monitor_dpi=144 ... 930x630，截图 secondary-150.png。
-- 截图：docs/assets/nsh-file-shelf/2026-11-24/main-125.png、secondary-150.png、empty-125.png、copy-denied-125.png。
+- 拖入：WM_DROPFILES 3 文件（中文名、267 字符长路径、50 MB）→ 岛自动展开；重启后仍在；重复拖入仍 3 条。
+- 文件选择：点“添加”打开系统 IFileOpenDialog，实际选中并加入 picker-added.txt；状态 3 → 4。
+- CLI：宿主带绝对路径参数启动，自动加入并展开。
+- 图标/缩略图：PNG 与 MP4 均生成预览（MP4 由 IShellItemImageFactory，PNG 有解码回退）；TXT 用 Shell 图标；截图 icons-thumbs-125.png。
+- 打开：Notepad 打开“中文 报告 2026.txt”；定位：Explorer 打开测试目录并选中该文件。
+- 搜索：输入“视频”只剩视频卡片，截图 search-125.png。
+- 多选：Ctrl 切换/Shift 范围由 next_selection 单测覆盖；锁屏下合成鼠标不能可靠带修饰键，批量移除用单选中路径验到 3→2。
+- 设置：上限输入 5 夹紧到 20，再设 100；双击切“定位”；折叠条计数开关；设置页清空使 JSON 4→0。截图 settings-shelf-125.png。
+- 折叠条：开启时显示“文件 2”；关闭后消失；截图 collapsed-count-125.png。
+- 复制路径：锁屏且剪贴板被高完整性进程占用时显示“复制路径失败：OSError(5): 拒绝访问。”和“重试”；点重试仍保留列表与错误，不丢 UI。截图 copy-retry-125.png；成功路径待解锁复核。
+- 副屏 150%：旧截图 secondary-150.png 记录 930×630、dpi=144。
+- 其他截图：features-final-125.png、picker-125.png、icons-thumbs-125.png、search-125.png、copy-retry-125.png、settings-shelf-125.png、collapsed-count-125.png。
 
 ## 自动化
 
-- cargo test --lib --offline：106 passed / 9 ignored（含文件中转的去重/置顶/上限/大小与徽标测试）。
-- cargo check（nsh，默认与 embedded）通过；cargo check / cargo build（nsh/host）通过。
-- 宿主拖放实现：SetWindowSubclass + DragAcceptFiles + WM_DROPFILES，路径入 embedded 队列，由 App 引擎线程 80ms 轮询加入并打开文件中转页。
+- cargo test --lib --offline：109 passed / 9 ignored（含文件中转选择、图标、缩略图、徽标、上限测试）。
+- cargo check（nsh 默认与 embedded）、cargo check/build（nsh/host）通过。
+- 宿主拖放：SetWindowSubclass + DragAcceptFiles + WM_DROPFILES；拖出/文件选择经 embedded 请求队列在宿主 UI 线程执行。
 
 ## 遗留
 
-- 当前桌面锁屏，未做鼠标手拖；已投递 Explorer 拖放同一条 WM_DROPFILES，宿主实际收到 3 个路径。解锁后可补一次鼠标手拖。
-- 复制路径成功路径需在解锁桌面、同完整性剪贴板环境下再验一次。
-- 拖出（OLE）、Shell 图标/图片缩略图、文件选择、CLI、搜索/多选、折叠条数量、设置页的 100/20–200 与自动清理尚未接。
+- 解锁后补：真实鼠标手拖入、真实 OLE 拖出到 Explorer/聊天窗口、复制路径成功读取。
+- 清理天数设置页、多选快捷键的实机鼠标组合操作待补。
