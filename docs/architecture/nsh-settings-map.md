@@ -37,6 +37,7 @@
 | 最多保留 10/20/30/50 | 下一次采集时截断 |
 | 清空历史（保留收藏） | 保留收藏项 |
 | 独立设置窗口 | 普通可缩放窗口，支持多屏；齿轮与托盘入口 |
+| 快捷启动器 | 启用、组合键/双击 Ctrl、录制与重置、搜索项、搜索引擎、文件目录；保存为 `launcher_*` |
 
 ## 暂不迁移（NSH 当前无等价能力）
 
@@ -51,6 +52,7 @@
 | `music*`（播放器优先级） | 已接入：settings.json 的 music_sources 存 id/label 顺序；其余 music* 仍未接 |
 | `shelf*` | 文件中转迁移时再接 |
 | `translation*` | 已接入：provider/model/方向/快捷键/开关/自动翻译从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
+| `launcher*` | 已接入：启用、触发方式/快捷键、搜索项、搜索引擎、目录从旧 LevelDB 导入并写入 settings.json |
 | `mail*`、`battery*`、`game*` | 对应功能迁移时再接 |
 | `showTitle`、`showCollapsedText`、`collapsedLayout`、`collapsedShowCover`、`expandTrigger`、`hover*`、`autoTuck*`、`autoCollapse*`、`minimizeAction`、`tuckedHoverAction`、`revealOnMessage` | 岛屿行为迁移时再接；当前宿主只提供手动贴边/展开 |
 

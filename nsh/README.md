@@ -86,8 +86,14 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   clipboard fills an empty source, 500 ms auto-translate is optional, and seven
   OpenAI-compatible providers are supported. Shortcuts are recorded in Settings
   with conflict and reset handling; API keys stay in Windows Credential Manager.
-  The quick launcher and the file shelf are still pending. See
-  docs/architecture/nsh-translation.md.
+  See docs/architecture/nsh-translation.md.
+- The quick launcher opens with Alt+Space or two Ctrl taps, centered on the
+  monitor under the pointer, and closes on Esc, blur or its shortcut. It
+  searches Start Menu shortcuts, UWP apps (`Get-StartApps`), executables on
+  PATH, files under Desktop/Documents/Downloads (or custom folders), and URLs;
+  with no match it offers a Bing/Google/Baidu/DuckDuckGo search. Arrow keys,
+  Enter and Esc work from the search field, and Settings records the
+  combination or selects double-Ctrl. The file shelf is still pending.
 - Lyrics come from a local .lrc folder, LRCLIB, Kugou (KRC word times and a
   translation when the source has one) and NetEase. Answers and recent misses
   are cached in APPDATA/com.focusd.island.nsh/lyrics-cache; the expanded page

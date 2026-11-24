@@ -47,18 +47,17 @@
 
 完整对照表、mock 与 UI 验收证据见 [nsh-translation.md](nsh-translation.md)。
 
-## 快捷启动器（对照表已列，待实现）
+## 快捷启动器（已完成，2026-11-24）
 
-| 能力 | Tauri 现有行为 | NSH 计划 | 取舍 |
-|---|---|---|---|
-| 触发 | Alt+Space / 双击 Ctrl，可改 | 宿主 RegisterHotKey；双击 Ctrl 需低级键盘钩子 | 先做快捷键，双击 Ctrl 后补 |
-| 窗口 | 680×460 popup，鼠标所在显示器居中，Esc/失焦关闭 | NSH popup 窗口，同尺寸与关闭规则 | 保留 |
-| 索引 | 开始菜单应用、用户选择的文件夹、URL | 先做开始菜单应用；文件夹/URL 后补 | 分批 |
-| 搜索 | 名称/副标题匹配，键盘上下选择 | 同样匹配，支持方向键/Enter | 保留 |
-| 图标 | Shell 图标转 PNG | 宿主 Shell 图标提取 | 保留 |
-| 打开 | 启动应用/文件/URL | 同左 | 保留 |
+680×460 无边框透明置顶窗口，Alt+Space 或双击 Ctrl 唤出，鼠标所在显示器居中；Esc、失焦、再按快捷键关闭。
 
-状态：本轮只完成对照表；实现排在翻译之后。
+- 索引：开始菜单 `.lnk/.url/.appref-ms`（4 层）、`Get-StartApps` 的 UWP、PATH 可执行文件；默认 Desktop/Documents/Downloads 或自定义目录（3 层、3000 条、30 秒缓存）。
+- 搜索：exact/prefix/word/contains/path 排序，应用优先，短名优先；URL 直达，无结果按 Bing/Google/Baidu/DuckDuckGo 回退。
+- 交互：↑↓ 循环、Enter 打开、Esc 关闭、鼠标悬停选中/单击打开；空查询、索引中、无结果、打开失败都有状态位。
+- 设置：启用、组合键/双击 Ctrl、录制与重置、冲突提示、搜索项、搜索引擎、目录；旧 LevelDB 设置一次性导入。
+- 打开：`ShellExecuteW`，只允许绝对路径、http(s)、`shell:AppsFolder\`；失败显示在底部。
+
+完整对照表、验收截图与已知差异见 [nsh-launcher.md](nsh-launcher.md)。
 
 ## 文件中转（对照表已列，待实现）
 
@@ -86,6 +85,6 @@ Tauri 有提示音：src/features/cindy-notifications/sounds/。
 ## 本轮实现状态
 
 - 已完成：媒体播放控制（核心）、系统音量、设备电量（BLE/HID/HID++）。
-- 已完成：翻译。待实现：快捷启动器、文件中转。
+- 已完成：翻译、快捷启动器。待实现：文件中转。
 - 已做：Cindy 通知提示音（三份 WAV、0.7 音量、设置开关）。
 - 媒体 parity 已完成（封面/取色、歌词、进度点击/拖动、随机循环、多会话/来源优先级、空闲态、电平字形、提示音）；验收证据见 [nsh-media-parity.md](nsh-media-parity.md)。
