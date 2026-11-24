@@ -149,6 +149,14 @@ those in favor of its own.
 - `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
 - `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 
+## Packaging
+
+```powershell
+nsh package nsh --target windows -o nsh/dist
+```
+
+`nsh/dist/FocuSD Island (NSH).zip` is the portable first distribution (exe, nsh/app.json, assets). `nsh/dist/FocuSD Island (NSH).iss` needs Inno Setup 6; it is not installed automatically. Updates use a separate manifest and SHA-256; see docs/architecture/nsh-release.md.
+
 ## Known limits
 
 - Dual display verified 2026-11-23: 2560×1440 @125% plus 2240×1400 @150%.

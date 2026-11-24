@@ -31,7 +31,7 @@
 | Rust root | 可用 | 不链接 QuickJS；首次构建约 60 个 crate（本机约 4m42s，增量 1.5s）。 |
 | 翻译 | 可用 | `locales/` 的 rust-i18n 格式由 `nsh` 编译进 runner，`t!` / `set_locale` / `available_locales`；spike 已生成 `translations.json`。 |
 | 剪贴板 | 读写可用，无事件 | `clipboard_string` / `clipboard_image` / `clipboard_files`；没有变更通知，只能轮询。 |
-| 自动更新 | 有，但格式不同 | `nsh.json` 的 `updater` + `nsh update-manifest` 生成签名 `latest.json`；Rust 应用要直接用 `nsh-updater` crate 并自带 HTTP 传输。与现有 Tauri 更新端点/格式不兼容。 |
+| 自动更新 | 有，但格式不同 | NSH 采用自研清单 version/url/sha256/signature/notes；SHA-256 强制，签名可选但未验证。与现有 Tauri 更新端点/格式不兼容，见 nsh-release.md。 |
 | 打包 | 可用 | `nsh package --target windows` 输出目录、zip、Inno Setup 脚本；安装到 `%LOCALAPPDATA%\Programs\<Name>`，免管理员。 |
 | 签名 | 自己做 | NSH 不签 Windows 可执行文件/安装包，需 `signtool`。 |
 
@@ -60,7 +60,7 @@
 | 截图套件（框选、标注、长截图、OCR、贴图、HDR、混合 DPI） | 选区覆盖层用独立 Win32 窗口（或 NSH `overlay`，但需要交互，不能用点击穿透）；捕获用 DXGI / Windows.Graphics.Capture；OCR 用 Windows.Media.Ocr；长截图靠输入注入 + 滚动拼接；贴图是独立置顶窗口。 | 极高：HDR 色调映射、混合 DPI 坐标、全屏独占、输入注入、内存与性能都要单独验证；不应作为 Phase 2/3 的前置。 |
 | 快捷启动器 | NSH `popup` 窗口 + Rust 索引/图标；图标转成图片资源或 data URL。 | 中高：双击 Ctrl 需要低级键盘钩子（自写 Win32）；大量文件扫描与图标解码的性能要重做。 |
 | 设置窗口 | NSH `dialog`/`panel` 窗口，复用 NSH 基础控件；设置存储改到 Rust JSON 或 NSH storage。 | 中：设置项非常多，控件与窄窗口适配要逐项验收。 |
-| 自动更新 | `nsh package` + `nsh update-manifest` / GitHub Releases；Rust 应用用 `nsh-updater` 校验签名、下载、替换、重启。 | 中高：签名密钥、manifest 格式、安装目录和旧 Tauri 版本升级路径都要重新设计。 |
+| 自动更新 | `nsh package` + 自研清单；Rust 应用校验 SHA-256、下载、替换、重启。 | 中高：签名密钥、manifest 格式、安装目录和旧 Tauri 版本升级路径都要重新设计。 |
 | 外观主题 / 预设 | NSH 主题 token（`theme.json` / `setTheme`）+ 窗口 `backdrop`（Mica/Acrylic）；预设编辑器用 NSH 控件重写。 | 中：没有任意 CSS；现有主题变量、壁纸、布局编辑器要映射到 token 体系。 |
 | i18n | NSH `locales/` + `t!` / `set_locale`；现有中英文字典可脚本转换成 rust-i18n 格式。 | 低：能力完整；注意运行时切换与系统语言回退。 |
 
@@ -183,7 +183,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 构建：`nsh run nsh`（开发，热重载 Rust 改动会重建并重启）；`nsh package --target windows`（发布）。首次 Rust 构建约 60 个 crate；建议固定 `nsh` 版本并在 `nsh.json` 写 `"nsh": ">=0.6, <0.7"`。
 - 安装包：输出 `.nsh\out\<Name>\`、`.zip`、`.iss`；安装 Inno Setup 6 后生成 `<Name>-setup.exe`，按当前用户安装到 `%LOCALAPPDATA%\Programs\<Name>`，无需管理员。
 - 签名：NSH 不签 Windows 二进制；用 `signtool` 对 `.exe` 和 `setup.exe` 签名，CI 中从密钥库取证书。EV/OV 证书策略与现有发布流程一致。
-- 自动更新：`nsh.json` 配 `updater.github` 或 `updater.url + publicKey`；`nsh update-manifest` 生成签名 `latest.json`，与各平台压缩包一起上传。Rust 应用要用 `nsh-updater` crate：`Config::check` 校验 manifest，`Download` 校验大小/SHA-256，`Installation::install` 替换，`restart()` 重启。TSX 部分可走 OTA 签名包；Rust 代码变更必须发新安装包。
+- 自动更新：NSH 使用自研清单（version/url/sha256/signature/notes）和宿主内更新器；启动/设置页检查，下载 zip、强制 SHA-256、解包、覆盖并重启。便携 zip 已验收；签名仅作元数据，未验证。详见 nsh-release.md。
 - 与现有 Tauri 更新不兼容：Tauri 的 `latest.json` 字段/签名与 NSH manifest 不同，不能共用同一文件。迁移期保留旧端点和旧版本更新；新版本使用新端点，或在服务端按 User-Agent/版本分流。
 - 数据目录：`nsh.json` 的 `dataDir` 可指到现有 `%APPDATA%\com.focusd.island` 以复用文件；NSH storage 是另一套位置，需明确哪些数据放哪。
 - CI：Windows runner + Rust 1.99.1 + NSH 0.6.x + Inno Setup + 签名证书；产物：安装包、zip、`latest.json`、`latest.json.sig`、符号/源码映射（如需要）。
@@ -424,10 +424,11 @@ focusd-island-translation-settings
 | 文件中转 | 拖放、持久化、打开/复制/拖出 | 核心完成：拖放/文件选择/CLI、图标与缩略图、搜索/多选、打开/定位/复制路径（重试）/移除/清空、设置上限与双击/折叠计数；OLE 拖出代码已接 | 是（锁屏下拖出实拖/复制成功待复核） | 解锁后实拖与复制 |
 | 截图 | 框选/标注/长截图/OCR/贴图/HDR | 单独立项，未开始 | 否（独立项） | 目标机器矩阵 |
 | 托盘与快捷键 | 显示/收起/穿透/切屏/贴边 | 已完成 | 否 | 无 |
-| 自动更新 | 端点/签名/手动更新 | 未开始 | 是 | 新端点与签名 |
-| 安装包与签名 | NSIS/签名 | 未开始 | 是 | 证书 |
+| 自动更新 | 端点/签名/手动更新 | 核心完成：自研清单、启动检查、下载、SHA-256、解包、覆盖、重启；本地 HTTP 全流程通过；未签名 | 否（未签名风险已提示） | 代码签名/生产 HTTPS |
+| 安装包与签名 | NSIS/签名 | 便携 zip 完成；nsh package 生成 .iss，本机未装 Inno Setup，未生成安装器；无签名证书 | 是（安装器/签名未完成） | Inno Setup + 证书 |
 
 媒体验收证据：docs/assets/nsh-media/2026-11-24/（本地 LRC、LRCLIB、KRC 翻译、无歌词、断网、拖动、空闲、多会话/播放器优先级）与 [nsh-media-parity.md](nsh-media-parity.md) 的“2026-11-24 媒体收尾验收”。
+发版与更新链路：docs/architecture/nsh-release.md（便携 zip、清单格式、SHA-256、替换/重启、未签名风险、Tauri 过渡与回滚）。
 
 翻译验收证据：docs/assets/nsh-translation/2026-11-24/（中→英、英→中、未配置 Key）与 [nsh-translation.md](nsh-translation.md)；mock 测试用 Rust 本地 TCP 服务（`translation::tests::mock_provider_*`）。
 

@@ -46,7 +46,7 @@
 
 ## 自动化
 
-- cargo test --lib --offline：109 passed / 9 ignored（含文件中转选择、图标、缩略图、徽标、上限测试）。
+- cargo test --lib --offline：112 passed / 9 ignored（含文件中转选择/图标/缩略图/徽标/上限测试，以及更新清单/哈希/404/写权限测试）。
 - cargo check（nsh 默认与 embedded）、cargo check/build（nsh/host）通过。
 - 宿主拖放：SetWindowSubclass + DragAcceptFiles + WM_DROPFILES；拖出/文件选择经 embedded 请求队列在宿主 UI 线程执行。
 

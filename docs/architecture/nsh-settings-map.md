@@ -52,6 +52,7 @@
 | `agent*` | AI 状态迁移时再接 |
 | `music*`（播放器优先级） | 已接入：settings.json 的 music_sources 存 id/label 顺序；其余 music* 仍未接 |
 | `shelf*` | 已接上限（20–200）、双击打开/定位、折叠条数量；清理天数未接 |
+| `update_endpoint` | 已接入设置页“自动更新”；空值关闭检查，写入 settings.json |
 | `translation*` | 已接入：provider/model/方向/快捷键/开关/自动翻译从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
 | `launcher*` | 已接入：启用、触发方式/快捷键、搜索项、搜索引擎、目录从旧 LevelDB 导入并写入 settings.json |
 | `qq*`、`mail*` | 已接入：QQ 开关、邮箱 accounts/host/enabled 从旧 LevelDB 导入；授权码保留在 Windows 凭据管理器 |
