@@ -1,15 +1,22 @@
 //! Mail account settings: provider presets, credential storage and the
 //! header-first fixture reader.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::mpsc, thread, time::Duration};
 
 use nsh_core::{element::{input, scroll}, prelude::*};
 
 use crate::mail::{self, Account, Header, Snapshot, Status};
 use crate::palette;
 
+enum Command {
+    SetAccounts(Vec<Account>),
+    Probe,
+    Body(String),
+}
+
 thread_local! {
-    static SERVICE: RefCell<Option<mail::Service>> = const { RefCell::new(None) };
+    static COMMANDS: RefCell<Option<mpsc::Sender<Command>>> = const { RefCell::new(None) };
+    static SNAPSHOTS: RefCell<Option<mpsc::Receiver<Snapshot>>> = const { RefCell::new(None) };
 }
 
 #[derive(Clone, Copy)]
@@ -25,8 +32,12 @@ pub struct MailState {
     pub dirty: Signal<u64>,
 }
 
-fn with_service<R>(f: impl FnOnce(&mut mail::Service) -> R) -> Option<R> {
-    SERVICE.with(|slot| slot.borrow_mut().as_mut().map(f))
+fn send(command: Command) {
+    COMMANDS.with(|slot| {
+        if let Some(sender) = slot.borrow().as_ref() {
+            let _ = sender.send(command);
+        }
+    });
 }
 
 fn apply(state: MailState, snapshot: Snapshot) {
@@ -34,10 +45,18 @@ fn apply(state: MailState, snapshot: Snapshot) {
     state.snapshot.set(snapshot);
 }
 
-fn probe(state: MailState) {
-    if let Some(snapshot) = with_service(|service| service.probe()) {
-        apply(state, snapshot);
-    }
+fn drain(state: MailState) {
+    SNAPSHOTS.with(|slot| {
+        if let Some(receiver) = slot.borrow().as_ref() {
+            while let Ok(snapshot) = receiver.try_recv() {
+                apply(state, snapshot);
+            }
+        }
+    });
+}
+
+fn probe(_state: MailState) {
+    send(Command::Probe);
 }
 
 fn sync(state: MailState) {
@@ -59,52 +78,107 @@ fn save(state: MailState) {
             return;
         }
     };
-    let secret = state.secret.get_untracked();
-    if let Err(error) = mail::save_secret(&address, &secret) {
+    if let Err(error) = mail::save_secret(&address, &state.secret.get_untracked()) {
         state.error.set(error);
         return;
     }
-    let account = Account { email: address, host, enabled: true };
-    let result = with_service(|service| {
-        service.upsert(account.clone())?;
-        Ok::<_, String>(service.accounts().to_vec())
-    });
-    match result {
-        Some(Ok(accounts)) => {
-            state.accounts.set(accounts);
-            state.secret.set(String::new());
-            state.error.set(String::new());
-            state.dirty.set(state.dirty.get_untracked() + 1);
-            probe(state);
-        }
-        Some(Err(error)) => state.error.set(error),
-        None => state.error.set("邮箱服务尚未就绪。".to_string()),
+    let mut accounts = state.accounts.get_untracked();
+    if let Some(index) = accounts.iter().position(|account| account.email == address) {
+        accounts[index].host = host;
+        accounts[index].enabled = true;
+    } else if accounts.len() >= mail::MAX_ACCOUNTS {
+        state.error.set(format!("最多保存 {} 个邮箱。", mail::MAX_ACCOUNTS));
+        return;
+    } else {
+        accounts.push(Account { email: address, host, enabled: true });
     }
+    state.accounts.set(accounts.clone());
+    state.secret.set(String::new());
+    state.error.set(String::new());
+    state.dirty.set(state.dirty.get_untracked() + 1);
+    send(Command::SetAccounts(accounts));
+    send(Command::Probe);
 }
 
 fn remove(state: MailState, email: String) {
-    let result = with_service(|service| {
-        service.remove(&email)?;
-        Ok::<_, String>(service.accounts().to_vec())
-    });
-    match result {
-        Some(Ok(accounts)) => {
-            state.accounts.set(accounts);
-            state.error.set(String::new());
-            state.dirty.set(state.dirty.get_untracked() + 1);
-            if let Some(snapshot) = with_service(|service| service.snapshot()) {
-                apply(state, snapshot);
-            }
-        }
-        Some(Err(error)) => state.error.set(error),
-        None => state.error.set("邮箱服务尚未就绪。".to_string()),
+    if let Err(error) = mail::delete_secret(&email) {
+        state.error.set(error);
+        return;
     }
+    let accounts: Vec<Account> = state
+        .accounts
+        .get_untracked()
+        .into_iter()
+        .filter(|account| account.email != email)
+        .collect();
+    state.accounts.set(accounts.clone());
+    state.error.set(String::new());
+    state.dirty.set(state.dirty.get_untracked() + 1);
+    send(Command::SetAccounts(accounts));
 }
 
-fn read_body(state: MailState, id: String) {
-    if let Some(snapshot) = with_service(|service| service.body(&id)) {
-        apply(state, snapshot);
-    }
+fn read_body(_state: MailState, id: String) {
+    send(Command::Body(id));
+}
+
+pub fn start(accounts: Vec<Account>) -> MailState {
+    let provider = signal(
+        mail::provider_for(&accounts.first().cloned().map_or_else(String::new, |account| account.email))
+            .id
+            .to_string(),
+    );
+    let email = signal(String::new());
+    let host = signal(String::new());
+    let secret = signal(String::new());
+    let accounts_signal = signal(accounts.clone());
+    let snapshot = signal(Snapshot::default());
+    let headers = signal(Vec::new());
+    let error = signal(String::new());
+    let dirty = signal(0u64);
+    let (command_tx, command_rx) = mpsc::channel();
+    let (snapshot_tx, snapshot_rx) = mpsc::channel();
+    COMMANDS.with(|slot| *slot.borrow_mut() = Some(command_tx));
+    SNAPSHOTS.with(|slot| *slot.borrow_mut() = Some(snapshot_rx));
+    thread::spawn(move || {
+        let mut service = mail::Service::new(accounts);
+        let _ = snapshot_tx.send(service.snapshot());
+        if !service.accounts().is_empty() {
+            let _ = snapshot_tx.send(service.probe());
+        }
+        loop {
+            match command_rx.recv_timeout(Duration::from_secs(60)) {
+                Ok(Command::SetAccounts(accounts)) => {
+                    service.set_accounts(accounts);
+                    let _ = snapshot_tx.send(service.snapshot());
+                }
+                Ok(Command::Probe) => {
+                    let _ = snapshot_tx.send(service.probe());
+                }
+                Ok(Command::Body(id)) => {
+                    let _ = snapshot_tx.send(service.body(&id));
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    if !service.accounts().is_empty() {
+                        let _ = snapshot_tx.send(service.probe());
+                    }
+                }
+            }
+        }
+    });
+    let state = MailState {
+        accounts: accounts_signal,
+        provider,
+        email,
+        host,
+        secret,
+        snapshot,
+        headers,
+        error,
+        dirty,
+    };
+    set_interval(Duration::from_millis(250), move || drain(state));
+    state
 }
 
 fn set_provider(state: MailState, id: &str) {
@@ -113,6 +187,7 @@ fn set_provider(state: MailState, id: &str) {
         state.host.set(preset.host.to_string());
     }
 }
+
 
 fn status_label(status: Status) -> String {
     match status {
@@ -129,6 +204,7 @@ fn status_label(status: Status) -> String {
 fn mini(label: impl Fn() -> String + 'static, dark: Signal<bool>, press: impl Fn() + 'static) -> impl IntoElement {
     text(label)
         .flex_shrink(0.0)
+        .min_w(px(34.0))
         .px(px(7.0))
         .py(px(2.0))
         .rounded(px(5.0))
@@ -151,35 +227,6 @@ fn pill(label: impl Fn() -> String + 'static, active: Rc<dyn Fn() -> bool + 'sta
                 .text_size(px(10.0))
                 .text_color(move || if active() { palette(dark.get()).bg } else { palette(dark.get()).muted }),
         )
-}
-
-pub fn start(accounts: Vec<Account>) -> MailState {
-    let provider = signal(mail::provider_for(&accounts.first().cloned().map_or_else(String::new, |account| account.email)).id.to_string());
-    let email = signal(String::new());
-    let host = signal(String::new());
-    let secret = signal(String::new());
-    let accounts_signal = signal(accounts.clone());
-    let snapshot = signal(Snapshot::default());
-    let headers = signal(Vec::new());
-    let error = signal(String::new());
-    let dirty = signal(0u64);
-    SERVICE.with(|slot| {
-        let mut service = mail::Service::new(accounts.clone());
-        if !accounts.is_empty() && std::env::var_os("NSH_MAIL_FIXTURE").is_some() {
-            service.probe();
-        }
-        *slot.borrow_mut() = Some(service);
-    });
-    if let Some(mut initial) = with_service(|service| service.snapshot()) {
-        if !accounts.is_empty()
-            && std::env::var_os("NSH_MAIL_FIXTURE").is_none()
-            && !accounts.iter().any(|account| mail::has_secret(&account.email).unwrap_or(false))
-        {
-            initial.status = Status::Unconfigured;
-        }
-        snapshot.set(initial);
-    }
-    MailState { accounts: accounts_signal, provider, email, host, secret, snapshot, headers, error, dirty }
 }
 
 pub fn settings_section(state: MailState, dark: Signal<bool>) -> impl IntoElement {

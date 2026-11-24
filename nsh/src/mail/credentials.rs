@@ -28,9 +28,6 @@ fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-pub fn has_secret(email: &str) -> Result<bool, String> {
-    Ok(read_secret(email)?.is_some())
-}
 
 pub fn read_secret(email: &str) -> Result<Option<String>, String> {
     let name = wide(&target(email));

@@ -2592,10 +2592,12 @@ dependencies = [
  "pollster",
  "reqwest",
  "rusqlite",
+ "rustls",
  "rusty-leveldb",
  "serde",
  "serde_json",
  "tokio",
+ "webpki-roots 1.0.12",
  "windows",
 ]
 

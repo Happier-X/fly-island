@@ -64,6 +64,7 @@ island:
   qq_open: Open
   qq_retry: Retry
   qq_clear: ✕
+  qq_settings: Notification settings
   mail_title: Mail
   mail_hint: Headers only; bodies on demand. No read flags, attachments or remote images.
   mail_unconfigured: Not configured

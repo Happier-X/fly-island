@@ -64,6 +64,7 @@ island:
   qq_open: 打开
   qq_retry: 重试
   qq_clear: ✕
+  qq_settings: 通知设置
   mail_title: 邮箱
   mail_hint: 只同步邮件头，正文按需读取；不标已读、不下附件、不加载远程图片
   mail_unconfigured: 未配置

@@ -2,12 +2,14 @@
 //! no read flags, attachments or remote images in what the UI receives.
 
 mod credentials;
+mod imap;
 
 use std::env;
 
 use serde::{Deserialize, Serialize};
 
-pub use credentials::{delete_secret, has_secret, save_secret};
+pub use credentials::{delete_secret, save_secret};
+pub use imap::ImapSource;
 
 pub const MAX_ACCOUNTS: usize = 5;
 const DEFAULT_IMAP_PORT: u16 = 993;
@@ -123,7 +125,7 @@ impl Default for Snapshot {
     }
 }
 
-pub trait Source {
+pub trait Source: Send {
     fn headers(&mut self) -> Result<Vec<Header>, MailError>;
     fn body(&mut self, id: &str) -> Result<String, MailError>;
 }
@@ -212,9 +214,10 @@ pub struct Service {
 
 impl Service {
     pub fn new(accounts: Vec<Account>) -> Self {
+        let source = source_for(&accounts);
         let mut service = Self {
             accounts,
-            source: Box::new(Fixture::from_environment()),
+            source,
             snapshot: Snapshot::default(),
         };
         service.refresh_status();
@@ -225,10 +228,18 @@ impl Service {
         self.snapshot.clone()
     }
 
+    pub fn set_accounts(&mut self, accounts: Vec<Account>) {
+        self.accounts = accounts;
+        self.source = source_for(&self.accounts);
+        self.snapshot = Snapshot::default();
+        self.refresh_status();
+    }
+
     pub fn accounts(&self) -> &[Account] {
         &self.accounts
     }
 
+    #[cfg(test)]
     pub fn upsert(&mut self, account: Account) -> Result<(), String> {
         if !self.accounts.iter().any(|current| current.email == account.email)
             && self.accounts.len() >= MAX_ACCOUNTS
@@ -243,13 +254,6 @@ impl Service {
         Ok(())
     }
 
-    pub fn remove(&mut self, email: &str) -> Result<(), String> {
-        delete_secret(email)?;
-        self.accounts.retain(|account| account.email != email);
-        self.snapshot = Snapshot::default();
-        self.refresh_status();
-        Ok(())
-    }
 
     fn refresh_status(&mut self) {
         if self.accounts.is_empty() {
@@ -296,6 +300,16 @@ impl Service {
             MailError::Unconfigured => Status::Unconfigured,
         };
         self.snapshot.error = Some(error.message());
+    }
+}
+
+fn source_for(accounts: &[Account]) -> Box<dyn Source> {
+    if env::var_os("NSH_MAIL_FIXTURE").is_some() {
+        return Box::new(Fixture::from_environment());
+    }
+    match accounts.first() {
+        Some(account) => Box::new(ImapSource::new(account.clone())),
+        None => Box::new(Fixture::from_environment()),
     }
 }
 
