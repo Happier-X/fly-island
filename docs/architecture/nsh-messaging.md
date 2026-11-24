@@ -19,34 +19,34 @@
 
 验证：启动宿主后显示“监听中”；向宿主发送 SHELLHOOK/HSHELL_FLASH 且目标是真实微信窗口，状态变为“需关注”；微信当前确实在后台闪烁，未读内容。锁屏下 SetForegroundWindow 失败，pending 保留；解锁后点击“打开微信”才清除。该项列为待人工验收，不绕开系统限制。
 
-## QQ 通知（夹具管线完成，2026-11-24）
+## QQ 通知（真实监听 + 夹具，2026-11-24）
 
 | 能力 | Tauri 现有行为 | NSH 实现 | 状态 |
 |---|---|---|---|
-| 来源 | Windows UserNotificationListener 读 QQ toast | 夹具源 `NSH_QQ_FIXTURE=ok / denied / required / error`；真实监听待接 | 夹具完成 |
+| 来源 | Windows UserNotificationListener 读 QQ toast | 真实 WinRT UserNotificationListener；无 NSH_QQ_FIXTURE 时读取系统通知并按 AppUserModelId=QQ 过滤；夹具 env 仍保留 | 真实监听完成 |
 | 存储 | 只留内存，不落盘 | `nsh/src/qq.rs` 的 `Buffer`，最多 20 条，内存 | 完成 |
 | 去重/合并 | 按条 id 去重，更新替换 | 同 id 替换；同标题 5 秒内合并正文；上限 20 | 完成 |
-| 过滤 | 只识别 QQ 应用 | 真实源按 `QQ` AppId 过滤（待接）；夹具按脚本 | 夹具 |
-| 点击 | 打开 QQ | 先找 QQ 窗口再尝试启动；未运行/失败返回明确错误 | 代码已接，真实联调待 |
+| 过滤/运行检测 | 只识别 QQ 应用 | 按 AppUserModelId=QQ 过滤；Toolhelp 检测 QQ.exe，未运行显示“QQ 未运行” | 完成 |
+| 点击 | 打开 QQ | EnumWindows 查找 QQ 主窗口并 SetForegroundWindow；找不到时尝试 QQ.exe，失败明确报错 | 完成 |
 | 失败态 | 无权限/未运行明确提示 | 未运行、权限不足、需要授权、读取失败四态 + 重试 | 完成 |
 | UI | 设置开关 + 消息面板 | 设置内“QQ 通知”开关；展开岛 QQ 面板含状态、列表、打开/重试/清空 | 完成 |
 
-夹具验收：`NSH_QQ_FIXTURE=ok` 第一次读是基线，第二次读出现“设计群”并把 5 秒内的“后续消息”合并成一条；`denied` 显示“通知权限被拒绝”，`error` 显示“读取失败”，两者都带重试。真实监听等 QQ 登录后联调。
+真实监听已接：无夹具启动时读取系统通知并按 AppUserModelId=QQ 过滤，Toolhelp 检测 QQ.exe；当前系统 47 条通知、QQ 0 条（QQ 未运行），截图 qq-real-listener.png。夹具仍保留用于 ok/denied/error 截图；真实 QQ toast 等登录后联调。
 
-## 邮箱（设置与夹具 IMAP 完成，2026-11-24）
+## 邮箱（真实 TLS IMAP + 夹具，2026-11-24）
 
 | 能力 | Tauri 现有行为 | NSH 实现 | 状态 |
 |---|---|---|---|
-| 凭据 | Windows 凭据管理器，service=com.focusd.island.qq-mail | `CredRead/CredWrite/CredDelete`，target 为 email + service，与旧条目一致 | 完成 |
+| 凭据 | Windows 凭据管理器，service=com.focusd.island.qq-mail | Windows Credential Manager (CredRead/CredWrite/CredDelete)，target 为 email + service，与旧条目一致 | 完成 |
 | 账户 | 最多 5 个，邮箱地址 + 可选 IMAP host | `settings.json` 的 `mail_accounts`；旧 LevelDB 的 `focusd-island-qq-mail-settings` 一次性导入 | 完成 |
 | 入口 | 设置页账户表单 | 设置页“消息 → 邮箱”：服务商预设、邮箱、IMAP 服务器、授权码、保存/删除/重试/同步 | 完成 |
-| 同步 | IMAP 只拉邮件头 | `mail::Source` 把 `headers()` 与 `body(id)` 分开；夹具测试确认先拉头不碰正文 | 夹具完成 |
+| 同步 | IMAP 只拉邮件头 | 真实 rustls TLS：EXAMINE INBOX + FETCH ... BODY.PEEK[HEADER.FIELDS]；夹具仍可注入 | 真实 TLS 完成 |
 | 正文 | 按需读取 | 点击“读取正文”才调用一次 `body(id)`；结果转纯文本 | 完成 |
 | 已读 | 不标已读 | 没有 STORE/SEEN 操作 | 设计约束 |
 | 附件 | 不下载 | 正文在 `--attachment--` 处截断，不解析附件 | 完成 |
 | 远程图片 | 不加载 | 正文清理丢弃 `<img>`、`<script>`、`<style>`，不发起图片请求 | 完成 |
 | 失败态 | 未配置/认证/超时/重试 | Unconfigured / Saved / Ready / AuthFailed / Timeout / Offline / Error，错误原因可见并可重试 | 完成 |
-| 真实 IMAP | TLS IMAP | 未接入；默认显示“真实 IMAP 尚未接入”，只有夹具 env 走假服务 | 待联调 |
+| 真实 IMAP | TLS IMAP | 已接 rustls（aws-lc-rs，webpki roots）；登录失败映射认证失败，连接超时/断线有状态；有效账号的头/正文待配置后验 | TLS/认证失败已实测 |
 
 夹具验收：`NSH_MAIL_FIXTURE=auth` / `timeout` 分别显示“认证失败”“连接超时”；`ok` 显示两封邮件头，点击“读取正文”才出现正文，正文里的远程图片、脚本和附件段都被丢弃。测试账号为临时写入 `settings.json`，截图后已清空。
 
@@ -61,15 +61,16 @@
 
 ## 自动化与截图
 
-- `cargo test --lib`：92 passed / 10 ignored。覆盖 QQ 基线/去重/合并/上限/夹具失败态，邮件地址与预设、只拉头、正文清理、认证/超时/离线/重试、账户上限。
+- cargo test --lib：97 passed / 12 ignored。覆盖 QQ 基线/去重/合并/上限/失败态、邮件地址与预设、IMAP 头/正文解析、正文清理、认证/超时/离线/重试、账户上限；真实 QQ 通知探针 47 条、QQ 0 条；真实 TLS 对 imap.gmail.com 握手并返回认证失败。
 - 截图目录：`docs/assets/nsh-messaging/2026-11-24/`。
+  - qq-real-listener.png：无夹具启动，真实 WinRT 监听显示“QQ 未运行”。
   - `qq-ok.png`：QQ 面板“监听中”，设计群消息与合并后的后续消息。
   - `qq-denied.png`：权限被拒绝 + 错误原因 + 重试。
   - `qq-error.png`：读取失败 + 错误原因 + 重试。
   - `mail-unconfigured.png`：邮箱未配置、服务商预设与授权码入口。
   - `mail-auth-failed.png`：认证失败与重试。
   - `mail-timeout.png`：连接超时与重试。
-- 截图用夹具 env 启动，不连接真实 QQ/IMAP；临时邮箱账户已从设置中删除。
+- 除 qq-real-listener.png 外，其余失败态截图用夹具 env 启动；真实 QQ 当前未运行，邮箱临时账户已从设置中删除。
 
 
 ## 联调清单（等客户端登录/凭据配置后执行）
@@ -85,4 +86,4 @@
 
 - 已完成：微信任务栏关注提醒（宿主 SHELLHOOK + 岛内状态/开关/打开微信）。
 - 已完成：QQ 内存通知管线与夹具源（去重/合并/上限/失败态/重试）；邮箱服务商预设、Win32 凭据、账户设置与夹具 IMAP（只拉头、正文按需、不标已读/不下载附件/不加载远程图片）。
-- 待联调：真实 QQ UserNotificationListener 与 QQ 窗口唤回；真实 TLS IMAP 连接与授权码验证。
+- 待联调：QQ 登录后的真实 toast/托盘唤回；邮箱有效授权码的头/正文与服务器未读状态。两项验证前发布总表保持阻塞。
