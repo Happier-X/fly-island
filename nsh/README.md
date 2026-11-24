@@ -10,8 +10,10 @@ upgrade needs its own verification run. The CLI is installed at
 
 ## What runs
 
-- `src/` is the app root: island capsule, clipboard history, the separate
-  settings window and i18n. It builds standalone with `nsh run nsh`.
+- `src/` is the Rust app root: island capsule, clipboard history, the separate
+  settings window and i18n. It starts from the Rust `App` component in
+  `src/lib.rs`; there is no TSX/QuickJS entry. Tests are Rust tests
+  (`cargo test --manifest-path nsh/Cargo.toml --lib`).
 - `host/` is the Win32 host: a message loop, hotkeys, tray, bounds, DPI,
   tuck/fullscreen handling and focus policy around one NSH `AppView`.
 - NSH's child-window `AppView` disables `transparent`, so the host uses a
@@ -134,11 +136,18 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 
 ```powershell
 nsh run nsh
-nsh test nsh
+cargo test --manifest-path nsh/Cargo.toml --lib
 ```
 
 The standalone app still has NSH's tray and global shortcut; the host disables
 those in favor of its own.
+
+## Rust-only checks
+
+- No app TS/TSX/JS sources: `rg --files nsh -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' -g '!target/**' -g '!.nsh/**'` prints nothing.
+- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (102 passed / 9 ignored on 2026-11-24).
+- `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
+- `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 
 ## Known limits
 

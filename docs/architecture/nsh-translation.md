@@ -31,8 +31,8 @@
 
 ## 验收
 
-- cargo test --lib --offline：66 passed / 0 failed / 8 ignored。
-- mock：node nsh/tests/mock-openai.mjs（127.0.0.1:8787）。
+- cargo test --lib --offline：102 passed / 0 failed / 9 ignored（全库，2026-11-24）。
+- mock：`translation::tests::mock_openai`（Rust 本地 TCP，随机端口）；原 node mock 已删除。
   - translation::tests::mock_provider_translates_both_ways 通过：中文自动到英文、英文自动到中文。
   - translation::tests::mock_provider_reports_401_and_timeout 通过：401 含 HTTP 401；300ms 超时返回错误。
   - translation::tests::a_closed_port_is_a_network_error 通过：端口关闭返回网络错误。

@@ -11,6 +11,8 @@
 
 推荐路线：**Rust root 的纯 NSH 应用**，把现有 `src-tauri` 的领域模块逐步改成可复用的 Cargo crate；需要 `HWND` 的能力先用独立 Win32 辅助窗口实现，只有在“逐像素点击穿透 / AppBar / DWM 自绘 / 捕获叠加层”成为硬需求时，才升级为 `AppView` 混合宿主。
 
+> **2026-11-24 Rust-only 更新：** NSH 版不再有 TSX/QuickJS 应用入口。`nsh/App.test.tsx`、`nsh/tsconfig.json`、`nsh/tests/mock-openai.mjs` 已删除；`src/lib.rs` 的 Rust `App` 是唯一根，翻译 mock 改为 Rust 本地 TCP 服务。验证：`cargo test --manifest-path nsh/Cargo.toml --lib`（102 passed / 9 ignored）；`nsh build nsh` 输出 `no bundle: its runners mount the root`，产物只有 `app.json` 与 assets；`nsh run nsh` 输出 `running FocuSD Island (NSH) (Rust, no JS runtime)`；打包目录/zip 无 `.js/.tsx`/bytecode。下文 2026-11-24 之前记录里的 `nsh test` 是已删除的 TSX 测试，仅作历史。
+
 ## NSH 能力核对（0.6.1）
 
 | 能力 | 结论 | 依据 / 限制 |
@@ -119,7 +121,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 置顶、穿透、焦点、托盘、快捷键探针结果稳定；切屏后尺寸与位置正确。
 - 穿透焦点策略：进入穿透时释放到最近前台窗口/桌面；岛内输入框有焦点时不误释放；退出只恢复可聚焦状态，不抢焦点。
 - 剪贴板文本/图片可显示、收藏、搜索、复制回剪贴板；文本历史重启后仍在。
-- `nsh test nsh` 通过；`cargo check`（`nsh/host`）通过；现有 Tauri 版不受影响。
+- `cargo test --manifest-path nsh/Cargo.toml --lib` 通过；`nsh build nsh` 无 TSX/QuickJS bundle；`cargo check`（`nsh/host`）通过；现有 Tauri 版不受影响。
 
 依赖：双显示器验收机；`AppView` 能力声明（`windows.overlay`）；主题与 i18n 的 token/词典映射。
 
@@ -230,7 +232,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - `nsh --version`：0.6.1（2f51d86），安装于 `%LOCALAPPDATA%\nsh`。
 - 系统：Windows 11 26H2，build 26300（满足 Windows 10 1809+）。
 - `cargo check`（`nsh/`）：通过。
-- `nsh test nsh`：1 passed（`opens as a collapsed capsule and expands`）；headless runner 首次构建约 4m26s，增量约 25s。
+- 当时的 TSX headless 测试（已删除）：1 passed（`opens as a collapsed capsule and expands`）；headless runner 首次构建约 4m26s，增量约 25s。
 - `nsh run nsh --target windows`：通过。折叠窗口 320×40、展开 620×340，均位于主显示器顶部居中；点击展开、点 ⌃ 收起均正常。
 - 剪贴板：复制唯一文本后，展开窗口通过 UI Automation 读到“1 条”和该文本，点击条目会写回剪贴板。
 - 语言：界面默认跟随系统显示中文，点 EN 后全部文案切到英文，按钮变“中文”；托盘 tooltip 同步变为“焦点岛”。
@@ -250,7 +252,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - 剪贴板试点：文本历史、图片条目、收藏（`★` 即时更新并写入 `clipboard.json`）、搜索过滤、设置页中文/English 与深/浅主题均通过 UI Automation 验证；浅色主题像素约 `240,240,239`，设置写入 `settings.json`。
 - 图片：剪贴板位图规范化为 PNG；Phase 3 已补 CF_DIB 写回（见下）。
 - 双屏混合 DPI 已于 2026-11-23 验收，见下方“双屏混合 DPI 验收”。
-- `nsh test nsh`：1 passed；`cargo check`（`nsh/host`）通过。
+- 当时的 TSX headless 测试（已删除）：1 passed；`cargo check`（`nsh/host`）通过。
 - 现有 Tauri 未改动；`pnpm check` 在 Phase 1 时已通过（221 个测试），本阶段未改 `src/`。
 - 贴边隐藏：`Ctrl+Shift+T` 后窗口 y=-38（125%，约露出 10 points），鼠标移到顶部露出条即恢复；托盘和快捷键都能切换。
 - 拖拽：胶囊左缘的拖拽条在 `WM_NCHITTEST` 返回 `HTCAPTION`（2），拖动后窗口从 (1080,10) 移到 (1105,30)。
@@ -345,7 +347,7 @@ raw display hmon=0x4C90F95 primary=true rect=(0,0)-(2560,1440) work=(0,0)-(2560,
 - 旧设置：`cindyNotificationsEnabled` 与四个 `cindyNotify*` 字段从 WebView2 LevelDB 白名单导入。
 - 副屏 150%：设置窗口 `dpi=144`、`668×1022`，内容边界 `x 2709–3360 / y ≤ 1107`，无裁剪。
 - 证据：`docs/assets/nsh-settings/ai-panel-125.png`（实机运行态）、`ai-three-states.png`（三态，真实库副本）、`secondary-150-ai-zh.png`；对照表 [nsh-ai-notifications.md](nsh-ai-notifications.md)。
-- 验证：`cargo check`（nsh、nsh/host）、`cargo test --lib`（2 passed：三态与“已回答的提问不再算需关注”）、`nsh test nsh`、`pnpm check` 均通过。
+- 验证：`cargo check`（nsh、nsh/host）、`cargo test --lib`（2 passed：三态与“已回答的提问不再算需关注”）、当时的 TSX headless 测试（已删除）、`pnpm check` 均通过。
 
 ## 旧外观预设导入（本机不适用）
 
@@ -394,7 +396,7 @@ focusd-island-translation-settings
 - 设备电量：展开岛显示“🔋 MCHOSE G3 A 11% · keycool 5.0 1% · MCHOSE X75 V2 5.0 100%”，启动时读取并每 60 秒刷新。
 - 测试结束后已关闭临时 Media Player、删除临时音频与浏览器配置，并恢复系统音量。
 - 提示音：Tauri 有开关和 complete/question/error 三类 WAV；NSH 已复制三份 WAV，PCM 乘 0.7 后用 PlaySoundW 异步播放，设置开关默认开；来源与许可见 [nsh-media-parity.md](nsh-media-parity.md)。
-- 验证：cargo check / cargo build（nsh、nsh/host）通过；cargo test --lib 16 passed（1 ignored 的实机外设探针）；nsh test nsh 17 passed / 1 skipped；媒体与电量均用 UI Automation / PostMessage 实测。
+- 验证：cargo check / cargo build（nsh、nsh/host）通过；cargo test --lib 16 passed（1 ignored 的实机外设探针）；当时的 TSX headless 测试 17 passed / 1 skipped（已删除）；媒体与电量均用 UI Automation / PostMessage 实测。
 
 ## Phase 3 微信关注提醒验收（2026-11-23）
 
@@ -427,7 +429,7 @@ focusd-island-translation-settings
 
 媒体验收证据：docs/assets/nsh-media/2026-11-24/（本地 LRC、LRCLIB、KRC 翻译、无歌词、断网、拖动、空闲、多会话/播放器优先级）与 [nsh-media-parity.md](nsh-media-parity.md) 的“2026-11-24 媒体收尾验收”。
 
-翻译验收证据：docs/assets/nsh-translation/2026-11-24/（中→英、英→中、未配置 Key）与 [nsh-translation.md](nsh-translation.md)；mock 测试用 node nsh/tests/mock-openai.mjs。
+翻译验收证据：docs/assets/nsh-translation/2026-11-24/（中→英、英→中、未配置 Key）与 [nsh-translation.md](nsh-translation.md)；mock 测试用 Rust 本地 TCP 服务（`translation::tests::mock_provider_*`）。
 
 快捷启动器验收证据：docs/assets/nsh-launcher/2026-11-24/（空态、应用、文件、URL、副屏 150%、键盘）与 [nsh-launcher.md](nsh-launcher.md)。
 
