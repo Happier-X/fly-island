@@ -137,7 +137,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 2. 设置全量迁移（已完成：旧设置/主题导入、独立设置窗口、字段对照表）。
 3. AI 状态与 Cindy 通知（已完成，对照表见 [nsh-ai-notifications.md](nsh-ai-notifications.md)）。
 4. 媒体播放控制、系统音量、设备电量（已完成核心，对照表见 [nsh-media-and-utilities.md](nsh-media-and-utilities.md)）。
-5. 翻译窗口与服务（对照表已列，待实现）。
+5. 翻译窗口与服务（已完成，见 [nsh-translation.md](nsh-translation.md)）。
 6. 快捷启动器（对照表已列，待实现）。
 7. 文件中转（对照表已列，待实现）。
 8. 微信任务栏关注提醒（已完成）；QQ / 邮箱（待实现，需客户端登录/凭据联调）。
@@ -223,7 +223,7 @@ NSH 的 Rust root 是原生代码，可以直接依赖 `windows` crate；问题�
 - **双屏 DPI**：2026-11-23 已在 125%/150% 双屏上验收；代码保留显示器/DPI 变化重新居中。
 - **图片写回**：CF_DIB 已在 Phase 3 补上（PNG + DIB）；记事本人工粘贴仍待确认。
 - **设置页**：独立设置窗口与旧设置/主题导入已完成；字段对照见 [nsh-settings-map.md](nsh-settings-map.md)，暂无 NSH 等价能力的旧字段保留但不应用。
-- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；媒体/音量/设备电量已完成；剩余翻译、启动器、文件中转、QQ/邮箱；微信任务栏关注提醒已完成；外观预设本机旧库无数据，发布前做条件性扫描。
+- **Phase 2/3**：Phase 2 已完成；Phase 3 剪贴板、设置全量迁移、AI 状态与 Cindy 通知已完成；媒体/音量/设备电量已完成；剩余启动器、文件中转、QQ/邮箱；微信任务栏关注提醒已完成；外观预设本机旧库无数据，发布前做条件性扫描。
 
 ## Phase 1 验证记录
 
@@ -412,7 +412,7 @@ focusd-island-translation-settings
 | 微信 | 任务栏关注提醒，不读正文 | 已完成（主窗口类 mmui::MainWindow） | 否 | 真实消息/解锁下补点击聚焦与开关验收 |
 | QQ | 内存通知、点击打开 QQ | 未开始（待夹具管线） | 是 | QQ 登录后联调 |
 | 邮箱 | IMAP 邮件头、正文按需、不标已读/不附件/不远程图 | 未开始（无凭据，先做未配置失败态） | 是 | 测试邮箱授权码 |
-| 翻译 | 独立窗口、7 家服务、凭据管理器 | 未开始（对照表已列） | 是 | API 密钥 |
+| 翻译 | 独立窗口、7 家服务、凭据管理器 | 已完成（独立窗口、7 家服务、凭据管理器；mock 验收） | 否 | 真实 Key 未配置 |
 | AI 状态 | 三态 + 四类通知 + 声音 | 三态/四类完成；提示音已完成 | 否（提示音已补） | 无 |
 | 媒体 | 封面取色、歌词、进度拖动、随机循环、多会话、空闲/均衡器 | 封面/取色、歌词、进度点击/拖动、随机循环、多会话/来源优先级、空闲态、电平字形、提示音完成 | 否 | 已用真实 SMTC 播放器验收 |
 | 电量 | BLE/HID/HID++ 外设电量 | 已完成 | 否 | 无 |
@@ -426,4 +426,6 @@ focusd-island-translation-settings
 | 安装包与签名 | NSIS/签名 | 未开始 | 是 | 证书 |
 
 媒体验收证据：docs/assets/nsh-media/2026-11-24/（本地 LRC、LRCLIB、KRC 翻译、无歌词、断网、拖动、空闲、多会话/播放器优先级）与 [nsh-media-parity.md](nsh-media-parity.md) 的“2026-11-24 媒体收尾验收”。
+
+翻译验收证据：docs/assets/nsh-translation/2026-11-24/（中→英、英→中、未配置 Key）与 [nsh-translation.md](nsh-translation.md)；mock 测试用 node nsh/tests/mock-openai.mjs。
 
