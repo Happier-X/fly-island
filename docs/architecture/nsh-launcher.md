@@ -1,18 +1,18 @@
 # 快捷启动器 parity（NSH）
 
-状态：2026-11-24 主体完成；↑/↓ 键盘选择已接入低级键盘钩子，待人工按键复核。Tauri 行为以 `src-tauri/src/quick_launcher/` 与 `src/features/quick-launcher/` 为准，NSH 实现位于 `nsh/src/launcher/` 与 `nsh/src/launcher_ui.rs`。
+状态：2026-11-24 主体完成；↑/↓ 已用 SendInput 合成输入自动验收（选中 1→2→1），真实键盘待用户复核。Tauri 行为以 `src-tauri/src/quick_launcher/` 与 `src/features/quick-launcher/` 为准，NSH 实现位于 `nsh/src/launcher/` 与 `nsh/src/launcher_ui.rs`。
 
 ## 对照表
 
 | 能力 | Tauri 现版 | NSH 实现 | 结论 |
 |---|---|---|---|
-| 唤出入口 | 全局快捷键 Alt+Space，或双击 Ctrl；设置可改 | `RegisterHotKey` 组合键；`WH_KEYBOARD_LL` 识别两次干净 Ctrl 点按 | 对齐，两种触发都可用 |
+| 唤出入口 | 全局快捷键 Alt+Space，或双击 Ctrl；设置可改 | `RegisterHotKey` 组合键；`WH_KEYBOARD_LL` 识别两次干净 Ctrl 点按 | 组合键已实测；双击 Ctrl 单测通过，真实键盘待复核 |
 | 窗口形态 | 680×460，无边框、透明、置顶、跳过任务栏；鼠标所在显示器居中；Esc / 失焦关闭 | NSH `Normal` 窗口，680×460，`transparent`、`AboveDock`、`frame none`、`taskbar false`、`close_on_blur`；`display_under_cursor` 选屏 | 对齐；副屏 150% 实测 1020×690 |
 | 应用索引 | 开始菜单 `.lnk/.url/.appref-ms` 递归 4 层；App Paths 注册表；跳过 uninstall/readme 等 | 开始菜单同样递归 4 层；`Get-StartApps` 的 UWP 以 `shell:AppsFolder\<AppID\>` 打开；PATH 下 `.exe`；同样的跳过词；按目标去重 | 覆盖更广（含 UWP/PATH）；上限 4000 |
 | 文件搜索 | 默认 Desktop/Documents/Downloads；自定义目录；递归 3 层；上限 3000；跳过隐藏/系统/重解析点与 node_modules/target/.git 等；30 秒缓存 | 同左 | 对齐 |
 | URL | 输入即网址直接打开；否则按 Bing/Google/Baidu/DuckDuckGo 搜索 | 同左，`reqwest::Url` 编码查询词 | 对齐 |
 | 排序与分组 | exact > prefix > word > contains > path；应用优先于文件；短名优先；同目标去重；最多 30 条 | 同左 | 对齐 |
-| 键盘 | ↑/↓ 循环选择，Enter 打开，Esc 关闭；输入法组合期间 Enter 只提交组合 | 低级键盘钩子观察 ↑/↓/Enter/Esc，UI 每 50ms 轮询执行 | Enter/Esc 已实测；↑/↓ 待人工按键确认（合成输入未驱动 NSH 窗口级绑定） |
+| 键盘 | ↑/↓ 循环选择，Enter 打开，Esc 关闭；输入法组合期间 Enter 只提交组合 | 低级键盘钩子（传模块句柄安装）观察 ↑/↓/Enter/Esc，UI 每 50ms 轮询执行 | SendInput 合成 ↑↓ 已验收（1→2→1），Enter 关闭并打开选中项；真实键盘待用户复核 |
 | 鼠标 | 悬停选中，单击打开 | 同左 | 对齐 |
 | 空/加载/无结果 | 空查询提示；索引中提示；无结果提示；打开失败显示错误 | 同左，底部状态位显示“正在建立索引…”或错误 | 对齐 |
 | 索引刷新 | 启动时后台建应用索引；应用 300 秒、文件 30 秒过期；每次打开检查 | 同左；设置里的目录变化会换 key，下次打开重建 | 对齐 |
@@ -39,9 +39,9 @@
 - 文件：`file-result.png`，把 `%TEMP%\nsh-launcher-files` 设为自定义目录后输入 `launcher-test-unique`，结果为目标 `.txt`。
 - URL：`url-result.png`，输入 `https://example.com` 显示“打开网址 / 网页”，Enter/单击后交给默认浏览器。
 - 副屏与 DPI：`secondary-150.png`，在 150% 的副屏上窗口物理尺寸 1020×690，位置 (3170,360)，位于该屏工作区居中。
-- 键盘：`keyboard-app-result.png`/`keyboard-app-open.png` 为键入 `Notepad`、提交组合后 Enter 打开记事本；`keyboard-file-result.png`/`keyboard-file-open.png` 为键入 `launcher-test-unique` 后打开 Documents 里的文件；`keyboard-url-result.png`/`keyboard-url-open.png` 为键入 `https://example.com` 后 Edge 打开该页；`keyboard-cancel.png` 为 Esc 关闭后的桌面。Enter 与 Esc 在切换钩子前已实机验证；钩子版的 Enter/Esc/↑↓ 需人工按键复核。
+- 键盘：`keyboard-app-result.png`/`keyboard-app-open.png` 为键入 `Notepad`、提交组合后 Enter 打开记事本；`keyboard-file-result.png`/`keyboard-file-open.png` 为键入 `launcher-test-unique` 后打开 Documents 里的文件；`keyboard-url-result.png`/`keyboard-url-open.png` 为键入 `https://example.com` 后 Edge 打开该页；`keyboard-cancel.png` 为 Esc 关闭后的桌面。另用 SendInput 合成 ↑↓：`keyboard-arrows-1.png`/`keyboard-arrows-2.png`/`keyboard-arrows-3.png` 显示选中从第 1 行到第 2 行再回到第 1 行；Enter 后窗口隐藏。真实键盘与双击 Ctrl 待用户复核。
 - 索引重建去重：`cargo test --lib -- --ignored launcher::tests::the_real_app_index_has_unique_targets` 实测 1125 个应用，连续两次枚举目标唯一且数量一致。
-- 构建：`cargo check --lib`、`cargo test --lib`（77 passed / 10 ignored）、`cargo check --manifest-path nsh/host/Cargo.toml` 通过；宿主完整 build 在键盘钩子改动前通过。
+- 构建：`cargo test --lib`（78 passed / 10 ignored）、`cargo check --lib`、宿主 `cargo build --offline` 通过。
 
 ## 已知差异与后续
 
@@ -49,5 +49,5 @@
 - `.lnk` 的副标题显示快捷方式路径；Tauri 显示解析后的目标路径，打开行为不受影响。
 - UWP 列表通过 `Get-StartApps` 获取，启动时有一次 PowerShell 子进程开销。
 - 双击 Ctrl 与 ↑/↓/Enter/Esc 共用低级键盘钩子；只观察、不吞键，窗口失焦后仍由系统处理。
-- ↑/↓ 的钩子轮询在合成输入（SendKeys/SendInput）下未观察到选中变化，需用真实键盘复核；Enter/Esc 已实测。
+- ↑/↓ 已用 SendInput 验收自动通过；真实键盘与双击 Ctrl 仍待用户复核，CtrlTaps 已有单测。
 - 设置中的目录仍为手动路径输入（与 Tauri 相同），没有文件夹选择器。
