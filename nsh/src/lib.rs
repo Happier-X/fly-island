@@ -6,6 +6,8 @@
 
 mod ai;
 mod battery;
+mod launcher;
+mod launcher_ui;
 mod lyrics;
 mod lyrics_ui;
 mod media;
@@ -29,6 +31,7 @@ use nsh_core::{element::input, prelude::*, Color};
 use ai::{AgentSession, AgentState, AiSnapshot};
 use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
+use launcher_ui::{LauncherSettingsState, LauncherState};
 use lyrics_ui::LyricsState;
 use translation_ui::{TranslationSettings, TranslationState};
 use media::MediaState;
@@ -137,6 +140,7 @@ struct SettingsState {
     lyrics: LyricsSettingsState,
     music_sources: Signal<Vec<media::KnownSource>>,
     translation: TranslationSettings,
+    launcher: LauncherSettingsState,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -175,6 +179,34 @@ pub fn App() -> impl IntoElement {
     let translation_key_present = signal(false);
     let translation_error = signal(String::new());
     let translation_dirty = signal(0u64);
+    let launcher_enabled = signal(saved.launcher_enabled);
+    let launcher_shortcut = signal(saved.launcher_shortcut.clone());
+    let launcher_search_apps = signal(saved.launcher_search_apps);
+    let launcher_search_files = signal(saved.launcher_search_files);
+    let launcher_search_web = signal(saved.launcher_search_web);
+    let launcher_engine = signal(saved.launcher_engine.clone());
+    let launcher_folder_mode = signal(saved.launcher_folder_mode.clone());
+    let launcher_folders = signal(saved.launcher_folders.clone());
+    let launcher_shortcut_draft = signal(saved.launcher_shortcut.clone());
+    let launcher_recording = signal(false);
+    let launcher_folder_draft = signal(String::new());
+    let launcher_error = signal(String::new());
+    let launcher_dirty = signal(0u64);
+    let launcher_settings = LauncherSettingsState {
+        enabled: launcher_enabled,
+        shortcut: launcher_shortcut,
+        search_apps: launcher_search_apps,
+        search_files: launcher_search_files,
+        search_web: launcher_search_web,
+        engine: launcher_engine,
+        folder_mode: launcher_folder_mode,
+        folders: launcher_folders,
+        shortcut_draft: launcher_shortcut_draft,
+        recording: launcher_recording,
+        folder_draft: launcher_folder_draft,
+        error: launcher_error,
+        dirty: launcher_dirty,
+    };
     let translation_settings = TranslationSettings {
         enabled: translation_enabled,
         shortcut: translation_shortcut,
@@ -264,6 +296,7 @@ pub fn App() -> impl IntoElement {
         lyrics: LyricsSettingsState { folder: lyrics_folder, online: lyrics_online, chinese: lyrics_chinese },
         music_sources,
         translation: translation_settings,
+        launcher: launcher_settings,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -329,6 +362,13 @@ pub fn App() -> impl IntoElement {
     let island_page = signal(false);
     let translation_active = signal(false);
     let translation = translation_ui::start(translation_settings, translation_active);
+    launcher::hotkey::start(&saved.launcher_shortcut, saved.launcher_enabled);
+    launcher::ensure_index(saved.launcher_search_apps, saved.launcher_search_files, &launcher::effective_folders(&saved.launcher_folder_mode, &saved.launcher_folders));
+    let launcher = launcher_ui::start(launcher_settings);
+    effect(move || {
+        let _ = launcher_dirty.get();
+        save_settings(settings_state);
+    });
     effect(move || translation_active.set(translation.open.get() || island_page.get()));
     effect(move || {
         if island_page.get() && !translation_settings.enabled.get() {
@@ -349,13 +389,14 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, batteries, wechat, wechat_enabled)
+            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
         }))
         .child(settings_window(settings_open, settings_state, items, media_state))
         .child(translation_ui::translation_window(translation, translation_settings, settings_open, dark))
+        .child(when(move || launcher.open.get(), move || launcher_ui::launcher_window(launcher, launcher_settings, dark)))
 }
 
 fn collapsed_island(
@@ -428,6 +469,8 @@ fn expanded_island(
     lyrics: LyricsState,
     translation: TranslationState,
     translation_settings: TranslationSettings,
+    launcher: LauncherState,
+    launcher_settings: LauncherSettingsState,
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
     wechat: Signal<(bool, Option<u64>)>,
     wechat_enabled: Signal<bool>,
@@ -441,7 +484,7 @@ fn expanded_island(
         .w(px(EXPANDED_WIDTH))
         .h(px(EXPANDED_HEIGHT))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, island_page, items, dark, ai))
+        .child(expanded_header(expanded, settings_open, island_page, launcher, launcher_settings, items, dark, ai))
         .child(when(move || island_page.get(), move || {
             translation_ui::island_panel(translation, translation_settings, settings_open, dark)
         }))
@@ -480,6 +523,8 @@ fn expanded_header(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
     island_page: Signal<bool>,
+    launcher: LauncherState,
+    launcher_settings: LauncherSettingsState,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
@@ -525,6 +570,13 @@ fn expanded_header(
                 )
                 .on_press(move || open_cindy(ai))
         }))
+        .child(
+            text("启")
+                .text_size(px(12.0))
+                .text_color(move || palette(dark.get()).muted)
+                .px(px(6.0))
+                .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
+        )
         .child(
             text(move || if settings_open.get() { "✕" } else { "⚙" })
                 .text_size(px(14.0))
@@ -1596,6 +1648,7 @@ fn settings_content(
         .child(wechat_toggle_row(state))
         .child(music_sources_section(state, media_state))
         .child(translation_ui::settings_section(state.translation, state.dark))
+        .child(launcher_ui::settings_section(state.launcher, state.translation.shortcut, state.dark))
         .child(section_label(move || t!("island.lyrics"), state))
         .child(lyrics_folder_row(state))
         .child(toggle_row(move || t!("island.lyrics_online"), state.lyrics.online, state))
@@ -1897,5 +1950,13 @@ fn save_settings(state: SettingsState) {
         translation_custom_base_url: state.translation.custom_base_url.get_untracked(),
         translation_auto: state.translation.auto.get_untracked(),
         translation_models: state.translation.models.get_untracked(),
+        launcher_enabled: state.launcher.enabled.get_untracked(),
+        launcher_shortcut: state.launcher.shortcut.get_untracked(),
+        launcher_search_apps: state.launcher.search_apps.get_untracked(),
+        launcher_search_files: state.launcher.search_files.get_untracked(),
+        launcher_search_web: state.launcher.search_web.get_untracked(),
+        launcher_engine: state.launcher.engine.get_untracked(),
+        launcher_folder_mode: state.launcher.folder_mode.get_untracked(),
+        launcher_folders: state.launcher.folders.get_untracked(),
     });
 }

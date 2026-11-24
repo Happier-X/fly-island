@@ -261,7 +261,7 @@ fn reset_shortcut(settings: TranslationSettings) {
     apply_shortcut_label(settings, "Ctrl+Shift+F".to_string());
 }
 
-fn is_modifier_key(key: &str) -> bool {
+pub(crate) fn is_modifier_key(key: &str) -> bool {
     matches!(key, "Control" | "Shift" | "Alt" | "Meta" | "AltGraph" | "OS")
 }
 
@@ -309,7 +309,7 @@ fn shortcut_key(key: &str, code: &str) -> Option<String> {
     }
 }
 
-fn shortcut_label(event: &KeyEvent) -> Option<String> {
+pub(crate) fn shortcut_label(event: &KeyEvent) -> Option<String> {
     if event.repeat {
         return None;
     }

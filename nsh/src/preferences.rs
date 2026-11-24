@@ -32,6 +32,18 @@ fn default_translation_provider() -> String {
     "siliconflow".to_string()
 }
 
+fn default_launcher_shortcut() -> String {
+    "Alt+Space".to_string()
+}
+
+fn default_bing() -> String {
+    "bing".to_string()
+}
+
+fn default_default_folder_mode() -> String {
+    "default".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Preferences {
     pub dark: bool,
@@ -79,6 +91,22 @@ pub struct Preferences {
     pub translation_auto: bool,
     #[serde(default)]
     pub translation_models: BTreeMap<String, String>,
+    #[serde(default = "default_true")]
+    pub launcher_enabled: bool,
+    #[serde(default = "default_launcher_shortcut")]
+    pub launcher_shortcut: String,
+    #[serde(default = "default_true")]
+    pub launcher_search_apps: bool,
+    #[serde(default = "default_true")]
+    pub launcher_search_files: bool,
+    #[serde(default = "default_true")]
+    pub launcher_search_web: bool,
+    #[serde(default = "default_bing")]
+    pub launcher_engine: String,
+    #[serde(default = "default_default_folder_mode")]
+    pub launcher_folder_mode: String,
+    #[serde(default)]
+    pub launcher_folders: Vec<String>,
 }
 
 impl Default for Preferences {
@@ -107,6 +135,14 @@ impl Default for Preferences {
             translation_custom_base_url: String::new(),
             translation_auto: false,
             translation_models: BTreeMap::new(),
+            launcher_enabled: true,
+            launcher_shortcut: default_launcher_shortcut(),
+            launcher_search_apps: true,
+            launcher_search_files: true,
+            launcher_search_web: true,
+            launcher_engine: default_bing(),
+            launcher_folder_mode: default_default_folder_mode(),
+            launcher_folders: Vec::new(),
         }
     }
 }
@@ -201,6 +237,97 @@ fn parse_legacy_translation(raw: &str) -> Option<LegacyTranslation> {
         models,
     })
 }
+fn import_launcher_once(preferences: &mut Preferences) {
+    let Some(flag) = launcher_import_flag() else {
+        return;
+    };
+    if flag.exists() {
+        return;
+    }
+    let local = legacy_local_storage().unwrap_or_default();
+    if let Some(legacy) = local.launcher.as_deref().and_then(parse_legacy_launcher) {
+        if preferences.launcher_shortcut == default_launcher_shortcut()
+            && preferences.launcher_engine == default_bing()
+            && preferences.launcher_folders.is_empty()
+        {
+            preferences.launcher_enabled = legacy.enabled;
+            preferences.launcher_shortcut = legacy.shortcut;
+            preferences.launcher_search_apps = legacy.search_apps;
+            preferences.launcher_search_files = legacy.search_files;
+            preferences.launcher_search_web = legacy.search_web;
+            preferences.launcher_engine = legacy.search_engine;
+            preferences.launcher_folder_mode = legacy.folder_mode;
+            preferences.launcher_folders = legacy.folders;
+        }
+    }
+    if let Some(parent) = flag.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(flag, b"1");
+    save(preferences);
+}
+
+fn launcher_import_flag() -> Option<PathBuf> {
+    Some(new_dir()?.join("legacy-launcher-settings-imported.flag"))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyLauncher {
+    #[serde(default = "default_true")]
+    enabled: bool,
+    #[serde(default)]
+    shortcut: String,
+    #[serde(default)]
+    trigger_mode: String,
+    #[serde(default = "default_true")]
+    search_apps: bool,
+    #[serde(default = "default_true")]
+    search_files: bool,
+    #[serde(default = "default_true")]
+    search_web: bool,
+    #[serde(default = "default_bing")]
+    search_engine: String,
+    #[serde(default = "default_default_folder_mode")]
+    folder_mode: String,
+    #[serde(default)]
+    folders: Vec<String>,
+}
+
+fn parse_legacy_launcher(raw: &str) -> Option<LegacyLauncher> {
+    let legacy = serde_json::from_str::<LegacyLauncher>(raw).ok()?;
+    let shortcut = if legacy.trigger_mode == "doubleCtrl" {
+        "DoubleCtrl".to_string()
+    } else if legacy.shortcut.contains('+') {
+        legacy.shortcut.clone()
+    } else {
+        default_launcher_shortcut()
+    };
+    let engine = match legacy.search_engine.as_str() {
+        "google" | "baidu" | "duckduckgo" => legacy.search_engine.clone(),
+        _ => default_bing(),
+    };
+    let folder_mode = if legacy.folder_mode == "custom" { "custom".to_string() } else { default_default_folder_mode() };
+    let mut seen = std::collections::HashSet::new();
+    let folders = legacy
+        .folders
+        .into_iter()
+        .map(|folder| folder.trim().to_string())
+        .filter(|folder| !folder.is_empty())
+        .filter(|folder| seen.insert(folder.to_lowercase()))
+        .collect();
+    Some(LegacyLauncher {
+        enabled: legacy.enabled,
+        shortcut,
+        trigger_mode: legacy.trigger_mode,
+        search_apps: legacy.search_apps,
+        search_files: legacy.search_files,
+        search_web: legacy.search_web,
+        search_engine: engine,
+        folder_mode,
+        folders,
+    })
+}
 /// Settings written before the AI switches existed keep their defaults; import
 /// those five fields once so an old `cindyNotificationsEnabled=false` is kept.
 fn import_ai_settings_once(preferences: &mut Preferences) {
@@ -244,6 +371,7 @@ pub fn load() -> Preferences {
             if let Ok(mut preferences) = serde_json::from_str::<Preferences>(&text) {
                 import_ai_settings_once(&mut preferences);
                 import_translation_once(&mut preferences);
+                import_launcher_once(&mut preferences);
                 return preferences;
             }
         }
@@ -251,12 +379,13 @@ pub fn load() -> Preferences {
     if !nsh_core::prelude::os().is_desktop() {
         return Preferences::default();
     }
-    let LegacyLocalStorage { settings, locale, translation } = legacy_local_storage().unwrap_or_default();
+    let LegacyLocalStorage { settings, locale, translation, launcher } = legacy_local_storage().unwrap_or_default();
     let legacy = settings
         .as_deref()
         .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok());
     let clipboard = legacy_clipboard_settings();
     let translation_settings = translation.as_deref().and_then(parse_legacy_translation);
+    let launcher_settings = launcher.as_deref().and_then(parse_legacy_launcher);
     let preferences = Preferences {
         dark: legacy.as_ref().and_then(dark_from_settings).unwrap_or(true),
         locale: locale.unwrap_or_default(),
@@ -281,6 +410,14 @@ pub fn load() -> Preferences {
         translation_custom_base_url: translation_settings.as_ref().map_or_else(String::new, |item| item.custom_base_url.clone()),
         translation_auto: false,
         translation_models: translation_settings.as_ref().map_or_else(BTreeMap::new, |item| item.models.clone()),
+        launcher_enabled: launcher_settings.as_ref().map_or(true, |item| item.enabled),
+        launcher_shortcut: launcher_settings.as_ref().map_or_else(default_launcher_shortcut, |item| item.shortcut.clone()),
+        launcher_search_apps: launcher_settings.as_ref().is_none_or(|item| item.search_apps),
+        launcher_search_files: launcher_settings.as_ref().is_none_or(|item| item.search_files),
+        launcher_search_web: launcher_settings.as_ref().is_none_or(|item| item.search_web),
+        launcher_engine: launcher_settings.as_ref().map_or_else(default_bing, |item| item.search_engine.clone()),
+        launcher_folder_mode: launcher_settings.as_ref().map_or_else(default_default_folder_mode, |item| item.folder_mode.clone()),
+        launcher_folders: launcher_settings.as_ref().map_or_else(Vec::new, |item| item.folders.clone()),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -354,6 +491,7 @@ struct LegacyLocalStorage {
     settings: Option<String>,
     locale: Option<String>,
     translation: Option<String>,
+    launcher: Option<String>,
 }
 
 fn legacy_local_storage() -> Option<LegacyLocalStorage> {
@@ -387,6 +525,8 @@ fn legacy_local_storage() -> Option<LegacyLocalStorage> {
             found.locale.get_or_insert_with(|| legacy_locale(&value));
         } else if key.ends_with("focusd-island-translation-settings") {
             found.translation.get_or_insert_with(|| legacy_json(&value));
+        } else if key.ends_with("focusd-island-launcher-settings") {
+            found.launcher.get_or_insert_with(|| legacy_json(&value));
         }
     }
     found.settings = found
@@ -394,6 +534,7 @@ fn legacy_local_storage() -> Option<LegacyLocalStorage> {
         .filter(|text| text.trim_start().starts_with('{'));
     found.locale = found.locale.filter(|text| text == "zh-CN" || text == "en");
     found.translation = found.translation.filter(|text| text.trim_start().starts_with('{'));
+    found.launcher = found.launcher.filter(|text| text.trim_start().starts_with('{'));
     Some(found)
 }
 

@@ -78,6 +78,38 @@ island:
   lyrics_cache_expired: Expired cache was refreshed
   lyrics_cache_failed: Cache is not writable; lyrics are not saved
   lyrics_retry: Retry
+  launcher_title: Quick launcher
+  launcher_placeholder: Search apps, files or a URL
+  launcher_empty: Type an app, a file in your folders, or a URL
+  launcher_no_results: No matches
+  launcher_indexing: Building the index…
+  launcher_hint: ↑↓ select · Enter open · Esc close
+  launcher_web: WEB
+  launcher_file: FILE
+  launcher_app: APP
+  launcher_settings: Quick launcher
+  launcher_enabled: Enable quick launcher
+  launcher_trigger: Trigger
+  launcher_combination: Key combination
+  launcher_double_ctrl: Double Ctrl
+  launcher_double_ctrl_hint: Tap Ctrl twice to open; no global shortcut is taken
+  launcher_record: Record
+  launcher_recording: Press keys…
+  launcher_cancel: Cancel
+  launcher_shortcut: Open shortcut
+  launcher_apply: Apply
+  launcher_reset: Reset
+  launcher_search_apps: Search applications
+  launcher_search_files: Search files
+  launcher_search_web: Search the web when nothing matches
+  launcher_engine: Search engine
+  launcher_folders: File folders
+  launcher_custom_folders: Custom folders
+  launcher_default_folders: Use default folders
+  launcher_folder_placeholder: Folder path
+  launcher_add_folder: Add
+  launcher_shortcut_taken: "%{shortcut} is used by %{owner}"
+  shortcut_owner_translation: quick translation
   clipboard_tab: Clipboard
   translation_tab: Translate
   translation_auto_translate: Auto translate

@@ -78,6 +78,38 @@ island:
   lyrics_cache_expired: 缓存已过期，已重新获取
   lyrics_cache_failed: 缓存不可写，歌词未保存
   lyrics_retry: 重试
+  launcher_title: 快捷启动
+  launcher_placeholder: 搜索应用、文件或网址
+  launcher_empty: 输入应用名、文件目录里的文件名，或网址
+  launcher_no_results: 没有匹配项
+  launcher_indexing: 正在建立索引…
+  launcher_hint: ↑↓ 选择 · Enter 打开 · Esc 关闭
+  launcher_web: 网页
+  launcher_file: 文件
+  launcher_app: 应用
+  launcher_settings: 快捷启动器
+  launcher_enabled: 启用快捷启动器
+  launcher_trigger: 触发方式
+  launcher_combination: 组合键
+  launcher_double_ctrl: 双击 Ctrl
+  launcher_double_ctrl_hint: 连续轻按两次 Ctrl 打开，不占用全局组合键
+  launcher_record: 录制
+  launcher_recording: 按下组合键…
+  launcher_cancel: 取消
+  launcher_shortcut: 打开快捷键
+  launcher_apply: 应用
+  launcher_reset: 重置
+  launcher_search_apps: 搜索应用
+  launcher_search_files: 搜索文件
+  launcher_search_web: 没有结果时搜索网页
+  launcher_engine: 搜索引擎
+  launcher_folders: 文件目录
+  launcher_custom_folders: 自定义目录
+  launcher_default_folders: 使用默认目录
+  launcher_folder_placeholder: 输入文件夹路径
+  launcher_add_folder: 添加
+  launcher_shortcut_taken: 快捷键 %{shortcut} 已被%{owner}占用
+  shortcut_owner_translation: 快捷翻译
   clipboard_tab: 剪贴板
   translation_tab: 翻译
   translation_auto_translate: 自动翻译
