@@ -76,6 +76,8 @@ pub struct Preferences {
     #[serde(default)]
     pub translation_custom_base_url: String,
     #[serde(default)]
+    pub translation_auto: bool,
+    #[serde(default)]
     pub translation_models: BTreeMap<String, String>,
 }
 
@@ -103,6 +105,7 @@ impl Default for Preferences {
             translation_direction: default_translation_direction(),
             translation_provider: default_translation_provider(),
             translation_custom_base_url: String::new(),
+            translation_auto: false,
             translation_models: BTreeMap::new(),
         }
     }
@@ -276,6 +279,7 @@ pub fn load() -> Preferences {
         translation_direction: translation_settings.as_ref().map_or_else(default_translation_direction, |item| item.direction.clone()),
         translation_provider: translation_settings.as_ref().map_or_else(default_translation_provider, |item| item.provider.clone()),
         translation_custom_base_url: translation_settings.as_ref().map_or_else(String::new, |item| item.custom_base_url.clone()),
+        translation_auto: false,
         translation_models: translation_settings.as_ref().map_or_else(BTreeMap::new, |item| item.models.clone()),
     };
     if let Some(dir) = new_dir() {

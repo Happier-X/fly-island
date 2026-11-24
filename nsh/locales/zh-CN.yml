@@ -78,6 +78,18 @@ island:
   lyrics_cache_expired: 缓存已过期，已重新获取
   lyrics_cache_failed: 缓存不可写，歌词未保存
   lyrics_retry: 重试
+  clipboard_tab: 剪贴板
+  translation_tab: 翻译
+  translation_auto_translate: 自动翻译
+  translation_record: 录制
+  translation_recording: 按下组合键…
+  translation_cancel: 取消
+  translation_reset: 重置
+  translation_shortcut_taken: 快捷键 %{shortcut} 已被%{owner}占用
+  shortcut_owner_island: 岛屿显示/收起
+  shortcut_owner_through: 鼠标穿透
+  shortcut_owner_monitor: 切换显示器
+  shortcut_owner_tuck: 贴边收起
   translation_title: 翻译
   translation: 翻译
   translation_go_settings: 设置

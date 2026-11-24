@@ -30,7 +30,7 @@ use ai::{AgentSession, AgentState, AiSnapshot};
 use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
 use lyrics_ui::LyricsState;
-use translation_ui::TranslationSettings;
+use translation_ui::{TranslationSettings, TranslationState};
 use media::MediaState;
 
 #[cfg(feature = "embedded")]
@@ -168,7 +168,8 @@ pub fn App() -> impl IntoElement {
     let translation_provider = signal(saved.translation_provider.clone());
     let translation_custom_base_url = signal(saved.translation_custom_base_url.clone());
     let translation_models = signal(saved.translation_models.clone());
-    let translation_shortcut_draft = signal(saved.translation_shortcut.clone());
+    let translation_auto = signal(saved.translation_auto);
+    let translation_recording = signal(false);
     let translation_key_draft = signal(String::new());
     let translation_key_saved = signal(0u64);
     let translation_key_present = signal(false);
@@ -181,7 +182,8 @@ pub fn App() -> impl IntoElement {
         provider: translation_provider,
         custom_base_url: translation_custom_base_url,
         models: translation_models,
-        shortcut_draft: translation_shortcut_draft,
+        auto: translation_auto,
+        recording: translation_recording,
         key_draft: translation_key_draft,
         key_saved: translation_key_saved,
         key_present: translation_key_present,
@@ -324,7 +326,15 @@ pub fn App() -> impl IntoElement {
     let lyrics = lyrics_ui::start(media_state, lyrics_folder, lyrics_online, lyrics_chinese);
 
     translation::hotkey::start(&saved.translation_shortcut, saved.translation_enabled);
-    let translation = translation_ui::start(translation_settings);
+    let island_page = signal(false);
+    let translation_active = signal(false);
+    let translation = translation_ui::start(translation_settings, translation_active);
+    effect(move || translation_active.set(translation.open.get() || island_page.get()));
+    effect(move || {
+        if island_page.get() && !translation_settings.enabled.get() {
+            island_page.set(false);
+        }
+    });
     effect(move || {
         let _ = translation_dirty.get();
         save_settings(settings_state);
@@ -339,7 +349,7 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, lyrics, translation.open, batteries, wechat, wechat_enabled)
+            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, batteries, wechat, wechat_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
@@ -408,6 +418,7 @@ fn collapsed_island(
 fn expanded_island(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
+    island_page: Signal<bool>,
     query: Signal<String>,
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
@@ -415,7 +426,8 @@ fn expanded_island(
     ai: AiState,
     media_state: Signal<Option<MediaState>>,
     lyrics: LyricsState,
-    translation_open: Signal<bool>,
+    translation: TranslationState,
+    translation_settings: TranslationSettings,
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
     wechat: Signal<(bool, Option<u64>)>,
     wechat_enabled: Signal<bool>,
@@ -429,37 +441,45 @@ fn expanded_island(
         .w(px(EXPANDED_WIDTH))
         .h(px(EXPANDED_HEIGHT))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, translation_open, items, dark, ai))
-        .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
-        .child(when(
-            move || media_state.get().as_ref().is_some_and(|media| media.available),
-            move || media_panel(media_state, dark),
-        ))
-        .child(when(
-            move || !media_state.get().as_ref().is_some_and(|media| media.available),
-            move || media_idle(media_state, dark),
-        ))
-        .child(when(
-            move || media_state.get().as_ref().is_some_and(|media| media.available),
-            move || lyrics_ui::panel(lyrics, media_state, dark),
-        ))
-        .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
-        .child(wechat_panel(wechat, wechat_enabled, dark))
-        .child(divider(dark))
-        .child(search_and_list(query, items, visible, dark))
-        .child(
-            view().px(px(18.0)).py(px(8.0)).child(
-                text(move || t!("island.hint"))
-                    .text_size(px(11.0))
-                    .text_color(move || palette(dark.get()).faint),
-            ),
-        )
+        .child(expanded_header(expanded, settings_open, island_page, items, dark, ai))
+        .child(when(move || island_page.get(), move || {
+            translation_ui::island_panel(translation, translation_settings, settings_open, dark)
+        }))
+        .child(when(move || !island_page.get(), move || {
+            view()
+                .flex_1()
+                .flex_col()
+                .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
+                .child(when(
+                    move || media_state.get().as_ref().is_some_and(|media| media.available),
+                    move || media_panel(media_state, dark),
+                ))
+                .child(when(
+                    move || !media_state.get().as_ref().is_some_and(|media| media.available),
+                    move || media_idle(media_state, dark),
+                ))
+                .child(when(
+                    move || media_state.get().as_ref().is_some_and(|media| media.available),
+                    move || lyrics_ui::panel(lyrics, media_state, dark),
+                ))
+                .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
+                .child(wechat_panel(wechat, wechat_enabled, dark))
+                .child(divider(dark))
+                .child(search_and_list(query, items, visible, dark))
+                .child(
+                    view().px(px(18.0)).py(px(8.0)).child(
+                        text(move || t!("island.hint"))
+                            .text_size(px(11.0))
+                            .text_color(move || palette(dark.get()).faint),
+                    ),
+                )
+        }))
 }
 
 fn expanded_header(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
-    translation_open: Signal<bool>,
+    island_page: Signal<bool>,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
@@ -473,16 +493,24 @@ fn expanded_header(
         .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
         .child(ai_dot(dark, ai))
         .child(
-            text(move || t!("island.clipboard"))
-            .text_size(px(14.0))
-            .font_weight(FontWeight::MEDIUM)
-            .text_color(move || palette(dark.get()).fg),
+            text(move || t!("island.clipboard_tab"))
+                .text_size(px(13.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || if island_page.get() { palette(dark.get()).muted } else { palette(dark.get()).fg })
+                .on_press(move || island_page.set(false)),
         )
         .child(
+            text(move || t!("island.translation_tab"))
+                .text_size(px(13.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || if island_page.get() { palette(dark.get()).fg } else { palette(dark.get()).muted })
+                .on_press(move || island_page.set(true)),
+        )
+        .child(when(move || !island_page.get(), move || {
             text(move || t!("island.count", count = items.get().len()))
                 .text_size(px(12.0))
-                .text_color(move || palette(dark.get()).faint),
-        )
+                .text_color(move || palette(dark.get()).faint)
+        }))
         .child(view().flex_1())
         .child(when(move || ai_unseen(ai) > 0, move || {
             view()
@@ -497,13 +525,6 @@ fn expanded_header(
                 )
                 .on_press(move || open_cindy(ai))
         }))
-        .child(
-            text("翻译")
-                .text_size(px(12.0))
-                .text_color(move || palette(dark.get()).muted)
-                .px(px(6.0))
-                .on_press(move || translation_open.set(true)),
-        )
         .child(
             text(move || if settings_open.get() { "✕" } else { "⚙" })
                 .text_size(px(14.0))
@@ -1874,6 +1895,7 @@ fn save_settings(state: SettingsState) {
         translation_direction: state.translation.direction.get_untracked(),
         translation_provider: state.translation.provider.get_untracked(),
         translation_custom_base_url: state.translation.custom_base_url.get_untracked(),
+        translation_auto: state.translation.auto.get_untracked(),
         translation_models: state.translation.models.get_untracked(),
     });
 }

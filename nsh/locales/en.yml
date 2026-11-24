@@ -78,6 +78,18 @@ island:
   lyrics_cache_expired: Expired cache was refreshed
   lyrics_cache_failed: Cache is not writable; lyrics are not saved
   lyrics_retry: Retry
+  clipboard_tab: Clipboard
+  translation_tab: Translate
+  translation_auto_translate: Auto translate
+  translation_record: Record
+  translation_recording: Press keys…
+  translation_cancel: Cancel
+  translation_reset: Reset
+  translation_shortcut_taken: "%{shortcut} is used by %{owner}"
+  shortcut_owner_island: showing or hiding the island
+  shortcut_owner_through: click-through
+  shortcut_owner_monitor: moving to another monitor
+  shortcut_owner_tuck: tucking the island
   translation_title: Translation
   translation: Translation
   translation_go_settings: Settings
