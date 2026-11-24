@@ -64,6 +64,8 @@ mod host {
     pub const WM_HOST_EXPAND: u32 = WM_APP + 1;
     pub const WM_HOST_TRAY: u32 = WM_APP + 2;
     pub const WM_HOST_TIMER: usize = 1;
+    pub const WM_HOST_DRAG: u32 = WM_APP + 3;
+    pub const WM_HOST_PICK: u32 = WM_APP + 4;
 
     static HOST_HWND: AtomicIsize = AtomicIsize::new(0);
     static APP_HWND: AtomicIsize = AtomicIsize::new(0);
@@ -83,6 +85,26 @@ mod host {
 
     /// Called by the app on its engine thread; the window work is posted to
     /// the host thread.
+    pub fn on_pick() {
+        let host = host_hwnd();
+        if !host.0.is_null() {
+            // SAFETY: the host window lives for the process lifetime.
+            unsafe {
+                let _ = PostMessageW(Some(host), WM_HOST_PICK, WPARAM(0), LPARAM(0));
+            }
+        }
+    }
+
+    pub fn on_drag() {
+        let host = host_hwnd();
+        if !host.0.is_null() {
+            // SAFETY: the host window lives for the process lifetime.
+            unsafe {
+                let _ = PostMessageW(Some(host), WM_HOST_DRAG, WPARAM(0), LPARAM(0));
+            }
+        }
+    }
+
     pub fn on_expand(open: bool) {
         let host = host_hwnd();
         if !host.0.is_null() {
@@ -185,6 +207,20 @@ mod host {
                 nsh_app_focusd_island_nsh::embedded::mark_clipboard_dirty();
                 LRESULT(0)
             }
+            WM_HOST_PICK => {
+                let result = nsh_app_focusd_island_nsh::file_shelf_picker::pick_files(app_hwnd());
+                nsh_app_focusd_island_nsh::embedded::set_pick_result(result);
+                LRESULT(0)
+            }
+
+            WM_HOST_DRAG => {
+                let paths = nsh_app_focusd_island_nsh::embedded::take_drag_paths();
+                let result = nsh_app_focusd_island_nsh::file_shelf_drag::drag_files(app_hwnd(), &paths)
+                    .map(|_| ());
+                nsh_app_focusd_island_nsh::embedded::set_drag_result(result);
+                LRESULT(0)
+            }
+
             WM_HOST_TRAY => {
                 tray::on_message(hwnd, lparam);
                 LRESULT(0)
@@ -300,6 +336,8 @@ mod host {
         }
 
         nsh_app_focusd_island_nsh::embedded::install(on_expand);
+        nsh_app_focusd_island_nsh::embedded::install_drag(on_drag);
+        nsh_app_focusd_island_nsh::embedded::install_pick(on_pick);
         nsh_app_focusd_island_nsh::embedded::set_host_expanded(false);
 
         let view = match AppView::new(

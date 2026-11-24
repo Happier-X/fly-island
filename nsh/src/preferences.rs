@@ -40,6 +40,14 @@ fn default_bing() -> String {
     "bing".to_string()
 }
 
+fn default_shelf_max() -> usize {
+    100
+}
+
+fn default_shelf_double() -> String {
+    "open".to_string()
+}
+
 fn default_default_folder_mode() -> String {
     "default".to_string()
 }
@@ -111,6 +119,12 @@ pub struct Preferences {
     pub qq_enabled: bool,
     #[serde(default)]
     pub mail_accounts: Vec<crate::mail::Account>,
+    #[serde(default = "default_shelf_max")]
+    pub shelf_max_items: usize,
+    #[serde(default = "default_true")]
+    pub shelf_show_count: bool,
+    #[serde(default = "default_shelf_double")]
+    pub shelf_double_click: String,
 }
 
 impl Default for Preferences {
@@ -149,6 +163,9 @@ impl Default for Preferences {
             launcher_folders: Vec::new(),
             qq_enabled: true,
             mail_accounts: Vec::new(),
+            shelf_max_items: default_shelf_max(),
+            shelf_show_count: true,
+            shelf_double_click: default_shelf_double(),
         }
     }
 }
@@ -508,6 +525,9 @@ pub fn load() -> Preferences {
         launcher_folders: launcher_settings.as_ref().map_or_else(Vec::new, |item| item.folders.clone()),
         qq_enabled: qq.as_deref() != Some("false"),
         mail_accounts,
+        shelf_max_items: legacy.as_ref().map_or(default_shelf_max(), |item| item.shelf_max_items.clamp(20, 200)),
+        shelf_show_count: legacy.as_ref().is_none_or(|item| item.shelf_show_count),
+        shelf_double_click: legacy.as_ref().map_or_else(default_shelf_double, |item| item.shelf_double_click.clone()),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -545,6 +565,12 @@ struct LegacySettings {
     lyrics_online: bool,
     #[serde(default = "default_true")]
     lyrics_chinese: bool,
+    #[serde(default = "default_shelf_max")]
+    shelf_max_items: usize,
+    #[serde(default = "default_true")]
+    shelf_show_count: bool,
+    #[serde(default = "default_shelf_double")]
+    shelf_double_click: String,
     #[serde(default = "default_true")]
     translation_enabled: bool,
 }

@@ -20,6 +20,9 @@ mod translation;
 mod translation_ui;
 mod clipboard;
 mod file_shelf;
+mod file_shelf_media;
+pub mod file_shelf_drag;
+pub mod file_shelf_picker;
 mod file_shelf_ui;
 pub mod focus;
 #[cfg(feature = "embedded")]
@@ -69,6 +72,38 @@ fn wechat_request_focus() {}
 fn take_dropped_files() -> Vec<String> {
     embedded::take_dropped_files()
 }
+
+
+#[cfg(feature = "embedded")]
+fn take_drag_result() -> Option<Result<(), String>> {
+    embedded::take_drag_result()
+}
+
+
+#[cfg(feature = "embedded")]
+pub(crate) fn request_file_drag(paths: Vec<String>) -> Result<(), String> {
+    embedded::request_drag(paths);
+    Ok(())
+}
+
+#[cfg(not(feature = "embedded"))]
+pub(crate) fn request_file_drag(_paths: Vec<String>) -> Result<(), String> {
+    Err("拖出文件只支持宿主窗口。".to_string())
+}
+
+#[cfg(feature = "embedded")]
+fn take_pick_result() -> Option<Result<Vec<String>, String>> {
+    embedded::take_pick_result()
+}
+
+
+#[cfg(feature = "embedded")]
+pub(crate) fn request_file_pick() {
+    embedded::request_pick();
+}
+
+#[cfg(not(feature = "embedded"))]
+pub(crate) fn request_file_pick() {}
 
 
 const COLLAPSED_WIDTH: f32 = 320.0;
@@ -154,6 +189,8 @@ struct SettingsState {
     music_sources: Signal<Vec<media::KnownSource>>,
     translation: TranslationSettings,
     launcher: LauncherSettingsState,
+    shelf_show_count: Signal<bool>,
+    shelf: file_shelf_ui::ShelfState,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -178,6 +215,8 @@ pub fn App() -> impl IntoElement {
     let mail = mail_ui::start(saved.mail_accounts.clone());
     let qq = qq_ui::start(qq_enabled);
     let sound_enabled = signal(saved.sound_enabled);
+    let shelf_show_count = signal(saved.shelf_show_count);
+    let shelf = file_shelf_ui::start(saved.shelf_max_items, saved.shelf_double_click.clone());
     let lyrics_folder = signal(saved.lyrics_folder.clone());
     let lyrics_online = signal(saved.lyrics_online);
     let lyrics_chinese = signal(saved.lyrics_chinese);
@@ -315,6 +354,8 @@ pub fn App() -> impl IntoElement {
         music_sources,
         translation: translation_settings,
         launcher: launcher_settings,
+        shelf_show_count,
+        shelf,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -379,7 +420,19 @@ pub fn App() -> impl IntoElement {
     translation::hotkey::start(&saved.translation_shortcut, saved.translation_enabled);
     let island_page = signal(false);
     let shelf_page = signal(false);
-    let shelf = file_shelf_ui::start();
+
+    #[cfg(feature = "embedded")]
+    {
+        let paths: Vec<String> = std::env::args()
+            .skip(1)
+            .filter(|arg| std::path::Path::new(arg).is_absolute())
+            .collect();
+        if !paths.is_empty() {
+            file_shelf_ui::add_dropped(shelf, paths);
+            shelf_page.set(true);
+            window::set_expanded(expanded, true);
+        }
+    }
     let translation_active = signal(false);
     let translation = translation_ui::start(translation_settings, translation_active);
     launcher::hotkey::start(&saved.launcher_shortcut, saved.launcher_enabled);
@@ -424,6 +477,15 @@ pub fn App() -> impl IntoElement {
         spawn(async move {
             loop {
                 timer(Duration::from_millis(80)).await;
+                if let Some(result) = take_pick_result() {
+                    match result {
+                        Ok(paths) => file_shelf_ui::add_dropped(shelf_state, paths),
+                        Err(error) => shelf_state.error.set(error),
+                    }
+                }
+                if let Some(result) = take_drag_result() {
+                    file_shelf_ui::drag_finished(shelf_state, result);
+                }
                 let paths = take_dropped_files();
                 if paths.is_empty() {
                     continue;
@@ -448,7 +510,7 @@ pub fn App() -> impl IntoElement {
             expanded_island(expanded, settings_open, island_page, shelf_page, shelf, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled, qq, qq_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
-            collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
+            collapsed_island(expanded, shelf, shelf_show_count, items, dark, ai_state, media_state, lyrics)
         }))
         .child(settings_window(settings_open, settings_state, items, media_state))
         .child(translation_ui::translation_window(translation, translation_settings, settings_open, dark))
@@ -457,6 +519,8 @@ pub fn App() -> impl IntoElement {
 
 fn collapsed_island(
     expanded: Signal<bool>,
+    shelf: file_shelf_ui::ShelfState,
+    shelf_show_count: Signal<bool>,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
@@ -498,6 +562,11 @@ fn collapsed_island(
                         .text_color(move || palette(dark.get()).bg),
                 )
                 .on_press(move || open_cindy(ai))
+        }))
+        .child(when(move || shelf_show_count.get() && !shelf.items.get().is_empty(), move || {
+            text(move || t!("island.shelf_collapsed", count = shelf.items.get().len()))
+                .text_size(px(11.0))
+                .text_color(move || palette(dark.get()).muted)
         }))
         .child(
             text(move || t!("island.count", count = items.get().len()))
@@ -1774,6 +1843,7 @@ fn settings_content(
         )
         .child(wechat_toggle_row(state))
         .child(music_sources_section(state, media_state))
+        .child(shelf_settings(state, state.dark))
         .child(translation_ui::settings_section(state.translation, state.dark))
         .child(launcher_ui::settings_section(state.launcher, state.translation.shortcut, state.dark))
         .child(section_label(move || t!("island.lyrics"), state))
@@ -1948,6 +2018,56 @@ fn music_source_row(
                 .on_press(move_down),
         )
 }
+fn shelf_settings(state: SettingsState, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(8.0))
+        .child(section_label(move || t!("island.shelf_title"), state))
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .child(text(move || t!("island.shelf_max")).flex_1().text_size(px(13.0)).text_color(move || palette(dark.get()).muted))
+                .child(
+                    input()
+                        .w(px(70.0))
+                        .h(px(28.0))
+                        .px(px(8.0))
+                        .rounded(px(7.0))
+                        .bg(move || palette(dark.get()).input)
+                        .text_color(move || palette(dark.get()).fg)
+                        .value(move || state.shelf.max_items.get().to_string())
+                        .on_change(move |text: &str| {
+                            if let Ok(value) = text.trim().parse::<usize>() {
+                                state.shelf.max_items.set(value.clamp(file_shelf::MIN_MAX_ITEMS, file_shelf::MAX_MAX_ITEMS));
+                                file_shelf_ui::refresh(state.shelf);
+                                save_settings(state);
+                            }
+                        }),
+                ),
+        )
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .child(text(move || t!("island.shelf_double_click")).flex_1().text_size(px(13.0)).text_color(move || palette(dark.get()).muted))
+                .child(pill(move || t!("island.shelf_open"), Rc::new(move || state.shelf.double_click.get() == "open"), move || { state.shelf.double_click.set("open".into()); save_settings(state); }, dark))
+                .child(pill(move || t!("island.shelf_reveal"), Rc::new(move || state.shelf.double_click.get() == "reveal"), move || { state.shelf.double_click.set("reveal".into()); save_settings(state); }, dark)),
+        )
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .child(text(move || t!("island.shelf_show_count")).flex_1().text_size(px(13.0)).text_color(move || palette(dark.get()).muted))
+                .child(pill(move || t!("island.on"), Rc::new(move || state.shelf_show_count.get()), move || { state.shelf_show_count.set(true); save_settings(state); }, dark))
+                .child(pill(move || t!("island.off"), Rc::new(move || !state.shelf_show_count.get()), move || { state.shelf_show_count.set(false); save_settings(state); }, dark)),
+        )
+        .child(pill(move || t!("island.shelf_clear"), Rc::new(|| false), move || file_shelf_ui::clear(state.shelf), dark))
+}
+
 fn lyrics_folder_row(state: SettingsState) -> impl IntoElement {
     view()
         .flex_col()
@@ -2085,6 +2205,9 @@ fn save_settings(state: SettingsState) {
         launcher_engine: state.launcher.engine.get_untracked(),
         launcher_folder_mode: state.launcher.folder_mode.get_untracked(),
         launcher_folders: state.launcher.folders.get_untracked(),
+        shelf_max_items: state.shelf.max_items.get_untracked(),
+        shelf_show_count: state.shelf_show_count.get_untracked(),
+        shelf_double_click: state.shelf.double_click.get_untracked(),
         qq_enabled: state.qq_enabled.get_untracked(),
         mail_accounts: state.mail.accounts.get_untracked(),
     });

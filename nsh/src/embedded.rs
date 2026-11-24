@@ -23,7 +23,12 @@ static WECHAT_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static WECHAT_FOCUS_REQUEST: AtomicBool = AtomicBool::new(false);
 static SETTINGS_REQUEST: AtomicBool = AtomicBool::new(false);
 static DROPPED_FILES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static DRAG_PATHS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static DRAG_RESULT: Mutex<Option<Result<(), String>>> = Mutex::new(None);
+static PICK_RESULT: Mutex<Option<Result<Vec<String>, String>>> = Mutex::new(None);
 static ON_EXPAND: OnceLock<fn(bool)> = OnceLock::new();
+static ON_DRAG: OnceLock<fn()> = OnceLock::new();
+static ON_PICK: OnceLock<fn()> = OnceLock::new();
 
 /// The host installs the function it uses to resize its window.
 pub fn install(on_expand: fn(bool)) {
@@ -66,6 +71,58 @@ pub fn push_dropped_files(paths: Vec<String>) {
         pending.extend(paths);
     }
 }
+
+pub fn install_pick(on_pick: fn()) {
+    let _ = ON_PICK.set(on_pick);
+}
+
+pub fn request_pick() {
+    if let Some(on_pick) = ON_PICK.get() {
+        on_pick();
+    }
+}
+
+pub fn set_pick_result(result: Result<Vec<String>, String>) {
+    if let Ok(mut pending) = PICK_RESULT.lock() {
+        *pending = Some(result);
+    }
+}
+
+pub fn take_pick_result() -> Option<Result<Vec<String>, String>> {
+    PICK_RESULT.lock().ok().and_then(|mut pending| pending.take())
+}
+
+
+pub fn install_drag(on_drag: fn()) {
+    let _ = ON_DRAG.set(on_drag);
+}
+
+pub fn request_drag(paths: Vec<String>) {
+    if let Ok(mut pending) = DRAG_PATHS.lock() {
+        *pending = paths;
+    }
+    if let Some(on_drag) = ON_DRAG.get() {
+        on_drag();
+    }
+}
+
+pub fn take_drag_paths() -> Vec<String> {
+    DRAG_PATHS
+        .lock()
+        .map(|mut paths| std::mem::take(&mut *paths))
+        .unwrap_or_default()
+}
+
+pub fn set_drag_result(result: Result<(), String>) {
+    if let Ok(mut pending) = DRAG_RESULT.lock() {
+        *pending = Some(result);
+    }
+}
+
+pub fn take_drag_result() -> Option<Result<(), String>> {
+    DRAG_RESULT.lock().ok().and_then(|mut pending| pending.take())
+}
+
 
 pub fn take_dropped_files() -> Vec<String> {
     DROPPED_FILES

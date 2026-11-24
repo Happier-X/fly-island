@@ -149,6 +149,17 @@ island:
   shelf_empty: Drop files here
   shelf_empty_note: Paths only; files are not copied
   shelf_drop_hint: Release to add
+  shelf_add: Add
+  shelf_search: Search files
+  shelf_retry: Retry
+  shelf_collapsed: Files %{count}
+  shelf_max: Shelf limit
+  shelf_double_click: Double-click
+  shelf_open: Open
+  shelf_reveal: Show
+  shelf_show_count: Show file count when collapsed
+  shelf_no_match: No matching files
+  shelf_remove_selected: Remove %{count}
   shelf_clear: Clear
   shelf_confirm_clear: Confirm clear
   shelf_folder: Folder

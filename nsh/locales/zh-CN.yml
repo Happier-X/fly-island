@@ -149,6 +149,17 @@ island:
   shelf_empty: 把文件拖到这里
   shelf_empty_note: 只保存路径，不复制文件
   shelf_drop_hint: 松开以加入
+  shelf_add: 添加
+  shelf_search: 搜索文件
+  shelf_retry: 重试
+  shelf_collapsed: 文件 %{count}
+  shelf_max: 文件数量上限
+  shelf_double_click: 双击文件
+  shelf_open: 打开
+  shelf_reveal: 定位
+  shelf_show_count: 折叠条显示文件数量
+  shelf_no_match: 没有匹配的文件
+  shelf_remove_selected: 移除 %{count} 项
   shelf_clear: 清空
   shelf_confirm_clear: 确认清空
   shelf_folder: 文件夹

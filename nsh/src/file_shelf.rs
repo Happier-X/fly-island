@@ -15,6 +15,7 @@ use std::{
 use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 pub const MAX_ITEMS: usize = 100;
 pub const MIN_MAX_ITEMS: usize = 20;
 pub const MAX_MAX_ITEMS: usize = 200;
@@ -152,7 +153,19 @@ pub fn refresh_presence(items: &mut [Item]) {
 
 #[cfg(windows)]
 pub fn copy_text(text: &str) -> Result<(), String> {
-    clipboard_win::set_clipboard_string(text).map_err(|error| format!("复制路径失败：{error}"))
+    let mut last = String::new();
+    for attempt in 0..5 {
+        match clipboard_win::set_clipboard_string(text) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                last = format!("复制路径失败：{error}");
+                if attempt < 4 {
+                    std::thread::sleep(std::time::Duration::from_millis(80));
+                }
+            }
+        }
+    }
+    Err(last)
 }
 
 #[cfg(not(windows))]
