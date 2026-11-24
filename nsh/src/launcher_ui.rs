@@ -57,6 +57,7 @@ pub fn start(settings: LauncherSettingsState) -> LauncherState {
     let error = signal(String::new());
     let display = signal(None::<DisplayId>);
     let revision = signal(0u64);
+    let last_query = signal(String::new());
     let state = LauncherState { open, query, selected, results, loading, error, display };
     set_interval(Duration::from_millis(50), move || {
         let is_open = open.get_untracked();
@@ -110,9 +111,13 @@ pub fn start(settings: LauncherSettingsState) -> LauncherState {
         let engine = SearchEngine::parse(&settings.engine.get());
         let found = launcher::search(&entries, &query_value, 30, settings.search_web.get_untracked(), engine);
         loading.set(snapshot.apps_building || snapshot.files_building);
+        let query_changed = query_value != last_query.get_untracked();
+        if query_changed {
+            last_query.set(query_value.clone());
+        }
         if query_value.trim().is_empty() || found.is_empty() {
             selected.set(-1);
-        } else {
+        } else if query_changed || selected.get_untracked() < 0 {
             selected.set(0);
         }
         results.set(found);

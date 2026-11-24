@@ -12,8 +12,8 @@ use std::{
 };
 
 use windows::Win32::{
-    Foundation::{LPARAM, LRESULT, WPARAM},
-    System::Threading::GetCurrentThreadId,
+    Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM},
+    System::{LibraryLoader::GetModuleHandleW, Threading::GetCurrentThreadId},
     UI::{
         Input::KeyboardAndMouse::{
             GetAsyncKeyState, RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS, VK_DOWN,
@@ -267,9 +267,15 @@ fn install_hook() -> Result<(), String> {
             return Ok(());
         }
         CTRL_TAPS.with(|taps| *taps.borrow_mut() = CtrlTaps::default());
+        // A low-level hook installed with a NULL module handle is refused on
+        // Windows (ERROR_HOOK_NEEDS_HMOD): pass the executable holding the callback.
         // SAFETY: the installing thread pumps messages until it drops the hook.
-        let hook = unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_event), None, 0) }
-            .map_err(|error| format!("无法监听双击 Ctrl：{error}"))?;
+        let instance = unsafe { GetModuleHandleW(None) }
+            .map_err(|error| format!("无法取得键盘钩子模块句柄：{error}"))?;
+        let hook = unsafe {
+            SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_event), Some(HINSTANCE(instance.0)), 0)
+        }
+        .map_err(|error| format!("无法监听双击 Ctrl：{error}"))?;
         *slot.borrow_mut() = Some(hook);
         Ok(())
     })
@@ -433,6 +439,13 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn double_ctrl_is_the_tap_trigger() {
+        let trigger = super::Trigger::parse("DoubleCtrl").unwrap();
+        assert_eq!(trigger.label(), "DoubleCtrl");
+        assert!(super::Trigger::parse("Alt+Space").is_ok());
+        assert!(super::Trigger::parse("Space").is_err());
+    }
     #[test]
     fn fires_once_at_the_second_release_and_accepts_either_ctrl() {
         assert_eq!(
