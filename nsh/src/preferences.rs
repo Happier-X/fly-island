@@ -5,7 +5,7 @@
 //! `clipboard-history.json` for clipboard options. Only whitelisted fields are
 //! imported; the old files are never modified or deleted.
 
-use std::{fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use rusty_leveldb::{LdbIterator, Options};
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,18 @@ fn default_true() -> bool {
 
 fn default_max_items() -> usize {
     30
+}
+
+fn default_translation_shortcut() -> String {
+    "Ctrl+Shift+F".to_string()
+}
+
+fn default_translation_direction() -> String {
+    "auto".to_string()
+}
+
+fn default_translation_provider() -> String {
+    "siliconflow".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +65,18 @@ pub struct Preferences {
     pub lyrics_chinese: bool,
     #[serde(default)]
     pub music_sources: Vec<KnownSource>,
+    #[serde(default = "default_true")]
+    pub translation_enabled: bool,
+    #[serde(default = "default_translation_shortcut")]
+    pub translation_shortcut: String,
+    #[serde(default = "default_translation_direction")]
+    pub translation_direction: String,
+    #[serde(default = "default_translation_provider")]
+    pub translation_provider: String,
+    #[serde(default)]
+    pub translation_custom_base_url: String,
+    #[serde(default)]
+    pub translation_models: BTreeMap<String, String>,
 }
 
 impl Default for Preferences {
@@ -74,6 +98,12 @@ impl Default for Preferences {
             lyrics_online: true,
             lyrics_chinese: true,
             music_sources: Vec::new(),
+            translation_enabled: true,
+            translation_shortcut: default_translation_shortcut(),
+            translation_direction: default_translation_direction(),
+            translation_provider: default_translation_provider(),
+            translation_custom_base_url: String::new(),
+            translation_models: BTreeMap::new(),
         }
     }
 }
@@ -87,6 +117,87 @@ fn data_file() -> Option<PathBuf> {
     Some(new_dir()?.join("settings.json"))
 }
 
+fn import_translation_once(preferences: &mut Preferences) {
+    let Some(flag) = translation_import_flag() else {
+        return;
+    };
+    if flag.exists() {
+        return;
+    }
+    let legacy_saved = legacy_settings_text()
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok());
+    let local = legacy_local_storage().unwrap_or_default();
+    let legacy = local.translation.as_deref().and_then(parse_legacy_translation);
+    if preferences.translation_shortcut == default_translation_shortcut()
+        && preferences.translation_provider == default_translation_provider()
+        && preferences.translation_models.is_empty()
+    {
+        if let Some(legacy) = legacy {
+            preferences.translation_shortcut = legacy.shortcut;
+            preferences.translation_direction = legacy.direction;
+            preferences.translation_provider = legacy.provider;
+            preferences.translation_custom_base_url = legacy.custom_base_url;
+            preferences.translation_models = legacy.models;
+        }
+    }
+    if let Some(legacy) = legacy_saved {
+        preferences.translation_enabled = legacy.translation_enabled;
+    }
+    if let Some(parent) = flag.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(flag, b"1");
+    save(preferences);
+}
+
+fn translation_import_flag() -> Option<PathBuf> {
+    Some(new_dir()?.join("legacy-translation-settings-imported.flag"))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyTranslation {
+    #[serde(default)]
+    shortcut: String,
+    #[serde(default)]
+    direction: String,
+    #[serde(default)]
+    provider: String,
+    #[serde(default)]
+    custom_base_url: String,
+    #[serde(default)]
+    models: BTreeMap<String, String>,
+}
+
+fn parse_legacy_translation(raw: &str) -> Option<LegacyTranslation> {
+    let legacy = serde_json::from_str::<LegacyTranslation>(raw).ok()?;
+    let shortcut = match legacy.shortcut.as_str() {
+        "" | "Alt+Space" | "Alt+C" => default_translation_shortcut(),
+        shortcut => shortcut.to_string(),
+    };
+    let direction = match legacy.direction.as_str() {
+        "zh-en" | "en-zh" => legacy.direction.clone(),
+        _ => default_translation_direction(),
+    };
+    let provider = if crate::translation::is_provider(&legacy.provider) {
+        legacy.provider.clone()
+    } else {
+        "deepseek".to_string()
+    };
+    let models = legacy
+        .models
+        .into_iter()
+        .filter(|(provider, model)| crate::translation::is_provider(provider) && !model.trim().is_empty())
+        .collect();
+    Some(LegacyTranslation {
+        shortcut,
+        direction,
+        provider,
+        custom_base_url: legacy.custom_base_url,
+        models,
+    })
+}
 /// Settings written before the AI switches existed keep their defaults; import
 /// those five fields once so an old `cindyNotificationsEnabled=false` is kept.
 fn import_ai_settings_once(preferences: &mut Preferences) {
@@ -129,6 +240,7 @@ pub fn load() -> Preferences {
         if let Ok(text) = fs::read_to_string(path) {
             if let Ok(mut preferences) = serde_json::from_str::<Preferences>(&text) {
                 import_ai_settings_once(&mut preferences);
+                import_translation_once(&mut preferences);
                 return preferences;
             }
         }
@@ -136,11 +248,12 @@ pub fn load() -> Preferences {
     if !nsh_core::prelude::os().is_desktop() {
         return Preferences::default();
     }
-    let LegacyLocalStorage { settings, locale } = legacy_local_storage().unwrap_or_default();
+    let LegacyLocalStorage { settings, locale, translation } = legacy_local_storage().unwrap_or_default();
     let legacy = settings
         .as_deref()
         .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok());
     let clipboard = legacy_clipboard_settings();
+    let translation_settings = translation.as_deref().and_then(parse_legacy_translation);
     let preferences = Preferences {
         dark: legacy.as_ref().and_then(dark_from_settings).unwrap_or(true),
         locale: locale.unwrap_or_default(),
@@ -158,6 +271,12 @@ pub fn load() -> Preferences {
         lyrics_online: legacy.as_ref().is_none_or(|item| item.lyrics_online),
         lyrics_chinese: legacy.as_ref().is_none_or(|item| item.lyrics_chinese),
         music_sources: Vec::new(),
+        translation_enabled: legacy.as_ref().is_none_or(|item| item.translation_enabled),
+        translation_shortcut: translation_settings.as_ref().map_or_else(default_translation_shortcut, |item| item.shortcut.clone()),
+        translation_direction: translation_settings.as_ref().map_or_else(default_translation_direction, |item| item.direction.clone()),
+        translation_provider: translation_settings.as_ref().map_or_else(default_translation_provider, |item| item.provider.clone()),
+        translation_custom_base_url: translation_settings.as_ref().map_or_else(String::new, |item| item.custom_base_url.clone()),
+        translation_models: translation_settings.as_ref().map_or_else(BTreeMap::new, |item| item.models.clone()),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -195,6 +314,8 @@ struct LegacySettings {
     lyrics_online: bool,
     #[serde(default = "default_true")]
     lyrics_chinese: bool,
+    #[serde(default = "default_true")]
+    translation_enabled: bool,
 }
 
 fn dark_from_settings(settings: &LegacySettings) -> Option<bool> {
@@ -228,6 +349,7 @@ fn luminance(r: u8, g: u8, b: u8) -> f32 {
 struct LegacyLocalStorage {
     settings: Option<String>,
     locale: Option<String>,
+    translation: Option<String>,
 }
 
 fn legacy_local_storage() -> Option<LegacyLocalStorage> {
@@ -259,12 +381,15 @@ fn legacy_local_storage() -> Option<LegacyLocalStorage> {
             found.settings.get_or_insert_with(|| legacy_json(&value));
         } else if key.ends_with("focusd-island-locale") {
             found.locale.get_or_insert_with(|| legacy_locale(&value));
+        } else if key.ends_with("focusd-island-translation-settings") {
+            found.translation.get_or_insert_with(|| legacy_json(&value));
         }
     }
     found.settings = found
         .settings
         .filter(|text| text.trim_start().starts_with('{'));
     found.locale = found.locale.filter(|text| text == "zh-CN" || text == "en");
+    found.translation = found.translation.filter(|text| text.trim_start().starts_with('{'));
     Some(found)
 }
 

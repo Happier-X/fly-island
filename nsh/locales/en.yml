@@ -78,4 +78,45 @@ island:
   lyrics_cache_expired: Expired cache was refreshed
   lyrics_cache_failed: Cache is not writable; lyrics are not saved
   lyrics_retry: Retry
+  translation_title: Translation
+  translation: Translation
+  translation_go_settings: Settings
+  translation_auto: Auto
+  translation_zh_en: ZH → EN
+  translation_en_zh: EN → ZH
+  translation_source: Source
+  translation_result: Translation
+  translation_paste: Clipboard
+  translation_clear: Clear
+  translation_placeholder: Type or paste text; Enter translates
+  translation_loading: Translating…
+  translation_empty_result: The translation appears here
+  translation_copy: Copy
+  translation_copied: Copied
+  translation_translate: Translate
+  translation_retry: Retry
+  translation_enter: Press Enter to translate
+  translation_no_key: No API key; open Settings
+  translation_empty_source: Enter something to translate.
+  translation_too_long: A request is limited to 5,000 characters.
+  translation_empty_clipboard: The clipboard has no text.
+  translation_settings: Quick translation
+  translation_enabled: Quick translation
+  translation_shortcut: Open shortcut
+  translation_shortcut_hint: e.g. Ctrl+Shift+F
+  translation_apply: Apply
+  translation_direction: Direction
+  translation_provider: Service
+  translation_custom_base_url: Custom base URL
+  translation_base_url_hint: HTTPS, or HTTP for this machine
+  translation_model: Model
+  translation_model_default: Default %{model}
+  translation_model_required: Required
+  translation_secret: API key
+  translation_secret_saved: Saved
+  translation_secret_missing: Not configured
+  translation_secret_placeholder: Paste the key and save
+  translation_save: Save
+  translation_delete: Delete
+  translation_secret_hint: Stored in Windows Credential Manager, never in settings.json
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

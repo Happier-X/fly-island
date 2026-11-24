@@ -10,6 +10,8 @@ mod lyrics;
 mod lyrics_ui;
 mod media;
 mod sound;
+mod translation;
+mod translation_ui;
 mod clipboard;
 pub mod focus;
 #[cfg(feature = "embedded")]
@@ -28,6 +30,7 @@ use ai::{AgentSession, AgentState, AiSnapshot};
 use battery::PeripheralBatteryDevice;
 use clipboard::{ClipItem, ClipKind, ClipboardHistory};
 use lyrics_ui::LyricsState;
+use translation_ui::TranslationSettings;
 use media::MediaState;
 
 #[cfg(feature = "embedded")]
@@ -133,6 +136,7 @@ struct SettingsState {
     sound_enabled: Signal<bool>,
     lyrics: LyricsSettingsState,
     music_sources: Signal<Vec<media::KnownSource>>,
+    translation: TranslationSettings,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -158,6 +162,32 @@ pub fn App() -> impl IntoElement {
     let lyrics_online = signal(saved.lyrics_online);
     let lyrics_chinese = signal(saved.lyrics_chinese);
     let music_sources = signal(saved.music_sources.clone());
+    let translation_enabled = signal(saved.translation_enabled);
+    let translation_shortcut = signal(saved.translation_shortcut.clone());
+    let translation_direction = signal(saved.translation_direction.clone());
+    let translation_provider = signal(saved.translation_provider.clone());
+    let translation_custom_base_url = signal(saved.translation_custom_base_url.clone());
+    let translation_models = signal(saved.translation_models.clone());
+    let translation_shortcut_draft = signal(saved.translation_shortcut.clone());
+    let translation_key_draft = signal(String::new());
+    let translation_key_saved = signal(0u64);
+    let translation_key_present = signal(false);
+    let translation_error = signal(String::new());
+    let translation_dirty = signal(0u64);
+    let translation_settings = TranslationSettings {
+        enabled: translation_enabled,
+        shortcut: translation_shortcut,
+        direction: translation_direction,
+        provider: translation_provider,
+        custom_base_url: translation_custom_base_url,
+        models: translation_models,
+        shortcut_draft: translation_shortcut_draft,
+        key_draft: translation_key_draft,
+        key_saved: translation_key_saved,
+        key_present: translation_key_present,
+        error: translation_error,
+        dirty: translation_dirty,
+    };
     wechat_set_enabled(saved.wechat_enabled);
     let ai_enabled = signal(saved.ai_enabled);
     let notify_done = signal(saved.notify_done);
@@ -231,6 +261,7 @@ pub fn App() -> impl IntoElement {
         sound_enabled,
         lyrics: LyricsSettingsState { folder: lyrics_folder, online: lyrics_online, chinese: lyrics_chinese },
         music_sources,
+        translation: translation_settings,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -292,6 +323,12 @@ pub fn App() -> impl IntoElement {
     set_interval(Duration::from_millis(1500), move || poll_media());
     let lyrics = lyrics_ui::start(media_state, lyrics_folder, lyrics_online, lyrics_chinese);
 
+    translation::hotkey::start(&saved.translation_shortcut, saved.translation_enabled);
+    let translation = translation_ui::start(translation_settings);
+    effect(move || {
+        let _ = translation_dirty.get();
+        save_settings(settings_state);
+    });
     window::configure(expanded);
     window::install_tray(expanded);
     window::install_shortcut(expanded);
@@ -302,12 +339,13 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, lyrics, batteries, wechat, wechat_enabled)
+            expanded_island(expanded, settings_open, query, items, visible, dark, ai_state, media_state, lyrics, translation.open, batteries, wechat, wechat_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
         }))
         .child(settings_window(settings_open, settings_state, items, media_state))
+        .child(translation_ui::translation_window(translation, translation_settings, settings_open, dark))
 }
 
 fn collapsed_island(
@@ -377,6 +415,7 @@ fn expanded_island(
     ai: AiState,
     media_state: Signal<Option<MediaState>>,
     lyrics: LyricsState,
+    translation_open: Signal<bool>,
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
     wechat: Signal<(bool, Option<u64>)>,
     wechat_enabled: Signal<bool>,
@@ -390,7 +429,7 @@ fn expanded_island(
         .w(px(EXPANDED_WIDTH))
         .h(px(EXPANDED_HEIGHT))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, items, dark, ai))
+        .child(expanded_header(expanded, settings_open, translation_open, items, dark, ai))
         .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
         .child(when(
             move || media_state.get().as_ref().is_some_and(|media| media.available),
@@ -420,6 +459,7 @@ fn expanded_island(
 fn expanded_header(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
+    translation_open: Signal<bool>,
     items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
@@ -457,6 +497,13 @@ fn expanded_header(
                 )
                 .on_press(move || open_cindy(ai))
         }))
+        .child(
+            text("翻译")
+                .text_size(px(12.0))
+                .text_color(move || palette(dark.get()).muted)
+                .px(px(6.0))
+                .on_press(move || translation_open.set(true)),
+        )
         .child(
             text(move || if settings_open.get() { "✕" } else { "⚙" })
                 .text_size(px(14.0))
@@ -1527,6 +1574,7 @@ fn settings_content(
         )
         .child(wechat_toggle_row(state))
         .child(music_sources_section(state, media_state))
+        .child(translation_ui::settings_section(state.translation, state.dark))
         .child(section_label(move || t!("island.lyrics"), state))
         .child(lyrics_folder_row(state))
         .child(toggle_row(move || t!("island.lyrics_online"), state.lyrics.online, state))
@@ -1821,5 +1869,11 @@ fn save_settings(state: SettingsState) {
         lyrics_online: state.lyrics.online.get_untracked(),
         lyrics_chinese: state.lyrics.chinese.get_untracked(),
         music_sources: state.music_sources.get_untracked(),
+        translation_enabled: state.translation.enabled.get_untracked(),
+        translation_shortcut: state.translation.shortcut.get_untracked(),
+        translation_direction: state.translation.direction.get_untracked(),
+        translation_provider: state.translation.provider.get_untracked(),
+        translation_custom_base_url: state.translation.custom_base_url.get_untracked(),
+        translation_models: state.translation.models.get_untracked(),
     });
 }

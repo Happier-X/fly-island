@@ -78,4 +78,45 @@ island:
   lyrics_cache_expired: 缓存已过期，已重新获取
   lyrics_cache_failed: 缓存不可写，歌词未保存
   lyrics_retry: 重试
+  translation_title: 翻译
+  translation: 翻译
+  translation_go_settings: 设置
+  translation_auto: 自动
+  translation_zh_en: 中 → 英
+  translation_en_zh: 英 → 中
+  translation_source: 原文
+  translation_result: 译文
+  translation_paste: 剪贴板
+  translation_clear: 清空
+  translation_placeholder: 输入或粘贴要翻译的文字，Enter 翻译
+  translation_loading: 正在翻译…
+  translation_empty_result: 译文会显示在这里
+  translation_copy: 复制
+  translation_copied: 已复制
+  translation_translate: 翻译
+  translation_retry: 重试
+  translation_enter: 按 Enter 翻译
+  translation_no_key: 未配置 API 密钥，去设置
+  translation_empty_source: 请输入要翻译的内容。
+  translation_too_long: 单次最多翻译 5000 个字符。
+  translation_empty_clipboard: 剪贴板里没有文字。
+  translation_settings: 快捷翻译
+  translation_enabled: 快捷翻译
+  translation_shortcut: 打开快捷键
+  translation_shortcut_hint: 例如 Ctrl+Shift+F
+  translation_apply: 应用
+  translation_direction: 翻译方向
+  translation_provider: 翻译服务
+  translation_custom_base_url: 自定义接口地址
+  translation_base_url_hint: 只允许 https，本机地址可用 http
+  translation_model: 模型
+  translation_model_default: 默认 %{model}
+  translation_model_required: 必填
+  translation_secret: API 密钥
+  translation_secret_saved: 已保存
+  translation_secret_missing: 未配置
+  translation_secret_placeholder: 粘贴密钥后保存
+  translation_save: 保存
+  translation_delete: 删除
+  translation_secret_hint: 密钥保存在 Windows 凭据管理器，不写入 settings.json
   about: 焦点岛（NSH）%{version} · NSH 0.6.1
