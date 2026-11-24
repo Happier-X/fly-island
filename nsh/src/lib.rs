@@ -471,6 +471,22 @@ fn collapsed_island(
         .on_press(move || window::set_expanded(expanded, true))
 }
 
+enum CopyTarget {
+    Text(String),
+    Image(String),
+    None,
+}
+
+fn copy_target(item: &ClipItem) -> CopyTarget {
+    match item.kind {
+        ClipKind::Text => CopyTarget::Text(item.text.clone()),
+        ClipKind::Image => item
+            .image_url
+            .clone()
+            .map_or(CopyTarget::None, CopyTarget::Image),
+    }
+}
+
 fn expanded_island(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
@@ -1461,15 +1477,14 @@ fn history_row(
                 .py(px(8.0))
                 .rounded(px(8.0))
                 .active(|s| s.bg(palette(dark.get()).row))
-                .on_press(move || match copy.kind {
-                    ClipKind::Text => set_clipboard(copy.text.clone()),
-                    ClipKind::Image => {
-                        if let Some(url) = copy.image_url.clone() {
-                            if !clipboard::write_image(&url) {
-                                set_clipboard_image(url);
-                            }
+                .on_press(move || match copy_target(&copy) {
+                    CopyTarget::Text(text) => set_clipboard(text),
+                    CopyTarget::Image(url) => {
+                        if !clipboard::write_image(&url) {
+                            set_clipboard_image(url);
                         }
                     }
+                    CopyTarget::None => {}
                 })
                 .child(content)
                 .child(view().flex_1())
@@ -2012,4 +2027,41 @@ fn save_settings(state: SettingsState) {
         qq_enabled: state.qq_enabled.get_untracked(),
         mail_accounts: state.mail.accounts.get_untracked(),
     });
+}
+
+#[cfg(test)]
+mod rust_only_tests {
+    #[test]
+    fn the_expanded_state_is_larger_than_the_collapsed_state() {
+        let collapsed = std::hint::black_box((super::COLLAPSED_WIDTH, super::COLLAPSED_HEIGHT));
+        let expanded = std::hint::black_box((super::EXPANDED_WIDTH, super::EXPANDED_HEIGHT));
+        assert!(collapsed.0 < expanded.0);
+        assert!(collapsed.1 < expanded.1);
+    }
+
+    #[test]
+    fn a_clipboard_row_copies_text_and_image_sources() {
+        let text = super::ClipItem {
+            id: 1,
+            kind: super::ClipKind::Text,
+            text: "hello".into(),
+            image_url: None,
+            width: 0,
+            height: 0,
+            favorite: false,
+        };
+        assert!(matches!(super::copy_target(&text), super::CopyTarget::Text(value) if value == "hello"));
+        let image = super::ClipItem {
+            id: 2,
+            kind: super::ClipKind::Image,
+            text: String::new(),
+            image_url: Some("data:image/png;base64,AA==".into()),
+            width: 1,
+            height: 1,
+            favorite: false,
+        };
+        assert!(matches!(super::copy_target(&image), super::CopyTarget::Image(_)));
+        let missing = super::ClipItem { image_url: None, ..image };
+        assert!(matches!(super::copy_target(&missing), super::CopyTarget::None));
+    }
 }

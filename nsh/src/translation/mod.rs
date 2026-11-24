@@ -166,28 +166,103 @@ mod tests {
         assert!(target_language("x", "text").is_err());
     }
 
+    fn completion(content: &str) -> String {
+        serde_json::json!({
+            "id": "mock-completion",
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": content}}],
+        })
+        .to_string()
+    }
+
+    fn mock_openai(
+        requests: usize,
+        handler: impl Fn(&str) -> (u16, String) + Send + 'static,
+    ) -> String {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            for _ in 0..requests {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    return;
+                };
+                let mut request = Vec::new();
+                let mut chunk = [0_u8; 4096];
+                let header_end = loop {
+                    let Ok(read) = stream.read(&mut chunk) else {
+                        break 0;
+                    };
+                    if read == 0 {
+                        break 0;
+                    }
+                    request.extend_from_slice(&chunk[..read]);
+                    if let Some(index) = request.windows(4).position(|window| window == b"\r\n\r\n") {
+                        break index + 4;
+                    }
+                };
+                let head = String::from_utf8_lossy(&request[..header_end]).to_ascii_lowercase();
+                let length = head
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:").and_then(|value| value.trim().parse::<usize>().ok()))
+                    .unwrap_or(0);
+                while request.len() < header_end + length {
+                    let Ok(read) = stream.read(&mut chunk) else {
+                        break;
+                    };
+                    if read == 0 {
+                        break;
+                    }
+                    request.extend_from_slice(&chunk[..read]);
+                }
+                let request = String::from_utf8_lossy(&request);
+                let (status, body) = handler(&request);
+                let reason = match status {
+                    200 => "OK",
+                    401 => "Unauthorized",
+                    _ => "Error",
+                };
+                let response = format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(response.as_bytes());
+            }
+        });
+        format!("http://{address}/v1")
+    }
+
     #[tokio::test]
-    #[ignore = "needs node nsh/tests/mock-openai.mjs"]
     async fn mock_provider_translates_both_ways() {
-        let base = Some("http://127.0.0.1:8787/v1");
-        let en = translate_with_secret("你好", "auto", "custom", base, Some("mock"), "test-key", Duration::from_secs(3)).await.unwrap();
+        let base = mock_openai(2, |request| {
+            let content = if request.contains("English") {
+                "Hello from mock"
+            } else {
+                "你好，来自 mock"
+            };
+            (200, completion(content))
+        });
+        let en = translate_with_secret("你好", "auto", "custom", Some(&base), Some("mock"), "test-key", Duration::from_secs(3)).await.unwrap();
         assert!(en.contains("Hello"));
-        let zh = translate_with_secret("Hello", "auto", "custom", base, Some("mock"), "test-key", Duration::from_secs(3)).await.unwrap();
+        let zh = translate_with_secret("Hello", "auto", "custom", Some(&base), Some("mock"), "test-key", Duration::from_secs(3)).await.unwrap();
         assert!(zh.contains("你好"));
     }
 
-
     #[tokio::test]
-    #[ignore = "needs node nsh/tests/mock-openai.mjs"]
     async fn mock_provider_reports_401_and_timeout() {
-        let unauthorized = translate_with_secret("Hello", "en-zh", "custom", Some("http://127.0.0.1:8787/v1/unauthorized"), Some("mock"), "test-key", Duration::from_secs(3)).await;
-        assert!(unauthorized.unwrap_err().contains("401"));
-        let slow = translate_with_secret("Hello", "en-zh", "custom", Some("http://127.0.0.1:8787/v1/slow"), Some("mock"), "test-key", Duration::from_millis(300)).await;
-        assert!(slow.is_err());
+        let unauthorized = mock_openai(1, |_| (401, r#"{"error":{"message":"invalid api key"}}"#.to_string()));
+        let result = translate_with_secret("Hello", "en-zh", "custom", Some(&unauthorized), Some("mock"), "test-key", Duration::from_secs(3)).await;
+        assert!(result.unwrap_err().contains("401"));
+        let slow = mock_openai(1, |_| {
+            std::thread::sleep(Duration::from_secs(2));
+            (200, completion("too late"))
+        });
+        let result = translate_with_secret("Hello", "en-zh", "custom", Some(&slow), Some("mock"), "test-key", Duration::from_millis(300)).await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]
-    #[ignore = "no server: checks the connection error path"]
     async fn a_closed_port_is_a_network_error() {
         let result = translate_with_secret("Hello", "en-zh", "custom", Some("http://127.0.0.1:9/v1"), Some("mock"), "test-key", Duration::from_secs(2)).await;
         assert!(result.is_err());

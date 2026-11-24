@@ -32,5 +32,5 @@ fn main() -> impl std::process::Termination {
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 compile_error!(
-    "Run this binary on macOS, Windows or Linux; use the TSX entry with nsh run for iOS and Android."
+    "Run this desktop binary on macOS, Windows or Linux."
 );
