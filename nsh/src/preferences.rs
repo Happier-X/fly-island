@@ -125,6 +125,8 @@ pub struct Preferences {
     pub shelf_show_count: bool,
     #[serde(default = "default_shelf_double")]
     pub shelf_double_click: String,
+    #[serde(default)]
+    pub update_endpoint: String,
 }
 
 impl Default for Preferences {
@@ -166,6 +168,7 @@ impl Default for Preferences {
             shelf_max_items: default_shelf_max(),
             shelf_show_count: true,
             shelf_double_click: default_shelf_double(),
+            update_endpoint: String::new(),
         }
     }
 }
@@ -528,6 +531,7 @@ pub fn load() -> Preferences {
         shelf_max_items: legacy.as_ref().map_or(default_shelf_max(), |item| item.shelf_max_items.clamp(20, 200)),
         shelf_show_count: legacy.as_ref().is_none_or(|item| item.shelf_show_count),
         shelf_double_click: legacy.as_ref().map_or_else(default_shelf_double, |item| item.shelf_double_click.clone()),
+        update_endpoint: String::new(),
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);

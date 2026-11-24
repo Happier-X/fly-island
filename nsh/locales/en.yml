@@ -158,6 +158,10 @@ island:
   shelf_open: Open
   shelf_reveal: Show
   shelf_show_count: Show file count when collapsed
+  update_title: Updates
+  update_endpoint_placeholder: Manifest URL (empty disables)
+  update_check: Check for updates
+  update_install: Download and restart
   shelf_no_match: No matching files
   shelf_remove_selected: Remove %{count}
   shelf_clear: Clear

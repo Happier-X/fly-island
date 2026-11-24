@@ -18,6 +18,8 @@ mod qq_ui;
 mod sound;
 mod translation;
 mod translation_ui;
+pub mod update;
+mod update_ui;
 mod clipboard;
 mod file_shelf;
 mod file_shelf_media;
@@ -191,6 +193,7 @@ struct SettingsState {
     launcher: LauncherSettingsState,
     shelf_show_count: Signal<bool>,
     shelf: file_shelf_ui::ShelfState,
+    update: update_ui::UpdateState,
 }
 
 #[native_module("focusd-island-nsh/native")]
@@ -217,6 +220,7 @@ pub fn App() -> impl IntoElement {
     let sound_enabled = signal(saved.sound_enabled);
     let shelf_show_count = signal(saved.shelf_show_count);
     let shelf = file_shelf_ui::start(saved.shelf_max_items, saved.shelf_double_click.clone());
+    let update = update_ui::start(saved.update_endpoint.clone(), true);
     let lyrics_folder = signal(saved.lyrics_folder.clone());
     let lyrics_online = signal(saved.lyrics_online);
     let lyrics_chinese = signal(saved.lyrics_chinese);
@@ -356,6 +360,7 @@ pub fn App() -> impl IntoElement {
         launcher: launcher_settings,
         shelf_show_count,
         shelf,
+        update,
     };
     if !saved.locale.is_empty() {
         if let Some(locale) = nsh_core::platform::Locale::parse(&saved.locale) {
@@ -1844,6 +1849,7 @@ fn settings_content(
         .child(wechat_toggle_row(state))
         .child(music_sources_section(state, media_state))
         .child(shelf_settings(state, state.dark))
+        .child(update_settings(state, state.dark))
         .child(translation_ui::settings_section(state.translation, state.dark))
         .child(launcher_ui::settings_section(state.launcher, state.translation.shortcut, state.dark))
         .child(section_label(move || t!("island.lyrics"), state))
@@ -2018,6 +2024,48 @@ fn music_source_row(
                 .on_press(move_down),
         )
 }
+fn update_settings(state: SettingsState, dark: Signal<bool>) -> impl IntoElement {
+    view()
+        .flex_col()
+        .gap(px(7.0))
+        .child(section_label(move || t!("island.update_title"), state))
+        .child(
+            input()
+                .value(move || state.update.endpoint.get())
+                .placeholder(move || t!("island.update_endpoint_placeholder"))
+                .placeholder_color(move || palette(dark.get()).faint)
+                .text_color(move || palette(dark.get()).fg)
+                .bg(move || palette(dark.get()).input)
+                .h(px(30.0))
+                .px(px(10.0))
+                .rounded(px(8.0))
+                .on_change(move |text: &str| {
+                    state.update.endpoint.set(text.to_string());
+                    save_settings(state);
+                }),
+        )
+        .child(
+            view()
+                .flex_row()
+                .gap(px(8.0))
+                .child(pill(move || t!("island.update_check"), Rc::new(|| false), move || update_ui::check_now(state.update), dark))
+                .child(when(move || state.update.available.get().is_some(), move || {
+                    pill(move || t!("island.update_install"), Rc::new(|| false), move || update_ui::install_now(state.update), dark)
+                })),
+        )
+        .child(when(move || !state.update.status.get().is_empty(), move || {
+            text(move || state.update.status.get()).text_size(px(11.0)).text_color(move || update_ui::status_color(state.update, dark))
+        }))
+        .child(when(move || !state.update.error.get().is_empty(), move || {
+            text(move || state.update.error.get()).text_size(px(11.0)).text_color(move || palette(dark.get()).warning)
+        }))
+        .child(when(move || state.update.available.get().is_some(), move || {
+            view().flex_col().gap(px(3.0))
+                .child(text(move || state.update.available.get().and_then(|item| item.notes).unwrap_or_default()).text_size(px(10.0)).text_color(move || palette(dark.get()).muted))
+                .child(text(move || state.update.available.get().map(|item| update_ui::signature_note(&item)).unwrap_or_default()).text_size(px(10.0)).text_color(move || palette(dark.get()).faint))
+        }))
+}
+
 fn shelf_settings(state: SettingsState, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_col()
@@ -2208,6 +2256,7 @@ fn save_settings(state: SettingsState) {
         shelf_max_items: state.shelf.max_items.get_untracked(),
         shelf_show_count: state.shelf_show_count.get_untracked(),
         shelf_double_click: state.shelf.double_click.get_untracked(),
+        update_endpoint: state.update.endpoint.get_untracked(),
         qq_enabled: state.qq_enabled.get_untracked(),
         mail_accounts: state.mail.accounts.get_untracked(),
     });

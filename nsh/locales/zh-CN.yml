@@ -158,6 +158,10 @@ island:
   shelf_open: 打开
   shelf_reveal: 定位
   shelf_show_count: 折叠条显示文件数量
+  update_title: 自动更新
+  update_endpoint_placeholder: 更新清单 URL（留空关闭）
+  update_check: 检查更新
+  update_install: 下载并重启
   shelf_no_match: 没有匹配的文件
   shelf_remove_selected: 移除 %{count} 项
   shelf_clear: 清空
