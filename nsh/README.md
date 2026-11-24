@@ -115,8 +115,10 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - The expanded island shows one row: disabled, listening, needs attention, or
   WeChat not running, plus "Open WeChat". The pending state clears only when the
   window was actually brought to the front.
-- QQ notifications and IMAP mail are not implemented yet; their constraints,
-  failure states and the manual integration checklist are in
+- QQ notifications and mail have fixture pipelines: an in-memory QQ buffer (dedupe,
+  5 s merge, 20 items, status/retry) and mail account settings with Win32
+  credentials plus a header-first fixture IMAP source. Real clients and
+  credentials still need integration; the checklist and failure screenshots are in
   docs/architecture/nsh-messaging.md.
 
 ## Focus policy

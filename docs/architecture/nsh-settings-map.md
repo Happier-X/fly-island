@@ -38,6 +38,7 @@
 | 清空历史（保留收藏） | 保留收藏项 |
 | 独立设置窗口 | 普通可缩放窗口，支持多屏；齿轮与托盘入口 |
 | 快捷启动器 | 启用、组合键/双击 Ctrl、录制与重置、搜索项、搜索引擎、文件目录；保存为 `launcher_*` |
+| QQ 通知 / 邮箱 | QQ 开关、邮箱账户与服务商预设、授权码写入 Windows 凭据；保存为 `qq_enabled` / `mail_accounts` |
 
 ## 暂不迁移（NSH 当前无等价能力）
 
@@ -53,7 +54,8 @@
 | `shelf*` | 文件中转迁移时再接 |
 | `translation*` | 已接入：provider/model/方向/快捷键/开关/自动翻译从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
 | `launcher*` | 已接入：启用、触发方式/快捷键、搜索项、搜索引擎、目录从旧 LevelDB 导入并写入 settings.json |
-| `mail*`、`battery*`、`game*` | 对应功能迁移时再接 |
+| `qq*`、`mail*` | 已接入：QQ 开关、邮箱 accounts/host/enabled 从旧 LevelDB 导入；授权码保留在 Windows 凭据管理器 |
+| `battery*`、`game*` | 对应功能迁移时再接 |
 | `showTitle`、`showCollapsedText`、`collapsedLayout`、`collapsedShowCover`、`expandTrigger`、`hover*`、`autoTuck*`、`autoCollapse*`、`minimizeAction`、`tuckedHoverAction`、`revealOnMessage` | 岛屿行为迁移时再接；当前宿主只提供手动贴边/展开 |
 
 ## 验收
