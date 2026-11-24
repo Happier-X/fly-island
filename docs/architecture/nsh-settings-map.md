@@ -50,7 +50,7 @@
 | `agent*` | AI 状态迁移时再接 |
 | `music*`（播放器优先级） | 已接入：settings.json 的 music_sources 存 id/label 顺序；其余 music* 仍未接 |
 | `shelf*` | 文件中转迁移时再接 |
-| `translation*` | 已接入：provider/model/方向/快捷键/开关从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
+| `translation*` | 已接入：provider/model/方向/快捷键/开关/自动翻译从旧 LevelDB 导入并写入 settings.json；Key 仍在 Windows 凭据管理器 |
 | `mail*`、`battery*`、`game*` | 对应功能迁移时再接 |
 | `showTitle`、`showCollapsedText`、`collapsedLayout`、`collapsedShowCover`、`expandTrigger`、`hover*`、`autoTuck*`、`autoCollapse*`、`minimizeAction`、`tuckedHoverAction`、`revealOnMessage` | 岛屿行为迁移时再接；当前宿主只提供手动贴边/展开 |
 

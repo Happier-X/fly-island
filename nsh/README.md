@@ -81,11 +81,13 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - Notification sounds: the three thumb-piano WAVs are copied to
   nsh/assets/sounds, scaled to 0.7 in memory and played with PlaySoundW; the
   settings page has a master switch.
-- Translation is a separate 480×640 always-on-top window: Ctrl+Shift+F or
-  the island's 翻译 button opens it, the clipboard fills an empty source, and
-  seven OpenAI-compatible providers are supported. API keys stay in Windows
-  Credential Manager. The quick launcher and the file shelf are still pending.
-  See docs/architecture/nsh-translation.md.
+- Translation runs in the expanded island's 翻译 page and in a separate
+  480×640 always-on-top window; Ctrl+Shift+F or the page tab opens it. The
+  clipboard fills an empty source, 500 ms auto-translate is optional, and seven
+  OpenAI-compatible providers are supported. Shortcuts are recorded in Settings
+  with conflict and reset handling; API keys stay in Windows Credential Manager.
+  The quick launcher and the file shelf are still pending. See
+  docs/architecture/nsh-translation.md.
 - Lyrics come from a local .lrc folder, LRCLIB, Kugou (KRC word times and a
   translation when the source has one) and NetEase. Answers and recent misses
   are cached in APPDATA/com.focusd.island.nsh/lyrics-cache; the expanded page
