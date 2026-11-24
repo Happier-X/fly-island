@@ -6,7 +6,7 @@
 
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    OnceLock,
+    Mutex, OnceLock,
 };
 
 use nsh_core::prelude::*;
@@ -22,6 +22,7 @@ static WECHAT_ENABLED: AtomicBool = AtomicBool::new(true);
 static WECHAT_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static WECHAT_FOCUS_REQUEST: AtomicBool = AtomicBool::new(false);
 static SETTINGS_REQUEST: AtomicBool = AtomicBool::new(false);
+static DROPPED_FILES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static ON_EXPAND: OnceLock<fn(bool)> = OnceLock::new();
 
 /// The host installs the function it uses to resize its window.
@@ -56,6 +57,21 @@ pub fn request_settings() {
 
 pub fn take_settings_request() -> bool {
     SETTINGS_REQUEST.swap(false, Ordering::Relaxed)
+}
+pub fn push_dropped_files(paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    if let Ok(mut pending) = DROPPED_FILES.lock() {
+        pending.extend(paths);
+    }
+}
+
+pub fn take_dropped_files() -> Vec<String> {
+    DROPPED_FILES
+        .lock()
+        .map(|mut pending| std::mem::take(&mut *pending))
+        .unwrap_or_default()
 }
 
 pub fn mark_clipboard_dirty() {

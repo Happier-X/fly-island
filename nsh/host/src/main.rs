@@ -41,12 +41,13 @@ mod host {
             },
             UI::{
                 HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+                Shell::{DefSubclassProc, DragAcceptFiles, DragFinish, DragQueryFileW, HDROP, SetWindowSubclass},
                 WindowsAndMessaging::{
                     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetGUIThreadInfo, GetMessageW,
                     GetWindowThreadProcessId, GUITHREADINFO, IsChild, MSG, PostMessageW,
                     PostQuitMessage, RegisterClassW, SetForegroundWindow,
                     SetTimer, ShowWindow, TranslateMessage, WNDCLASSW, WM_APP, WM_DESTROY,
-                    WM_CLIPBOARDUPDATE, WM_HOTKEY, WM_TIMER, WS_OVERLAPPED, SW_SHOW,
+                    WM_CLIPBOARDUPDATE, WM_DROPFILES, WM_HOTKEY, WM_TIMER, WS_OVERLAPPED, SW_SHOW,
                 },
             },
         },
@@ -209,6 +210,42 @@ mod host {
         }
     }
 
+    unsafe extern "system" fn app_subclass(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _id: usize,
+        _data: usize,
+    ) -> LRESULT {
+        if message == WM_DROPFILES {
+            let drop = HDROP(wparam.0 as *mut _);
+            // SAFETY: WM_DROPFILES carries a live HDROP owned by this message.
+            let count = unsafe { DragQueryFileW(drop, u32::MAX, None) };
+            let mut paths = Vec::new();
+            for index in 0..count {
+                // SAFETY: `index` is below the count above.
+                let length = unsafe { DragQueryFileW(drop, index, None) };
+                if length == 0 {
+                    continue;
+                }
+                let mut buffer = vec![0u16; length as usize + 1];
+                // SAFETY: the buffer is large enough and stays alive for the call.
+                let copied = unsafe { DragQueryFileW(drop, index, Some(&mut buffer)) };
+                if copied > 0 {
+                    paths.push(String::from_utf16_lossy(&buffer[..copied as usize]));
+                }
+            }
+            // SAFETY: the drop handle is released exactly once here.
+            unsafe { DragFinish(drop) };
+            log::info!("file drops: {} files", paths.len());
+            nsh_app_focusd_island_nsh::embedded::push_dropped_files(paths);
+            return LRESULT(0);
+        }
+        // SAFETY: the subclass forwards everything else to AppView's own procedure.
+        unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+    }
+
     pub fn run() -> std::process::ExitCode {
         env_logger::init();
         // SAFETY: process setup before any window exists.
@@ -295,6 +332,13 @@ mod host {
         view.load(App::Rust(root));
         island::log_displays();
         view.show();
+        let app = app_hwnd();
+        // SAFETY: the AppView window is live and owns the subclass for the process lifetime.
+        unsafe {
+            DragAcceptFiles(app, true);
+            let _ = SetWindowSubclass(app, Some(app_subclass), 1, 0);
+            log::info!("file drops accepted on AppView");
+        }
 
         // SAFETY: host window exists; hotkeys and tray belong to this thread.
         unsafe {

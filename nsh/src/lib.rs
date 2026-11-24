@@ -19,6 +19,8 @@ mod sound;
 mod translation;
 mod translation_ui;
 mod clipboard;
+mod file_shelf;
+mod file_shelf_ui;
 pub mod focus;
 #[cfg(feature = "embedded")]
 pub mod embedded;
@@ -63,6 +65,11 @@ fn wechat_request_focus() {
 #[cfg(not(feature = "embedded"))]
 fn wechat_request_focus() {}
 
+#[cfg(feature = "embedded")]
+fn take_dropped_files() -> Vec<String> {
+    embedded::take_dropped_files()
+}
+
 
 const COLLAPSED_WIDTH: f32 = 320.0;
 const COLLAPSED_HEIGHT: f32 = 40.0;
@@ -70,7 +77,7 @@ const EXPANDED_WIDTH: f32 = 620.0;
 const EXPANDED_HEIGHT: f32 = 420.0;
 
 #[derive(Clone, Copy)]
-struct Palette {
+pub(crate) struct Palette {
     bg: Color,
     fg: Color,
     muted: Color,
@@ -84,7 +91,7 @@ struct Palette {
     success: Color,
 }
 
-fn palette(dark: bool) -> Palette {
+pub(crate) fn palette(dark: bool) -> Palette {
     if dark {
         Palette {
             bg: rgba(0x1B1D21F2).into(),
@@ -371,6 +378,8 @@ pub fn App() -> impl IntoElement {
 
     translation::hotkey::start(&saved.translation_shortcut, saved.translation_enabled);
     let island_page = signal(false);
+    let shelf_page = signal(false);
+    let shelf = file_shelf_ui::start();
     let translation_active = signal(false);
     let translation = translation_ui::start(translation_settings, translation_active);
     launcher::hotkey::start(&saved.launcher_shortcut, saved.launcher_enabled);
@@ -400,11 +409,43 @@ pub fn App() -> impl IntoElement {
     #[cfg(feature = "embedded")]
     embedded::start(expanded, settings_open);
 
+    effect(move || {
+        if shelf_page.get() {
+            file_shelf_ui::refresh(shelf);
+        }
+    });
+
+    #[cfg(feature = "embedded")]
+    {
+        let shelf_state = shelf;
+        let expanded_signal = expanded;
+        let shelf_page_signal = shelf_page;
+        let island_page_signal = island_page;
+        spawn(async move {
+            loop {
+                timer(Duration::from_millis(80)).await;
+                let paths = take_dropped_files();
+                if paths.is_empty() {
+                    continue;
+                }
+                file_shelf_ui::add_dropped(shelf_state, paths);
+                shelf_page_signal.set(true);
+                island_page_signal.set(false);
+                shelf_state.dropping.set(true);
+                if !expanded_signal.get_untracked() {
+                    window::set_expanded(expanded_signal, true);
+                }
+                timer(Duration::from_millis(700)).await;
+                shelf_state.dropping.set(false);
+            }
+        });
+    }
+
     view()
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled, qq, qq_enabled)
+            expanded_island(expanded, settings_open, island_page, shelf_page, shelf, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled, qq, qq_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
@@ -491,6 +532,8 @@ fn expanded_island(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
     island_page: Signal<bool>,
+    shelf_page: Signal<bool>,
+    shelf: file_shelf_ui::ShelfState,
     query: Signal<String>,
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
@@ -517,11 +560,12 @@ fn expanded_island(
         .w(px(EXPANDED_WIDTH))
         .h(px(EXPANDED_HEIGHT))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, island_page, launcher, launcher_settings, items, dark, ai))
+        .child(expanded_header(expanded, settings_open, island_page, shelf_page, launcher, launcher_settings, items, dark, ai))
         .child(when(move || island_page.get(), move || {
             translation_ui::island_panel(translation, translation_settings, settings_open, dark)
         }))
-        .child(when(move || !island_page.get(), move || {
+        .child(when(move || shelf_page.get(), move || file_shelf_ui::panel(shelf, dark)))
+        .child(when(move || !island_page.get() && !shelf_page.get(), move || {
             view()
                 .flex_1()
                 .flex_col()
@@ -557,6 +601,7 @@ fn expanded_header(
     expanded: Signal<bool>,
     settings_open: Signal<bool>,
     island_page: Signal<bool>,
+    shelf_page: Signal<bool>,
     launcher: LauncherState,
     launcher_settings: LauncherSettingsState,
     items: Signal<Vec<ClipItem>>,
@@ -575,17 +620,33 @@ fn expanded_header(
             text(move || t!("island.clipboard_tab"))
                 .text_size(px(13.0))
                 .font_weight(FontWeight::MEDIUM)
-                .text_color(move || if island_page.get() { palette(dark.get()).muted } else { palette(dark.get()).fg })
-                .on_press(move || island_page.set(false)),
+                .text_color(move || if island_page.get() || shelf_page.get() { palette(dark.get()).muted } else { palette(dark.get()).fg })
+                .on_press(move || {
+                    island_page.set(false);
+                    shelf_page.set(false);
+                }),
+        )
+        .child(
+            text(move || t!("island.shelf_tab"))
+                .text_size(px(13.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || if shelf_page.get() { palette(dark.get()).fg } else { palette(dark.get()).muted })
+                .on_press(move || {
+                    island_page.set(false);
+                    shelf_page.set(true);
+                }),
         )
         .child(
             text(move || t!("island.translation_tab"))
                 .text_size(px(13.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || if island_page.get() { palette(dark.get()).fg } else { palette(dark.get()).muted })
-                .on_press(move || island_page.set(true)),
+                .on_press(move || {
+                    island_page.set(true);
+                    shelf_page.set(false);
+                }),
         )
-        .child(when(move || !island_page.get(), move || {
+        .child(when(move || !island_page.get() && !shelf_page.get(), move || {
             text(move || t!("island.count", count = items.get().len()))
                 .text_size(px(12.0))
                 .text_color(move || palette(dark.get()).faint)

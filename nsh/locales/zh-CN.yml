@@ -143,6 +143,18 @@ island:
   shortcut_owner_translation: 快捷翻译
   clipboard_tab: 剪贴板
   translation_tab: 翻译
+  shelf_tab: 文件中转
+  shelf_title: 文件中转
+  shelf_count: "%{count} 个文件"
+  shelf_empty: 把文件拖到这里
+  shelf_empty_note: 只保存路径，不复制文件
+  shelf_drop_hint: 松开以加入
+  shelf_clear: 清空
+  shelf_confirm_clear: 确认清空
+  shelf_folder: 文件夹
+  shelf_missing: 文件已移动或删除
+  shelf_unreachable: 所在位置不可用
+  shelf_unavailable: 文件已移动、删除或所在位置不可用
   translation_auto_translate: 自动翻译
   translation_record: 录制
   translation_recording: 按下组合键…

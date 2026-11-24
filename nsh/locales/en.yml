@@ -143,6 +143,18 @@ island:
   shortcut_owner_translation: quick translation
   clipboard_tab: Clipboard
   translation_tab: Translate
+  shelf_tab: Files
+  shelf_title: File shelf
+  shelf_count: "%{count} files"
+  shelf_empty: Drop files here
+  shelf_empty_note: Paths only; files are not copied
+  shelf_drop_hint: Release to add
+  shelf_clear: Clear
+  shelf_confirm_clear: Confirm clear
+  shelf_folder: Folder
+  shelf_missing: File moved or deleted
+  shelf_unreachable: Location unavailable
+  shelf_unavailable: The file moved, was deleted, or its location is unavailable
   translation_auto_translate: Auto translate
   translation_record: Record
   translation_recording: Press keys…
