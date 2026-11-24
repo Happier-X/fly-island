@@ -241,6 +241,11 @@ pub fn settings_section(state: ScreenshotSettingsState, dark: Signal<bool>) -> i
                     dark,
                 )),
         )
+        .child(
+            text(move || t!("island.screenshot_shortcut_hint"))
+                .text_size(px(11.0))
+                .text_color(move || palette(dark.get()).faint),
+        )
         .child(when(
             move || !state.error.get().is_empty(),
             move || {

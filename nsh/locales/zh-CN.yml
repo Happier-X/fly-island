@@ -224,6 +224,7 @@ island:
   screenshot: 截图
   screenshot_enabled: 启用截图
   screenshot_shortcut: 截图快捷键
+  screenshot_shortcut_hint: 默认 Ctrl+Shift+A；若旧版仍在运行会提示被占用，请换一个组合。
   screenshot_record: 录制
   screenshot_recording: 按下快捷键…
   screenshot_cancel: 取消

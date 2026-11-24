@@ -224,6 +224,7 @@ island:
   screenshot: Screenshots
   screenshot_enabled: Enable screenshots
   screenshot_shortcut: Screenshot shortcut
+  screenshot_shortcut_hint: Default is Ctrl+Shift+A. If the old app still holds it, pick another combination.
   screenshot_record: Record
   screenshot_recording: Press a shortcut…
   screenshot_cancel: Cancel

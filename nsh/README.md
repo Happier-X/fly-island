@@ -58,6 +58,9 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   "已被占用或无法注册" in the screenshot settings instead of failing silently;
   use another shortcut or close the Tauri app during coexistence.
 - Evidence and the measured matrix: docs/assets/nsh-screenshot/README.md.
+- Cross-DPI boundary: 100x100 physical selection across 125%/150% saves exactly 100x100; DPI-unaware automation must set PMv2 before PostMessage.
+- Clipboard/paste manual check: nsh/scripts/manual-screenshot-acceptance.ps1 (exits if the Tauri app is still running; does not kill it).
+
 ## Clipboard (Phase 3)
 
 - Text and images are captured by polling plus the host's

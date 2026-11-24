@@ -169,7 +169,7 @@ fn register(binding: &Binding) -> Result<(), String> {
         )
     }
     .map_err(|error| {
-        let message = format!("截图快捷键 {} 已被占用或无法注册：{error}", binding.label);
+        let message = format!("截图快捷键 {} 已被占用或无法注册：{error}。请在设置里换一个组合。", binding.label);
         log::warn!("{message}");
         message
     })
