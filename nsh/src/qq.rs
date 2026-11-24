@@ -561,6 +561,15 @@ mod tests {
     }
 
     #[test]
+    fn only_the_qq_app_id_is_accepted() {
+        assert!(is_qq_app_id("QQ"));
+        assert!(is_qq_app_id("qq"));
+        assert!(!is_qq_app_id("QQMail"));
+        assert!(!is_qq_app_id("WeChat"));
+        assert!(!is_qq_app_id(""));
+    }
+
+    #[test]
     fn startup_notifications_do_not_replay_and_new_messages_are_deduplicated() {
         let mut buffer = Buffer::default();
         assert_eq!(buffer.sync(vec![notice(1, "existing")]), None);

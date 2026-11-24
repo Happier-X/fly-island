@@ -31,7 +31,7 @@
 
 ## 验收
 
-- cargo test --lib --offline：102 passed / 0 failed / 9 ignored（全库，2026-11-24）。
+- cargo test --lib --offline：103 passed / 0 failed / 9 ignored（全库，2026-11-24）。
 - mock：`translation::tests::mock_openai`（Rust 本地 TCP，随机端口）；原 node mock 已删除。
   - translation::tests::mock_provider_translates_both_ways 通过：中文自动到英文、英文自动到中文。
   - translation::tests::mock_provider_reports_401_and_timeout 通过：401 含 HTTP 401；300ms 超时返回错误。

@@ -145,7 +145,7 @@ those in favor of its own.
 ## Rust-only checks
 
 - No app TS/TSX/JS sources: `rg --files nsh -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' -g '!target/**' -g '!.nsh/**'` prints nothing.
-- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (102 passed / 9 ignored on 2026-11-24).
+- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (103 passed / 9 ignored on 2026-11-24).
 - `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
 - `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 

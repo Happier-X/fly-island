@@ -11,7 +11,7 @@
 
 推荐路线：**Rust root 的纯 NSH 应用**，把现有 `src-tauri` 的领域模块逐步改成可复用的 Cargo crate；需要 `HWND` 的能力先用独立 Win32 辅助窗口实现，只有在“逐像素点击穿透 / AppBar / DWM 自绘 / 捕获叠加层”成为硬需求时，才升级为 `AppView` 混合宿主。
 
-> **2026-11-24 Rust-only 更新：** NSH 版不再有 TSX/QuickJS 应用入口。`nsh/App.test.tsx`、`nsh/tsconfig.json`、`nsh/tests/mock-openai.mjs` 已删除；`src/lib.rs` 的 Rust `App` 是唯一根，翻译 mock 改为 Rust 本地 TCP 服务。验证：`cargo test --manifest-path nsh/Cargo.toml --lib`（102 passed / 9 ignored）；`nsh build nsh` 输出 `no bundle: its runners mount the root`，产物只有 `app.json` 与 assets；`nsh run nsh` 输出 `running FocuSD Island (NSH) (Rust, no JS runtime)`；打包目录/zip 无 `.js/.tsx`/bytecode。下文 2026-11-24 之前记录里的 `nsh test` 是已删除的 TSX 测试，仅作历史。
+> **2026-11-24 Rust-only 更新：** NSH 版不再有 TSX/QuickJS 应用入口。`nsh/App.test.tsx`、`nsh/tsconfig.json`、`nsh/tests/mock-openai.mjs` 已删除；`src/lib.rs` 的 Rust `App` 是唯一根，翻译 mock 改为 Rust 本地 TCP 服务。验证：`cargo test --manifest-path nsh/Cargo.toml --lib`（103 passed / 9 ignored）；`nsh build nsh` 输出 `no bundle: its runners mount the root`，产物只有 `app.json` 与 assets；`nsh run nsh` 输出 `running FocuSD Island (NSH) (Rust, no JS runtime)`；打包目录/zip 无 `.js/.tsx`/bytecode。下文 2026-11-24 之前记录里的 `nsh test` 是已删除的 TSX 测试，仅作历史。
 
 ## NSH 能力核对（0.6.1）
 
