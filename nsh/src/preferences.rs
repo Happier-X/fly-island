@@ -107,6 +107,10 @@ pub struct Preferences {
     pub launcher_folder_mode: String,
     #[serde(default)]
     pub launcher_folders: Vec<String>,
+    #[serde(default = "default_true")]
+    pub qq_enabled: bool,
+    #[serde(default)]
+    pub mail_accounts: Vec<crate::mail::Account>,
 }
 
 impl Default for Preferences {
@@ -143,6 +147,8 @@ impl Default for Preferences {
             launcher_engine: default_bing(),
             launcher_folder_mode: default_default_folder_mode(),
             launcher_folders: Vec::new(),
+            qq_enabled: true,
+            mail_accounts: Vec::new(),
         }
     }
 }
@@ -328,6 +334,86 @@ fn parse_legacy_launcher(raw: &str) -> Option<LegacyLauncher> {
         folders,
     })
 }
+fn import_mail_once(preferences: &mut Preferences) {
+    let Some(flag) = mail_import_flag() else {
+        return;
+    };
+    if flag.exists() {
+        return;
+    }
+    let local = legacy_local_storage().unwrap_or_default();
+    if preferences.mail_accounts.is_empty() {
+        if let Some(accounts) = local.mail.as_deref().and_then(parse_legacy_mail) {
+            preferences.mail_accounts = accounts;
+        }
+        if let Some(qq) = local.qq.as_deref() {
+            preferences.qq_enabled = qq != "false";
+        }
+    }
+    if let Some(parent) = flag.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(flag, b"1");
+    save(preferences);
+}
+
+fn mail_import_flag() -> Option<PathBuf> {
+    Some(new_dir()?.join("legacy-mail-settings-imported.flag"))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyMailAccount {
+    #[serde(default)]
+    email: String,
+    #[serde(default)]
+    host: String,
+    #[serde(default = "default_true")]
+    enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyMailSettings {
+    #[serde(default)]
+    accounts: Vec<LegacyMailAccount>,
+    #[serde(default)]
+    email: String,
+    #[serde(default)]
+    host: String,
+    #[serde(default = "default_true")]
+    enabled: bool,
+}
+
+fn parse_legacy_mail(raw: &str) -> Option<Vec<crate::mail::Account>> {
+    let legacy = serde_json::from_str::<LegacyMailSettings>(raw).ok()?;
+    let list = if legacy.accounts.is_empty() && !legacy.email.trim().is_empty() {
+        vec![LegacyMailAccount {
+            email: legacy.email,
+            host: legacy.host,
+            enabled: legacy.enabled,
+        }]
+    } else {
+        legacy.accounts
+    };
+    let mut seen = std::collections::HashSet::new();
+    Some(
+        list.into_iter()
+            .filter_map(|item| {
+                let email = item.email.trim().to_ascii_lowercase();
+                if email.is_empty() || !seen.insert(email.clone()) {
+                    return None;
+                }
+                Some(crate::mail::Account {
+                    email,
+                    host: item.host.trim().to_string(),
+                    enabled: item.enabled,
+                })
+            })
+            .take(crate::mail::MAX_ACCOUNTS)
+            .collect(),
+    )
+}
 /// Settings written before the AI switches existed keep their defaults; import
 /// those five fields once so an old `cindyNotificationsEnabled=false` is kept.
 fn import_ai_settings_once(preferences: &mut Preferences) {
@@ -372,6 +458,7 @@ pub fn load() -> Preferences {
                 import_ai_settings_once(&mut preferences);
                 import_translation_once(&mut preferences);
                 import_launcher_once(&mut preferences);
+                import_mail_once(&mut preferences);
                 return preferences;
             }
         }
@@ -379,13 +466,14 @@ pub fn load() -> Preferences {
     if !nsh_core::prelude::os().is_desktop() {
         return Preferences::default();
     }
-    let LegacyLocalStorage { settings, locale, translation, launcher } = legacy_local_storage().unwrap_or_default();
+    let LegacyLocalStorage { settings, locale, translation, launcher, mail, qq } = legacy_local_storage().unwrap_or_default();
     let legacy = settings
         .as_deref()
         .and_then(|raw| serde_json::from_str::<LegacySettings>(raw).ok());
     let clipboard = legacy_clipboard_settings();
     let translation_settings = translation.as_deref().and_then(parse_legacy_translation);
     let launcher_settings = launcher.as_deref().and_then(parse_legacy_launcher);
+    let mail_accounts = mail.as_deref().and_then(parse_legacy_mail).unwrap_or_default();
     let preferences = Preferences {
         dark: legacy.as_ref().and_then(dark_from_settings).unwrap_or(true),
         locale: locale.unwrap_or_default(),
@@ -418,6 +506,8 @@ pub fn load() -> Preferences {
         launcher_engine: launcher_settings.as_ref().map_or_else(default_bing, |item| item.search_engine.clone()),
         launcher_folder_mode: launcher_settings.as_ref().map_or_else(default_default_folder_mode, |item| item.folder_mode.clone()),
         launcher_folders: launcher_settings.as_ref().map_or_else(Vec::new, |item| item.folders.clone()),
+        qq_enabled: qq.as_deref() != Some("false"),
+        mail_accounts,
     };
     if let Some(dir) = new_dir() {
         let _ = fs::create_dir_all(&dir);
@@ -492,6 +582,8 @@ struct LegacyLocalStorage {
     locale: Option<String>,
     translation: Option<String>,
     launcher: Option<String>,
+    mail: Option<String>,
+    qq: Option<String>,
 }
 
 fn legacy_local_storage() -> Option<LegacyLocalStorage> {
@@ -527,6 +619,10 @@ fn legacy_local_storage() -> Option<LegacyLocalStorage> {
             found.translation.get_or_insert_with(|| legacy_json(&value));
         } else if key.ends_with("focusd-island-launcher-settings") {
             found.launcher.get_or_insert_with(|| legacy_json(&value));
+        } else if key.ends_with("focusd-island-qq-mail-settings") {
+            found.mail.get_or_insert_with(|| legacy_json(&value));
+        } else if key.ends_with("focusd-island-qq-notifications-enabled") {
+            found.qq.get_or_insert_with(|| legacy_json(&value).trim().trim_matches(char::from(34)).to_string());
         }
     }
     found.settings = found

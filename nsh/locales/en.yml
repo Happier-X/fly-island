@@ -13,6 +13,7 @@ island:
   dark: Dark
   light: Light
   language: Language
+  messages: Messages
   search: Search clipboard
   no_results: No matches
   image: "%{width} x %{height} image"
@@ -51,6 +52,35 @@ island:
   wechat_listening: Listening
   wechat_missing: WeChat not running
   wechat_open: Open WeChat
+  qq_title: QQ notifications
+  qq_disabled: Disabled
+  qq_waiting: Waiting for messages
+  qq_not_running: QQ not running
+  qq_listening: Listening
+  qq_permission_denied: Notification access denied
+  qq_permission_required: Notification access required
+  qq_error: Read failed
+  qq_empty: No QQ notifications
+  qq_open: Open
+  qq_retry: Retry
+  qq_clear: ✕
+  mail_title: Mail
+  mail_hint: Headers only; bodies on demand. No read flags, attachments or remote images.
+  mail_unconfigured: Not configured
+  mail_saved: Credential saved
+  mail_ready: Connected
+  mail_auth_failed: Authentication failed
+  mail_timeout: Connection timed out
+  mail_offline: Cannot connect
+  mail_error: Read failed
+  mail_sync: Sync headers
+  mail_retry: Retry
+  mail_email: Mail address
+  mail_host: IMAP server (optional)
+  mail_auth_code: Authorization code, kept in Windows Credentials
+  mail_save: Save
+  mail_headers: Headers
+  mail_read_body: Read body
   sound: Notification sounds
   music_sources: Player order
   music_sources_hint: With several players open, the island follows the first playing one listed here

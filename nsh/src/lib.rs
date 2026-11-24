@@ -10,7 +10,11 @@ mod launcher;
 mod launcher_ui;
 mod lyrics;
 mod lyrics_ui;
+mod mail;
+mod mail_ui;
 mod media;
+mod qq;
+mod qq_ui;
 mod sound;
 mod translation;
 mod translation_ui;
@@ -136,6 +140,8 @@ struct SettingsState {
     max_items: Signal<usize>,
     ai: AiState,
     wechat_enabled: Signal<bool>,
+    qq_enabled: Signal<bool>,
+    mail: mail_ui::MailState,
     sound_enabled: Signal<bool>,
     lyrics: LyricsSettingsState,
     music_sources: Signal<Vec<media::KnownSource>>,
@@ -161,6 +167,9 @@ pub fn App() -> impl IntoElement {
     let capture_images = signal(saved.capture_images);
     let max_items = signal(saved.max_items.clamp(5, 200));
     let wechat_enabled = signal(saved.wechat_enabled);
+    let qq_enabled = signal(saved.qq_enabled);
+    let mail = mail_ui::start(saved.mail_accounts.clone());
+    let qq = qq_ui::start(qq_enabled);
     let sound_enabled = signal(saved.sound_enabled);
     let lyrics_folder = signal(saved.lyrics_folder.clone());
     let lyrics_online = signal(saved.lyrics_online);
@@ -292,6 +301,8 @@ pub fn App() -> impl IntoElement {
         max_items,
         ai: ai_state,
         wechat_enabled,
+        qq_enabled,
+        mail,
         sound_enabled,
         lyrics: LyricsSettingsState { folder: lyrics_folder, online: lyrics_online, chinese: lyrics_chinese },
         music_sources,
@@ -379,6 +390,10 @@ pub fn App() -> impl IntoElement {
         let _ = translation_dirty.get();
         save_settings(settings_state);
     });
+    effect(move || {
+        let _ = mail.dirty.get();
+        save_settings(settings_state);
+    });
     window::configure(expanded);
     window::install_tray(expanded);
     window::install_shortcut(expanded);
@@ -389,7 +404,7 @@ pub fn App() -> impl IntoElement {
         .flex_1()
         .items_center()
         .child(when(expanded, move || {
-            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled)
+            expanded_island(expanded, settings_open, island_page, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled, qq, qq_enabled)
         }))
         .child(when(move || !expanded.get(), move || {
             collapsed_island(expanded, items, dark, ai_state, media_state, lyrics)
@@ -474,6 +489,8 @@ fn expanded_island(
     batteries: Signal<Vec<PeripheralBatteryDevice>>,
     wechat: Signal<(bool, Option<u64>)>,
     wechat_enabled: Signal<bool>,
+    qq: qq_ui::QqState,
+    qq_enabled: Signal<bool>,
 ) -> impl IntoElement {
     view()
         .bg(move || palette(dark.get()).bg)
@@ -507,6 +524,7 @@ fn expanded_island(
                 ))
                 .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
                 .child(wechat_panel(wechat, wechat_enabled, dark))
+                .child(when(move || qq_enabled.get(), move || qq_ui::panel(qq, dark)))
                 .child(divider(dark))
                 .child(search_and_list(query, items, visible, dark))
                 .child(
@@ -863,6 +881,36 @@ fn wechat_toggle_row(state: SettingsState   ) -> impl IntoElement {
         ))
 }
 
+fn qq_toggle_row(state: SettingsState) -> impl IntoElement {
+    view()
+        .flex_row()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            text(move || t!("island.qq_title"))
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || palette(state.dark.get()).muted),
+        )
+        .child(pill(
+            move || t!("island.on"),
+            Rc::new(move || state.qq_enabled.get()),
+            move || {
+                state.qq_enabled.set(true);
+                save_settings(state);
+            },
+            state.dark,
+        ))
+        .child(pill(
+            move || t!("island.off"),
+            Rc::new(move || !state.qq_enabled.get()),
+            move || {
+                state.qq_enabled.set(false);
+                save_settings(state);
+            },
+            state.dark,
+        ))
+}
 fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_col()
@@ -1545,6 +1593,9 @@ fn settings_content(
                     state.dark,
                 )),
         )
+        .child(section_label(move || t!("island.messages"), state))
+        .child(qq_toggle_row(state))
+        .child(mail_ui::settings_section(state.mail, state.dark))
         .child(section_label(move || t!("island.clipboard"), state))
         .child(
             view()
@@ -1958,5 +2009,7 @@ fn save_settings(state: SettingsState) {
         launcher_engine: state.launcher.engine.get_untracked(),
         launcher_folder_mode: state.launcher.folder_mode.get_untracked(),
         launcher_folders: state.launcher.folders.get_untracked(),
+        qq_enabled: state.qq_enabled.get_untracked(),
+        mail_accounts: state.mail.accounts.get_untracked(),
     });
 }

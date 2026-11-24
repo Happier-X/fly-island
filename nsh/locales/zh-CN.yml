@@ -13,6 +13,7 @@ island:
   dark: 深色
   light: 浅色
   language: 语言
+  messages: 消息
   search: 搜索剪贴板
   no_results: 没有匹配项
   image: "%{width} x %{height} 图片"
@@ -51,6 +52,35 @@ island:
   wechat_listening: 监听中
   wechat_missing: 微信未运行
   wechat_open: 打开微信
+  qq_title: QQ 通知
+  qq_disabled: 未启用
+  qq_waiting: 等待消息
+  qq_not_running: QQ 未运行
+  qq_listening: 监听中
+  qq_permission_denied: 通知权限被拒绝
+  qq_permission_required: 需要通知权限
+  qq_error: 读取失败
+  qq_empty: 暂无 QQ 通知
+  qq_open: 打开
+  qq_retry: 重试
+  qq_clear: ✕
+  mail_title: 邮箱
+  mail_hint: 只同步邮件头，正文按需读取；不标已读、不下附件、不加载远程图片
+  mail_unconfigured: 未配置
+  mail_saved: 已保存凭据
+  mail_ready: 已连接
+  mail_auth_failed: 认证失败
+  mail_timeout: 连接超时
+  mail_offline: 无法连接
+  mail_error: 读取失败
+  mail_sync: 同步邮件头
+  mail_retry: 重试
+  mail_email: 邮箱地址
+  mail_host: IMAP 服务器（可留空）
+  mail_auth_code: 授权码，仅保存到 Windows 凭据
+  mail_save: 保存
+  mail_headers: 邮件头
+  mail_read_body: 读取正文
   sound: 提示音
   music_sources: 播放器优先级
   music_sources_hint: 多播放器时，优先跟随列表上方正在播放的那个
