@@ -80,11 +80,13 @@ fn menu(host: HWND) {
         let through_item = wide("切换点击穿透");
         let monitor_item = wide("移到下一块屏幕");
         let settings_item = wide("设置");
+        let shot_item = wide("截图");
         let quit_item = wide("退出");
         let _ = AppendMenuW(menu, MF_STRING, 1, PCWSTR(toggle_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 2, PCWSTR(through_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 5, PCWSTR(tuck_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 6, PCWSTR(settings_item.as_ptr()));
+        let _ = AppendMenuW(menu, MF_STRING, 7, PCWSTR(shot_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 3, PCWSTR(monitor_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let _ = AppendMenuW(menu, MF_STRING, 4, PCWSTR(quit_item.as_ptr()));
@@ -107,6 +109,7 @@ fn menu(host: HWND) {
             3 => island::next_monitor(),
             5 => island::toggle_tuck(),
             6 => nsh_app_focusd_island_nsh::embedded::request_settings(),
+            7 => nsh_app_focusd_island_nsh::screenshot::capture(),
             4 => {
                 let _ = PostMessageW(Some(host), WM_CLOSE, WPARAM(0), LPARAM(0));
             }

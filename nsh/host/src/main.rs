@@ -66,6 +66,7 @@ mod host {
     pub const WM_HOST_TIMER: usize = 1;
     pub const WM_HOST_DRAG: u32 = WM_APP + 3;
     pub const WM_HOST_PICK: u32 = WM_APP + 4;
+    pub const WM_HOST_SCREENSHOT: u32 = WM_APP + 5;
 
     static HOST_HWND: AtomicIsize = AtomicIsize::new(0);
     static APP_HWND: AtomicIsize = AtomicIsize::new(0);
@@ -205,6 +206,11 @@ mod host {
             }
             WM_CLIPBOARDUPDATE => {
                 nsh_app_focusd_island_nsh::embedded::mark_clipboard_dirty();
+                LRESULT(0)
+            }
+            WM_HOST_SCREENSHOT => {
+                log::info!("host screenshot request");
+                nsh_app_focusd_island_nsh::screenshot::capture();
                 LRESULT(0)
             }
             WM_HOST_PICK => {

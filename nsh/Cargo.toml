@@ -32,6 +32,7 @@ semver = "1"
 sha2 = "0.10"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "net"] }
+airsnip = { path = "../crates/airsnip" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros"] }

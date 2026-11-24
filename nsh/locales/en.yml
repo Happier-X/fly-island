@@ -221,4 +221,15 @@ island:
   translation_save: Save
   translation_delete: Delete
   translation_secret_hint: Stored in Windows Credential Manager, never in settings.json
+  screenshot: Screenshots
+  screenshot_enabled: Enable screenshots
+  screenshot_shortcut: Screenshot shortcut
+  screenshot_record: Record
+  screenshot_recording: Press a shortcut…
+  screenshot_cancel: Cancel
+  screenshot_reset: Reset
+  screenshot_format: Save format
+  screenshot_dir: Save folder
+  screenshot_dir_placeholder: Empty uses Pictures/FocuSD Island
+  screenshot_auto_save: Also save when copying
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

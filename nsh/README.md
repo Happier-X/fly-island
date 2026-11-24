@@ -37,6 +37,27 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
 - Tray (overflow area, "焦点岛"): show/collapse, settings, click-through, tuck,
   next monitor, quit.
 
+## Screenshot (S1)
+
+- AirSnip is linked as a library and runs its own message thread through
+  airsnip::start_host. NSH owns only the screenshot settings and the global
+  shortcut; capture, selection handles, annotation, OCR/long-shot plumbing and
+  pinned windows stay in crates/airsnip.
+- Default shortcut is Ctrl+Shift+A. Settings has enable, a record/reset
+  shortcut control, save format (PNG / JPEG / WebP), save folder and "also save
+  when copying". The tray menu also has a 截图 / Screenshot item.
+- Settings file: %APPDATA%\com.focusd.island.nsh\screenshot\settings.json.
+  Save As starts in the configured folder (default
+  %USERPROFILE%\Pictures\FocuSD Island).
+- The overlay toolbar can copy, save, or pin. Pinned windows are topmost,
+  scroll to zoom, and close with Esc or the close box.
+- The overlay is one topmost native window spanning the virtual desktop, so a
+  cross-monitor selection works in one drag. Toolbar and handle scale is
+  resolved from the cursor monitor's DPI.
+- While the Tauri app is still running it holds Ctrl+Shift+A. NSH reports
+  "已被占用或无法注册" in the screenshot settings instead of failing silently;
+  use another shortcut or close the Tauri app during coexistence.
+- Evidence and the measured matrix: docs/assets/nsh-screenshot/README.md.
 ## Clipboard (Phase 3)
 
 - Text and images are captured by polling plus the host's
@@ -145,7 +166,7 @@ those in favor of its own.
 ## Rust-only checks
 
 - No app TS/TSX/JS sources: `rg --files nsh -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' -g '!target/**' -g '!.nsh/**'` prints nothing.
-- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (103 passed / 9 ignored on 2026-11-24).
+- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (116 passed / 9 ignored on 2026-11-25).
 - `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
 - `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 

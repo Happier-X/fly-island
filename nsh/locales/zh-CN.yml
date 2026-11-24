@@ -221,4 +221,15 @@ island:
   translation_save: 保存
   translation_delete: 删除
   translation_secret_hint: 密钥保存在 Windows 凭据管理器，不写入 settings.json
+  screenshot: 截图
+  screenshot_enabled: 启用截图
+  screenshot_shortcut: 截图快捷键
+  screenshot_record: 录制
+  screenshot_recording: 按下快捷键…
+  screenshot_cancel: 取消
+  screenshot_reset: 重置
+  screenshot_format: 保存格式
+  screenshot_dir: 保存目录
+  screenshot_dir_placeholder: 留空使用 图片/FocuSD Island
+  screenshot_auto_save: 复制时同时保存
   about: 焦点岛（NSH）%{version} · NSH 0.6.1

@@ -15,6 +15,8 @@ mod mail_ui;
 mod media;
 mod qq;
 mod qq_ui;
+pub mod screenshot;
+mod screenshot_ui;
 mod sound;
 mod translation;
 mod translation_ui;
@@ -191,6 +193,7 @@ struct SettingsState {
     music_sources: Signal<Vec<media::KnownSource>>,
     translation: TranslationSettings,
     launcher: LauncherSettingsState,
+    screenshot: screenshot_ui::ScreenshotSettingsState,
     shelf_show_count: Signal<bool>,
     shelf: file_shelf_ui::ShelfState,
     update: update_ui::UpdateState,
@@ -266,6 +269,11 @@ pub fn App() -> impl IntoElement {
         error: launcher_error,
         dirty: launcher_dirty,
     };
+    let screenshot_settings = screenshot::load();
+    if let Err(error) = screenshot::start(&screenshot_settings) {
+        log::warn!("screenshot unavailable: {error}");
+    }
+    let screenshot_state = screenshot_ui::ScreenshotSettingsState::new(&screenshot_settings);
     let translation_settings = TranslationSettings {
         enabled: translation_enabled,
         shortcut: translation_shortcut,
@@ -358,6 +366,7 @@ pub fn App() -> impl IntoElement {
         music_sources,
         translation: translation_settings,
         launcher: launcher_settings,
+        screenshot: screenshot_state,
         shelf_show_count,
         shelf,
         update,
@@ -1852,6 +1861,8 @@ fn settings_content(
         .child(update_settings(state, state.dark))
         .child(translation_ui::settings_section(state.translation, state.dark))
         .child(launcher_ui::settings_section(state.launcher, state.translation.shortcut, state.dark))
+        .child(section_label(move || t!("island.screenshot"), state))
+        .child(screenshot_ui::settings_section(state.screenshot, state.dark))
         .child(section_label(move || t!("island.lyrics"), state))
         .child(lyrics_folder_row(state))
         .child(toggle_row(move || t!("island.lyrics_online"), state.lyrics.online, state))
