@@ -1,0 +1,17 @@
+﻿UIA text evidence (desktop locked, screen capture unavailable)
+
+[QQ panel after synthetic QQ-AUMID toast]
+QQ 通知 | 监听中 | 打开 | ✕ | NSH 验收测试通知 124817 自动生成的 QQ AUMID 测试通知，不是真实消息 | NSH 验收测试通知 自动生成的 QQ AUMID 测试通知，不是真实消息
+
+[QQ live probe before/after]
+notifications: 47, QQ: 0
+notifications: 48, QQ: 1
+
+[WeChat panel after SHELLHOOK/HSHELL_FLASH with real Weixin hwnd 68254]
+微信提醒 | 需关注 | 打开微信
+
+[Lock state]
+WTS SessionFlags = 0 (locked)
+GetForegroundWindow = 0
+GetGUIThreadInfo.hwndActive = 0
+LogonUI.exe running
