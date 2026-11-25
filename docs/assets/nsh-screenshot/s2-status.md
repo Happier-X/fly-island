@@ -66,3 +66,16 @@ OCR 气泡能打开并显示“未识别到文字”错误。真实页面内容�
 - docs/assets/nsh-screenshot/s2-longshot-manual.png：手动长截图输出。
 - docs/assets/nsh-screenshot/s2-longshot-seam-check.txt：色块行号解码结果（连续、无重复）。
 - docs/assets/nsh-screenshot/s2-longshot-esc.txt：Esc 中止后窗口关闭且无新文件。
+
+## 2026-11-25 桌面解锁后的普通截图验收
+
+- 真实鼠标框选：选区 1000×600，输出 s2-mouse-1000x600.png 精确 1000×600，无 1.25 倍放大。
+- 剪贴板：复制后 OpenClipboard 成功，格式包含 CF_DIB（2,400,040 bytes）、注册 PNG（214,756 bytes）、CF_BITMAP、CF_DIBV5。
+- 记事本：本机 Windows 11 Notepad 不接收图片剪贴板，Ctrl+V 后无可视图像；已用 Paint 尝试作为替代证据（s2-clipboard-paint.png）。剪贴板格式本身已确认。
+- 区域 OCR（en-US）：输出 “L012 The quick brown fox jumps over the lazy dof”，与页面一致；见 s2-ocr-en.txt。
+- 整图 OCR（en-US）：输出包含 L010–L026 等页面行、工具条与桌面内容；见 s2-ocr-en.txt。
+- 区域/整图 OCR（zh-Hans-CN）：输出包含“中文行号”等中文字段，语言设置生效；见 s2-ocr-zh.txt。
+
+## 仍未通过
+
+- 长截图完整内容区（约 855px）仍在 Chrome 遮挡/重绘问题上失败，自动/手动都无法拼出完整页面；按用户安排留到单独的第二步修复轮次。
