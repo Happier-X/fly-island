@@ -87,3 +87,8 @@ A/B/C 均未通过 855px 完整内容区；详见 [s2-chrome-blocker.md](s2-chro
 ## 基线对比结论（2026-11-25）
 
 旧 Tauri 版 855px/600px 同样只出首屏，见 old-tauri-longshot-855.png / old-tauri-longshot-600.png。S2 按与现版持平判过；S3 暂停。
+
+## 基线对比口径修正（2026-11-25）
+
+- 旧 Tauri 版 600px 也只出首屏；NSH 600px 能拼出连续 0..49 行，855px 与旧版同样受限。
+- NSH 不是回归，而是比现版略好；既不是“已修复”，也不是“新增缺陷”。

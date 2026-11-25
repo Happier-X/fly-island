@@ -1,0 +1,4 @@
+Displays: primary 2560x1440 @125% (120 DPI), secondary 2240x1400 @150% (144 DPI), virtual 4800x1441
+HDR: airsnip hdr_capture_works -> 当前非 HDR 环境，走 BitBlt 路径
+Process DPI awareness: GetProcessDpiAwareness=2 (PMv2)
+Mixed DPI: 2400,300 -> 3000,900 saved 600x600 (s3-mixed-dpi-600x600.png)
