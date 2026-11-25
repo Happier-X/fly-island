@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;background:#000;color:#fff;font-family:Segoe UI,sans-serif}
+#bands{display:flex;height:220px;margin-top:40px}
+.band{flex:1;height:220px;position:relative}
+.band span{position:absolute;left:6px;top:6px;font-size:14px;color:#000;mix-blend-mode:difference}
+#grad{height:160px;margin-top:30px;background:linear-gradient(90deg,#000 0%,#300 15%,#900 30%,#f00 45%,#ff0 60%,#fff 75%,#fff 100%)}
+#glow{height:220px;margin-top:20px;background:radial-gradient(circle at 30% 40%,#fff 0 8%,#ffd 8% 14%,#000 15% 100%)}
+</style></head><body>
+<div id="bands">
+<div class="band" style="background:#000"><span>0</span></div>
+<div class="band" style="background:#404040"><span>64</span></div>
+<div class="band" style="background:#808080"><span>128</span></div>
+<div class="band" style="background:#c0c0c0"><span>192</span></div>
+<div class="band" style="background:#e0e0e0"><span>224</span></div>
+<div class="band" style="background:#f0f0f0"><span>240</span></div>
+<div class="band" style="background:#f8f8f8"><span>248</span></div>
+<div class="band" style="background:#ffffff"><span>255</span></div>
+</div>
+<div id="grad"></div><div id="glow"></div>
+</body></html>

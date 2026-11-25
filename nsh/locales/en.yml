@@ -239,4 +239,16 @@ island:
   screenshot_dir: Save folder
   screenshot_dir_placeholder: Empty uses Pictures/FocuSD Island
   screenshot_auto_save: Also save when copying
+  screenshot_name_style: Filename template
+  screenshot_name_datetime: Date + time
+  screenshot_name_timestamp: Timestamp
+  screenshot_name_date: Date only
+  screenshot_ui_scale: UI scale
+  screenshot_ui_auto: Auto
+  screenshot_colors: Annotation colors
+  screenshot_colors_hint: Five swatches as #RRGGBB; invalid values keep the default.
+  screenshot_tool_keys: Tool keys
+  screenshot_tool_keys_hint: A letter, digit or F1-F24; empty unbinds.
+  screenshot_toolbar: Toolbar items
+  screenshot_toolbar_hint: Click to show or hide; matches the overlay toolbar.
   about: FocuSD Island (NSH) %{version} · NSH 0.6.1

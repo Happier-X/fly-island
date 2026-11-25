@@ -1,6 +1,6 @@
 //! Screenshot section in the settings window.
 
-use std::{rc::Rc, sync::Mutex, time::Duration};
+use std::{collections::BTreeMap, rc::Rc, sync::Mutex, time::Duration};
 
 use nsh_core::{element::input, prelude::*};
 
@@ -18,6 +18,11 @@ pub struct ScreenshotSettingsState {
     pub ocr_auto_copy: Signal<bool>,
     pub ocr_available: Signal<Vec<String>>,
     pub longshot_max_height: Signal<String>,
+    pub colors: Signal<Vec<String>>,
+    pub name_style: Signal<String>,
+    pub ui_scale: Signal<String>,
+    pub tool_keys: Signal<BTreeMap<String, String>>,
+    pub hidden_toolbar: Signal<Vec<String>>,
     pub recording: Signal<bool>,
     pub error: Signal<String>,
 }
@@ -34,6 +39,11 @@ impl ScreenshotSettingsState {
             ocr_auto_copy: signal(settings.ocr_auto_copy),
             ocr_available: signal(Vec::new()),
             longshot_max_height: signal(settings.longshot_max_height.to_string()),
+            colors: signal(settings.colors.clone()),
+            name_style: signal(settings.name_style.clone()),
+            ui_scale: signal(settings.ui_scale.clone()),
+            tool_keys: signal(settings.tool_keys.clone()),
+            hidden_toolbar: signal(settings.hidden_toolbar.clone()),
             recording: signal(false),
             error: signal(screenshot::last_error().unwrap_or_default()),
         }
@@ -49,6 +59,11 @@ impl ScreenshotSettingsState {
             ocr_language: self.ocr_language.get_untracked(),
             ocr_auto_copy: self.ocr_auto_copy.get_untracked(),
             longshot_max_height: self.longshot_max_height.get_untracked().trim().parse().unwrap_or(screenshot::DEFAULT_LONGSHOT_MAX),
+            colors: self.colors.get_untracked(),
+            name_style: self.name_style.get_untracked(),
+            ui_scale: self.ui_scale.get_untracked(),
+            tool_keys: self.tool_keys.get_untracked(),
+            hidden_toolbar: self.hidden_toolbar.get_untracked(),
         }
     }
 }
@@ -75,7 +90,7 @@ pub fn load_ocr_languages(state: ScreenshotSettingsState) {
     });
 }
 
-fn persist(state: ScreenshotSettingsState) {
+pub(crate) fn persist(state: ScreenshotSettingsState) {
     match screenshot::save(&state.snapshot()) {
         Ok(settings) => {
             state.shortcut.set(settings.shortcut);
@@ -83,6 +98,11 @@ fn persist(state: ScreenshotSettingsState) {
             state.save_dir.set(settings.save_dir);
             state.ocr_language.set(settings.ocr_language);
             state.longshot_max_height.set(settings.longshot_max_height.to_string());
+            state.colors.set(settings.colors);
+            state.name_style.set(settings.name_style);
+            state.ui_scale.set(settings.ui_scale);
+            state.tool_keys.set(settings.tool_keys);
+            state.hidden_toolbar.set(settings.hidden_toolbar);
             state.error.set(String::new());
         }
         Err(error) => state.error.set(error),
@@ -367,6 +387,7 @@ pub fn settings_section(state: ScreenshotSettingsState, dark: Signal<bool>) -> i
                         }),
                 ),
         )
+        .child(crate::screenshot_advanced_ui::advanced_section(state, dark))
         .child(
             text(move || t!("island.screenshot_shortcut_hint"))
                 .text_size(px(11.0))
@@ -429,7 +450,7 @@ fn language_pill(
     )
 }
 
-fn pill(
+pub(crate) fn pill(
     label: impl Fn() -> String + 'static,
     active: Rc<dyn Fn() -> bool + 'static>,
     press: impl Fn() + 'static,
@@ -473,7 +494,7 @@ fn small_button(label: String, dark: Signal<bool>, press: impl Fn() + 'static) -
         .on_press(press)
 }
 
-fn small_button_dynamic(
+pub(crate) fn small_button_dynamic(
     label: impl Fn() -> String + 'static,
     dark: Signal<bool>,
     press: impl Fn() + 'static,

@@ -239,4 +239,16 @@ island:
   screenshot_dir: 保存目录
   screenshot_dir_placeholder: 留空使用 图片/FocuSD Island
   screenshot_auto_save: 复制时同时保存
+  screenshot_name_style: 保存命名模板
+  screenshot_name_datetime: 日期 + 时间
+  screenshot_name_timestamp: 时间戳
+  screenshot_name_date: 仅日期
+  screenshot_ui_scale: 界面缩放
+  screenshot_ui_auto: 自动
+  screenshot_colors: 标注色板
+  screenshot_colors_hint: 5 个色块，填 #RRGGBB；无效值保留默认色。
+  screenshot_tool_keys: 工具快捷键
+  screenshot_tool_keys_hint: 单个字母/数字或 F1–F24，留空取消绑定。
+  screenshot_toolbar: 工具栏可见项
+  screenshot_toolbar_hint: 点一下切换显示/隐藏，与覆盖层工具栏一一对应。
   about: 焦点岛（NSH）%{version} · NSH 0.6.1

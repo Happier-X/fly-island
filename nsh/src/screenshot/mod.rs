@@ -10,7 +10,10 @@ mod settings;
 
 use std::sync::Mutex;
 
-pub use settings::{ScreenshotSettings, DEFAULT_LONGSHOT_MAX};
+pub use settings::{
+    ScreenshotSettings, DEFAULT_LONGSHOT_MAX, NAME_STYLES, TOOL_KEY_FIELDS, TOOL_KEY_LABELS,
+    UI_SCALES, parse_hex_color, parse_tool_key, tool_key_label,
+};
 
 static HOST: Mutex<Option<airsnip::HostHandle>> = Mutex::new(None);
 static LAST_HOTKEY: Mutex<Option<(String, bool)>> = Mutex::new(None);

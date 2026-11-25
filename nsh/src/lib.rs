@@ -17,6 +17,7 @@ mod qq;
 mod qq_ui;
 pub mod screenshot;
 mod screenshot_ui;
+mod screenshot_advanced_ui;
 mod sound;
 mod translation;
 mod translation_ui;
