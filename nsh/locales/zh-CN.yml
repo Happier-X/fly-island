@@ -225,6 +225,12 @@ island:
   screenshot_enabled: 启用截图
   screenshot_shortcut: 截图快捷键
   screenshot_shortcut_hint: 默认 Ctrl+Shift+A；若旧版仍在运行会提示被占用，请换一个组合。
+  screenshot_ocr_language: OCR 语言
+  screenshot_ocr_auto: 自动
+  screenshot_ocr_installed: "已安装：%{langs}"
+  screenshot_ocr_missing: 未检测到 OCR 语言包；请到系统“语言和区域”为中文/英语安装“光学字符识别”可选功能。
+  screenshot_ocr_auto_copy: 识别后自动复制
+  screenshot_longshot_max: 长截图高度上限（px）
   screenshot_record: 录制
   screenshot_recording: 按下快捷键…
   screenshot_cancel: 取消

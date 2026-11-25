@@ -104,3 +104,5 @@ PNG 格式并比对尺寸 → 保存 manual-clipboard.png → 打开记事本请
    选区正常；若必须按屏拆分窗口，需要改 AirSnip 的覆盖层启动方式，属于
    额外改造。
 4. 长截图/OCR 入口已随 AirSnip 提供，但按任务划分留到 S2 验证。
+
+S2 status (OCR / long screenshot): s2-status.md — code and unit tests are done; the real-browser matrix is blocked on an unlocked desktop.

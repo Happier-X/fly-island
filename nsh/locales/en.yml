@@ -225,6 +225,12 @@ island:
   screenshot_enabled: Enable screenshots
   screenshot_shortcut: Screenshot shortcut
   screenshot_shortcut_hint: Default is Ctrl+Shift+A. If the old app still holds it, pick another combination.
+  screenshot_ocr_language: OCR language
+  screenshot_ocr_auto: Auto
+  screenshot_ocr_installed: "Installed: %{langs}"
+  screenshot_ocr_missing: No OCR language pack found. Add the Optical character recognition optional feature for Chinese or English in Windows language settings.
+  screenshot_ocr_auto_copy: Copy after recognition
+  screenshot_longshot_max: Long screenshot height limit (px)
   screenshot_record: Record
   screenshot_recording: Press a shortcut…
   screenshot_cancel: Cancel

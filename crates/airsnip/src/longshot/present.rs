@@ -22,6 +22,8 @@ pub(super) fn redraw(hwnd: HWND) {
     let state = super::bar::State {
         can_undo: win.session.can_undo(),
         hint: win.session.hint(),
+        auto: win.auto,
+        auto_hint: win.auto_hint,
     };
     super::bar::render(&mut pixmap, &win.bar, &state, win.palette);
     // 预览窗：拼接高度变化时才重算缩略图（update 内部按高度短路）

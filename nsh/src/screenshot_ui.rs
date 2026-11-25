@@ -1,6 +1,6 @@
 //! Screenshot section in the settings window.
 
-use std::rc::Rc;
+use std::{rc::Rc, sync::Mutex, time::Duration};
 
 use nsh_core::{element::input, prelude::*};
 
@@ -14,6 +14,10 @@ pub struct ScreenshotSettingsState {
     pub save_format: Signal<String>,
     pub save_dir: Signal<String>,
     pub auto_save: Signal<bool>,
+    pub ocr_language: Signal<String>,
+    pub ocr_auto_copy: Signal<bool>,
+    pub ocr_available: Signal<Vec<String>>,
+    pub longshot_max_height: Signal<String>,
     pub recording: Signal<bool>,
     pub error: Signal<String>,
 }
@@ -26,6 +30,10 @@ impl ScreenshotSettingsState {
             save_format: signal(settings.save_format.clone()),
             save_dir: signal(settings.save_dir.clone()),
             auto_save: signal(settings.auto_save),
+            ocr_language: signal(settings.ocr_language.clone()),
+            ocr_auto_copy: signal(settings.ocr_auto_copy),
+            ocr_available: signal(Vec::new()),
+            longshot_max_height: signal(settings.longshot_max_height.to_string()),
             recording: signal(false),
             error: signal(screenshot::last_error().unwrap_or_default()),
         }
@@ -38,8 +46,33 @@ impl ScreenshotSettingsState {
             save_format: self.save_format.get_untracked(),
             save_dir: self.save_dir.get_untracked(),
             auto_save: self.auto_save.get_untracked(),
+            ocr_language: self.ocr_language.get_untracked(),
+            ocr_auto_copy: self.ocr_auto_copy.get_untracked(),
+            longshot_max_height: self.longshot_max_height.get_untracked().trim().parse().unwrap_or(screenshot::DEFAULT_LONGSHOT_MAX),
         }
     }
+}
+
+static OCR_LANGS: Mutex<Option<Vec<String>>> = Mutex::new(None);
+
+/// Ask WinRT for installed OCR packs once and publish them to the settings row.
+pub fn load_ocr_languages(state: ScreenshotSettingsState) {
+    std::thread::spawn(|| {
+        let languages = airsnip::ocr::available_languages().unwrap_or_default();
+        if let Ok(mut slot) = OCR_LANGS.lock() {
+            *slot = Some(languages);
+        }
+    });
+    spawn(async move {
+        for _ in 0..40 {
+            timer(Duration::from_millis(250)).await;
+            let languages = OCR_LANGS.lock().ok().and_then(|mut slot| slot.take());
+            if let Some(languages) = languages {
+                state.ocr_available.set(languages);
+                break;
+            }
+        }
+    });
 }
 
 fn persist(state: ScreenshotSettingsState) {
@@ -48,6 +81,8 @@ fn persist(state: ScreenshotSettingsState) {
             state.shortcut.set(settings.shortcut);
             state.save_format.set(settings.save_format);
             state.save_dir.set(settings.save_dir);
+            state.ocr_language.set(settings.ocr_language);
+            state.longshot_max_height.set(settings.longshot_max_height.to_string());
             state.error.set(String::new());
         }
         Err(error) => state.error.set(error),
@@ -242,6 +277,97 @@ pub fn settings_section(state: ScreenshotSettingsState, dark: Signal<bool>) -> i
                 )),
         )
         .child(
+            view()
+                .flex_row()
+                .flex_wrap()
+                .items_center()
+                .gap(px(5.0))
+                .child(
+                    text(move || t!("island.screenshot_ocr_language"))
+                        .text_size(px(13.0))
+                        .text_color(move || palette(dark.get()).muted),
+                )
+                .child(pill(
+                    move || t!("island.screenshot_ocr_auto"),
+                    Rc::new(move || state.ocr_language.get() == "auto"),
+                    move || {
+                        state.ocr_language.set("auto".to_string());
+                        persist(state);
+                    },
+                    dark,
+                ))
+                .child(language_pill(state, "zh", "中文", "zh-Hans-CN", dark))
+                .child(language_pill(state, "en", "English", "en-US", dark)),
+        )
+        .child(
+            text(move || {
+                let languages = state.ocr_available.get();
+                if languages.is_empty() {
+                    t!("island.screenshot_ocr_missing")
+                } else {
+                    t!("island.screenshot_ocr_installed", langs = languages.join("、"))
+                }
+            })
+            .text_size(px(11.0))
+            .text_color(move || palette(dark.get()).faint),
+        )
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    text(move || t!("island.screenshot_ocr_auto_copy"))
+                        .flex_1()
+                        .text_size(px(13.0))
+                        .text_color(move || palette(dark.get()).muted),
+                )
+                .child(pill(
+                    move || t!("island.on"),
+                    Rc::new(move || state.ocr_auto_copy.get()),
+                    move || {
+                        state.ocr_auto_copy.set(true);
+                        persist(state);
+                    },
+                    dark,
+                ))
+                .child(pill(
+                    move || t!("island.off"),
+                    Rc::new(move || !state.ocr_auto_copy.get()),
+                    move || {
+                        state.ocr_auto_copy.set(false);
+                        persist(state);
+                    },
+                    dark,
+                )),
+        )
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    text(move || t!("island.screenshot_longshot_max"))
+                        .flex_1()
+                        .text_size(px(13.0))
+                        .text_color(move || palette(dark.get()).muted),
+                )
+                .child(
+                    input()
+                        .value(move || state.longshot_max_height.get())
+                        .text_color(move || palette(dark.get()).fg)
+                        .bg(move || palette(dark.get()).input)
+                        .h(px(30.0))
+                        .w(px(110.0))
+                        .px(px(8.0))
+                        .rounded(px(8.0))
+                        .on_change(move |text: &str| {
+                            state.longshot_max_height.set(text.to_string());
+                            persist(state);
+                        }),
+                ),
+        )
+        .child(
             text(move || t!("island.screenshot_shortcut_hint"))
                 .text_size(px(11.0))
                 .text_color(move || palette(dark.get()).faint),
@@ -267,6 +393,36 @@ fn format_pill(
         Rc::new(move || state.save_format.get() == value),
         move || {
             state.save_format.set(value.to_string());
+            persist(state);
+        },
+        dark,
+    )
+}
+
+fn language_pill(
+    state: ScreenshotSettingsState,
+    prefix: &'static str,
+    label: &'static str,
+    fallback: &'static str,
+    dark: Signal<bool>,
+) -> impl IntoElement {
+    pill(
+        move || label.to_string(),
+        Rc::new(move || {
+            state
+                .ocr_language
+                .get()
+                .to_ascii_lowercase()
+                .starts_with(prefix)
+        }),
+        move || {
+            let tag = state
+                .ocr_available
+                .get_untracked()
+                .into_iter()
+                .find(|tag| tag.to_ascii_lowercase().starts_with(prefix))
+                .unwrap_or_else(|| fallback.to_string());
+            state.ocr_language.set(tag);
             persist(state);
         },
         dark,

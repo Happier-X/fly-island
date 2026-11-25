@@ -41,6 +41,8 @@ pub enum Button {
     Ocr,
     /// 把拼接结果贴到屏幕上（LNG-8）。
     Pin,
+    /// 自动滚动开关。
+    Auto,
     /// 完成。
     Done,
     /// 取消。
@@ -74,6 +76,10 @@ pub struct State {
     pub can_undo: bool,
     /// 提示文字（拼接失败等）。
     pub hint: &'static str,
+    /// 自动滚动是否开启。
+    pub auto: bool,
+    /// 自动滚动提示（空串 = 用默认提示）。
+    pub auto_hint: &'static str,
 }
 
 /// 计算状态条几何（条放视口下方，空间不足则上方）。
@@ -92,7 +98,7 @@ pub fn layout(vp_x: i32, vp_w: u32, vp_y: i32, vp_h: u32, screen_h: i32, ui: Ui)
     // 按钮从右往左排：取消、完成、另存为、OCR、贴图、撤销（命中区高度用整条高，点偏上下也能命中）
     let mut hits = Vec::new();
     let mut bx = bar_w - pad - btn;
-    for b in [Button::Cancel, Button::Done, Button::SaveAs, Button::Ocr, Button::Pin, Button::Undo] {
+    for b in [Button::Cancel, Button::Done, Button::SaveAs, Button::Ocr, Button::Pin, Button::Auto, Button::Undo] {
         hits.push((
             SelRect {
                 x: bx,
@@ -147,6 +153,7 @@ pub fn render(pixmap: &mut Pixmap, bar: &Bar, state: &State, p: &Palette) {
             Button::SaveAs => (Icon::Save, p.icon),
             Button::Ocr => (Icon::Ocr, p.icon),
             Button::Pin => (Icon::Pin, p.icon),
+            Button::Auto => (Icon::Play, if state.auto { p.accent } else { p.icon }),
             Button::Done => (Icon::Check, p.icon),
             Button::Cancel => (Icon::Cross, p.icon),
         };
@@ -156,7 +163,9 @@ pub fn render(pixmap: &mut Pixmap, bar: &Bar, state: &State, p: &Palette) {
     }
 
     // 中间提示文字（像素数不再显示：右侧预览窗已给出拼接结果，LNG-3）
-    let text = if state.hint.is_empty() {
+    let text = if !state.auto_hint.is_empty() {
+        state.auto_hint
+    } else if state.hint.is_empty() {
         "滚轮滚动 · Enter 完成 · Ctrl+S 另存为"
     } else {
         state.hint
@@ -191,13 +200,14 @@ mod tests {
         let (bar_h, btn, pad, gap) = (ui.px(BAR_H_BASE), ui.px(BTN_BASE), ui.px(PAD_BASE), ui.px(4.0));
         let cy = bar_h / 2; // 客户区坐标（窗口 = 状态条矩形）
         let at = |i: i32| bar.rect.w - pad - i * (btn + gap) - btn / 2;
-        // 右侧六个按钮：取消在最右，向左依次完成、另存为、OCR、贴图、撤销
+        // 右侧七个按钮：取消在最右，向左依次完成、另存为、OCR、贴图、自动、撤销
         assert_eq!(bar.hit(at(0), cy), Some(Button::Cancel));
         assert_eq!(bar.hit(at(1), cy), Some(Button::Done));
         assert_eq!(bar.hit(at(2), cy), Some(Button::SaveAs));
         assert_eq!(bar.hit(at(3), cy), Some(Button::Ocr));
         assert_eq!(bar.hit(at(4), cy), Some(Button::Pin));
-        assert_eq!(bar.hit(at(5), cy), Some(Button::Undo));
+        assert_eq!(bar.hit(at(5), cy), Some(Button::Auto));
+        assert_eq!(bar.hit(at(6), cy), Some(Button::Undo));
         // 左侧空白（原模式按钮位置）无命中
         assert_eq!(bar.hit(pad + btn / 2, cy), None);
         // 中间空白无命中
@@ -235,6 +245,8 @@ mod tests {
         let state = State {
             can_undo: true,
             hint: "",
+            auto: false,
+            auto_hint: "",
         };
         render(&mut px, &bar, &state, &crate::theme::LIGHT);
         // 中心像素应为不透明背景

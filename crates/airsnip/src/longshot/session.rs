@@ -176,6 +176,11 @@ impl Session {
         true
     }
 
+    /// 首帧是否已采集（自动滚动要等首帧完成后再注入滚轮）。
+    pub fn seeded(&self) -> bool {
+        self.seeded
+    }
+
     /// 当前已拼高度（供状态条显示）。
     pub fn height(&self) -> u32 {
         self.canvas.height()
@@ -198,7 +203,7 @@ impl Session {
         } else if self.finished {
             "已完成"
         } else if self.fail_run >= FAIL_HINT {
-            "拼接定位失败，请放慢滚动"
+            "拼接校验失败，请放慢滚动/重试"
         } else {
             ""
         }

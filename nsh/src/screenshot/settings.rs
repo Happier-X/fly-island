@@ -12,6 +12,8 @@ use airsnip::settings::{Config, ThemeSetting, UiScale};
 
 pub const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+A";
 pub const SAVE_FORMATS: [&str; 3] = ["png", "jpeg", "webp"];
+pub const OCR_LANG_AUTO: &str = "auto";
+pub const DEFAULT_LONGSHOT_MAX: u32 = 30_000;
 
 fn default_shortcut() -> String {
     DEFAULT_SHORTCUT.to_string()
@@ -19,6 +21,14 @@ fn default_shortcut() -> String {
 
 fn default_save_format() -> String {
     SAVE_FORMATS[0].to_string()
+}
+
+fn default_ocr_language() -> String {
+    OCR_LANG_AUTO.to_string()
+}
+
+fn default_longshot_max() -> u32 {
+    DEFAULT_LONGSHOT_MAX
 }
 
 fn default_true() -> bool {
@@ -38,6 +48,12 @@ pub struct ScreenshotSettings {
     pub save_dir: String,
     #[serde(default)]
     pub auto_save: bool,
+    #[serde(default = "default_ocr_language")]
+    pub ocr_language: String,
+    #[serde(default)]
+    pub ocr_auto_copy: bool,
+    #[serde(default = "default_longshot_max")]
+    pub longshot_max_height: u32,
 }
 
 impl Default for ScreenshotSettings {
@@ -48,6 +64,9 @@ impl Default for ScreenshotSettings {
             save_format: default_save_format(),
             save_dir: String::new(),
             auto_save: false,
+            ocr_language: default_ocr_language(),
+            ocr_auto_copy: false,
+            longshot_max_height: default_longshot_max(),
         }
     }
 }
@@ -60,6 +79,11 @@ impl ScreenshotSettings {
         }
         self.save_format = normalize_format(&self.save_format);
         self.save_dir = self.save_dir.trim().to_string();
+        self.ocr_language = self.ocr_language.trim().to_string();
+        if self.ocr_language.is_empty() {
+            self.ocr_language = default_ocr_language();
+        }
+        self.longshot_max_height = self.longshot_max_height.clamp(1_000, 100_000);
         self
     }
 
@@ -86,7 +110,9 @@ impl ScreenshotSettings {
             auto_save: self.auto_save,
             ..Default::default()
         };
-        config.ocr.language = airsnip::settings::OCR_LANG_AUTO.to_string();
+        config.ocr.language = self.ocr_language.clone();
+        config.ocr.auto_copy = self.ocr_auto_copy;
+        config.longshot_max_height = self.longshot_max_height;
         config
     }
 }
@@ -136,6 +162,30 @@ pub fn write(settings: &ScreenshotSettings) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ocr_and_longshot_settings_reach_airsnip() {
+        let settings = ScreenshotSettings {
+            ocr_language: "en-US".into(),
+            ocr_auto_copy: true,
+            longshot_max_height: 12_000,
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(settings.ocr_language, "en-US");
+        let config = settings.to_airsnip_config();
+        assert_eq!(config.ocr.language, "en-US");
+        assert!(config.ocr.auto_copy);
+        assert_eq!(config.longshot_max_height, 12_000);
+    }
+
+    #[test]
+    fn empty_ocr_language_falls_back_to_auto() {
+        let settings = ScreenshotSettings { ocr_language: "  ".into(), ..Default::default() }.normalized();
+        assert_eq!(settings.ocr_language, OCR_LANG_AUTO);
+    }
+
+
 
     #[test]
     fn formats_are_canonical() {

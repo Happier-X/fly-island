@@ -58,6 +58,17 @@ or run `nsh/host/target/debug/focusd-island-host.exe` after a build.
   "已被占用或无法注册" in the screenshot settings instead of failing silently;
   use another shortcut or close the Tauri app during coexistence.
 - Evidence and the measured matrix: docs/assets/nsh-screenshot/README.md.
+- S2 OCR: Settings selects Auto / Chinese / English (with the installed tag list)
+  and can auto-copy. With a selection T recognizes that region; with no
+  selection T recognizes the whole captured screen. The result bubble uses
+  the system EDIT control, so text can be selected/copied; a missing language
+  pack is reported with the Windows optional-feature path.
+- S2 long screenshot: S on a selection opens the scroll viewport. The status
+  bar has an Auto button; Auto posts WM_MOUSEWHEEL to the window under the
+  viewport, waits for canvas growth, retries with a smaller step, and stops
+  with a hint at the page bottom. Manual wheel scrolling still works. A 16-row
+  seam band must match 95% before a strip is appended; Esc aborts. Output goes
+  to the configured folder/format. Test page: nsh/tests/longshot-page.html.
 - Cross-DPI boundary: 100x100 physical selection across 125%/150% saves exactly 100x100; DPI-unaware automation must set PMv2 before PostMessage.
 - Clipboard/paste manual check: nsh/scripts/manual-screenshot-acceptance.ps1 (exits if the Tauri app is still running; does not kill it).
 
@@ -169,7 +180,7 @@ those in favor of its own.
 ## Rust-only checks
 
 - No app TS/TSX/JS sources: `rg --files nsh -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' -g '!target/**' -g '!.nsh/**'` prints nothing.
-- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (116 passed / 9 ignored on 2026-11-25).
+- `cargo test --manifest-path nsh/Cargo.toml --lib` runs the Rust tests (118 passed / 9 ignored on 2026-11-25).
 - `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
 - `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 

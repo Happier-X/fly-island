@@ -47,6 +47,46 @@ pub enum Step {
     Limit,
 }
 
+/// 拼接缝局部校验：只比较接缝附近的一小段重叠行，防止全局 90% 匹配掩盖
+/// 局部文字错行。自动模式失败后会缩小滚动量重试。
+const SEAM_BAND: u32 = 16;
+const SEAM_MIN_RATIO: f32 = 0.95;
+
+fn seam_ok(
+    prev: &[u8],
+    new: &[u8],
+    w: u32,
+    h: u32,
+    fixed_top: u32,
+    fixed_bottom: u32,
+    offset: i32,
+) -> bool {
+    if offset == 0 {
+        return true;
+    }
+    let content_h = h.saturating_sub(fixed_top + fixed_bottom);
+    let shift = offset.unsigned_abs();
+    if shift == 0 || content_h <= shift {
+        return false;
+    }
+    let band = SEAM_BAND.min(content_h - shift).max(1);
+    let (prev_start, new_start) = if offset > 0 {
+        (fixed_top + content_h - band, fixed_top + content_h - shift - band)
+    } else {
+        (fixed_top, fixed_top + shift)
+    };
+    let stride = w as usize * 4;
+    let mut same = 0u32;
+    for i in 0..band {
+        let p = (prev_start + i) as usize * stride;
+        let n = (new_start + i) as usize * stride;
+        if prev.get(p..p + stride) == new.get(n..n + stride) {
+            same += 1;
+        }
+    }
+    same as f32 / band as f32 >= SEAM_MIN_RATIO
+}
+
 impl Canvas {
     pub fn new(w: u32, params: Params, max_height: u32) -> Self {
         Self {
@@ -126,6 +166,11 @@ impl Canvas {
         self.still_run = 0;
 
         // 追加/前置新增内容（m.start/m.end 为全天坐标，已剔除固定区域）。
+        if !seam_ok(&self.prev, frame, self.w, h, self.header_h, self.footer_h, m.offset) {
+            self.still_run += 1;
+            self.prev = frame.to_vec();
+            return Step::Failed;
+        }
         let rows = (m.end - m.start) as u32;
         if rows == 0 {
             self.prev = frame.to_vec();
@@ -287,6 +332,31 @@ mod tests {
         let f_start = (page.len() / stride - ftr as usize) * stride;
         out[(view_h - ftr) as usize * stride..].copy_from_slice(&page[f_start..]);
         out
+    }
+
+    /// 拼接缝局部校验：整体重叠达标但接缝附近错一行时必须拒绝。
+    #[test]
+    fn seam_band_rejects_a_bad_row() {
+        let w = 8u32;
+        let h = 64u32;
+        let stride = (w * 4) as usize;
+        let mut prev = vec![0u8; stride * h as usize];
+        for y in 0..h as usize {
+            for x in 0..stride {
+                prev[y * stride + x] = ((y * 13 + x) & 0xFF) as u8;
+            }
+        }
+        let shift = 8usize;
+        let mut new = vec![0u8; stride * h as usize];
+        for y in 0..(h as usize - shift) {
+            new[y * stride..(y + 1) * stride]
+                .copy_from_slice(&prev[(y + shift) * stride..(y + shift + 1) * stride]);
+        }
+        assert!(seam_ok(&prev, &new, w, h, 0, 0, shift as i32));
+        // 接缝附近的最后一行重叠区错开 1 字节：15/16 < 95%。
+        let bad = (h as usize - shift - 2) * stride;
+        new[bad] ^= 0x01;
+        assert!(!seam_ok(&prev, &new, w, h, 0, 0, shift as i32));
     }
 
     #[test]

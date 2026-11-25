@@ -42,6 +42,7 @@ icon_table! {
     Redo => "redo.svg",
     Pin => "pin.svg",
     Longshot => "longshot.svg",
+    Play => "play.svg",
     Ocr => "ocr.svg",
     Copy => "copy.svg",
     Save => "save.svg",

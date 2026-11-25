@@ -76,7 +76,8 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
         WM_TIMER => {
             if let Some(win) = win_from(hwnd) {
                 let changed = win.session.tick();
-                if changed {
+                let auto_changed = win.auto_tick();
+                if changed || auto_changed {
                     win.dirty = true;
                 }
                 if win.dirty {
@@ -100,6 +101,7 @@ pub(super) unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARA
                     Some(Button::SaveAs) => save_as(win, hwnd),
                     Some(Button::Ocr) => finish_after(win, After::Ocr),
                     Some(Button::Pin) => finish_after(win, After::Pin),
+                    Some(Button::Auto) => win.toggle_auto(),
                     Some(Button::Done) => finish(win),
                     Some(Button::Cancel) => {
                         win.session.cancelled = true;

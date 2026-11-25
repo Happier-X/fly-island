@@ -274,6 +274,7 @@ pub fn App() -> impl IntoElement {
         log::warn!("screenshot unavailable: {error}");
     }
     let screenshot_state = screenshot_ui::ScreenshotSettingsState::new(&screenshot_settings);
+    screenshot_ui::load_ocr_languages(screenshot_state);
     let translation_settings = TranslationSettings {
         enabled: translation_enabled,
         shortcut: translation_shortcut,

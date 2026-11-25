@@ -82,9 +82,13 @@ impl super::super::Overlay {
     /// 载荷与贴图同格式：[u32 w][u32 h][i32 x][i32 y][RGBA]，主线程负责 OCR 与气泡窗口。
     /// OCR 常开（issue #143）：没有总开关，是否显示按钮由工具栏可见性决定。
     pub(in crate::overlay) fn on_ocr(&mut self) {
-        let Some(sel) = self.selection else {
-            return;
-        };
+        // 没有选区时识别整张抓屏（Ctrl+Shift+A 后直接按 T）。
+        let sel = self.selection.unwrap_or_else(|| SelRect {
+            x: 0,
+            y: 0,
+            w: self.original.width() as i32,
+            h: self.original.height() as i32,
+        });
         // OCR-4：只读原图——用户画的箭头/马赛克不该污染识别结果
         let Some(cropped) = crop_pixmap(&self.original, sel) else {
             return;

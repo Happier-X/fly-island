@@ -6,7 +6,7 @@
 //! 用户自行在目标页面上滚动鼠标滚轮（不做自动滚动）；执行窗口用 `WS_EX_NOACTIVATE`
 //! 不抢焦点，键盘走注册到本窗口的全局热键。
 
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
 use windows::Win32::Graphics::Gdi::{DeleteDC, DeleteObject, HBITMAP, HDC};
 use windows::Win32::UI::Input::Ime::{HIMC, ImmAssociateContext};
 use windows::Win32::UI::Input::KeyboardAndMouse::{HOT_KEY_MODIFIERS, MOD_CONTROL, RegisterHotKey, UnregisterHotKey};
@@ -32,6 +32,10 @@ pub(super) const HK_UNDO: i32 = 303;
 pub(super) const HK_SAVE: i32 = 304;
 /// 每拍间隔（毫秒）。
 const TICK_MS: u32 = 90;
+/// 自动滚动每次滚动的等待拍数（90ms/拍）。
+const AUTO_SETTLE_TICKS: u32 = 10;
+/// 自动滚动连续无新增时的重试次数。
+const AUTO_RETRIES: u8 = 2;
 
 /// 注册/注销执行窗口的全局热键。
 fn register_hotkeys(hwnd: HWND) {
@@ -94,6 +98,114 @@ pub(super) struct Win {
     pub(super) after: After,
     /// 保存偏好快照（文件名模板 / 上次格式 / 上次目录）。
     pub(super) save: crate::settings::SavePrefs,
+    /// 自动滚动是否开启。
+    pub(super) auto: bool,
+    /// 自动滚动提示（空串 = 用 session 提示）。
+    pub(super) auto_hint: &'static str,
+    /// 视口中心下方的目标窗口（自动滚动注入用）。
+    pub(super) target: Option<HWND>,
+    pub(super) viewport: (i32, i32, u32, u32),
+    auto_next: u32,
+    auto_pending: bool,
+    auto_before: u32,
+    auto_retries: u8,
+}
+
+impl Win {
+    /// 自动滚动开关：不抢焦点，只向视口中心下的窗口投递 WM_MOUSEWHEEL。
+    pub(super) fn toggle_auto(&mut self) {
+        if self.auto {
+            self.auto = false;
+            self.auto_hint = "已停止自动滚动 · 滚轮 / Enter 完成";
+            return;
+        }
+        if self.target.is_none() {
+            self.auto_hint = "没有找到可滚动窗口，请手动滚动";
+            return;
+        }
+        if self.session.finished || self.session.cancelled {
+            return;
+        }
+        self.auto = true;
+        self.auto_pending = false;
+        self.auto_retries = 0;
+        self.auto_before = self.session.height();
+        self.auto_next = AUTO_SETTLE_TICKS;
+        self.auto_hint = "自动滚动中 · 再点自动停止 · Enter 完成";
+    }
+
+    /// 定时器里推进自动滚动；返回是否改变了状态条。
+    pub(super) fn auto_tick(&mut self) -> bool {
+        if !self.auto {
+            return false;
+        }
+        if self.session.finished || self.session.cancelled {
+            self.auto = false;
+            self.auto_hint = "自动滚动已结束";
+            return true;
+        }
+        if !self.session.seeded() {
+            return false;
+        }
+        if self.auto_next > 0 {
+            self.auto_next -= 1;
+            return false;
+        }
+        let height = self.session.height();
+        if self.auto_pending {
+            if height > self.auto_before {
+                self.auto_pending = false;
+                self.auto_retries = 0;
+                self.auto_before = height;
+                self.auto_next = AUTO_SETTLE_TICKS;
+                self.auto_hint = "自动滚动中 · 再点自动停止 · Enter 完成";
+                return true;
+            }
+            if self.auto_retries < AUTO_RETRIES {
+                self.auto_retries += 1;
+                self.wheel(if self.auto_retries == 1 { -120 } else { -60 });
+                self.auto_next = AUTO_SETTLE_TICKS;
+                self.auto_hint = "滚动未生效，重试中";
+                return true;
+            }
+            self.auto = false;
+            self.auto_hint = "已到页底或页面未响应，可手动滚动后 Enter 完成";
+            return true;
+        }
+        if height == 0 {
+            self.auto_next = 2;
+            return false;
+        }
+        self.auto_before = height;
+        self.wheel(-240);
+        self.auto_pending = true;
+        self.auto_next = AUTO_SETTLE_TICKS;
+        self.auto_hint = "自动滚动中 · 再点自动停止 · Enter 完成";
+        true
+    }
+
+    fn wheel(&mut self, delta: i32) {
+        let Some(fallback) = self.target else {
+            return;
+        };
+        let (x, y, w, h) = self.viewport;
+        let point = POINT {
+            x: x + w as i32 / 2,
+            y: y + h as i32 / 2,
+        };
+        // SAFETY: WindowFromPoint only reads the current desktop; a null result
+        // falls back to the window resolved when the session started.
+        let target = unsafe {
+            let live = WindowFromPoint(point);
+            if live.0.is_null() { fallback } else { live }
+        };
+        let wparam = WPARAM(((delta as u32) << 16) as usize);
+        let lparam = LPARAM((((point.y & 0xFFFF) << 16) | (point.x & 0xFFFF)) as isize);
+        // SAFETY: posting a wheel message to the target window; no pointers.
+        unsafe {
+            let _ = PostMessageW(Some(target), WM_MOUSEWHEEL, wparam, lparam);
+        }
+    }
 }
 
 impl Drop for Win {
@@ -141,6 +253,14 @@ pub fn run(
 
     // 界面缩放：与截图覆盖层同一设置（手动倍率或按光标所在显示器自动，CAP-5）
     let ui = Ui::resolve(ui_scale);
+    let center = POINT {
+        x: x + w as i32 / 2,
+        y: y + h as i32 / 2,
+    };
+    // SAFETY: querying the window under the viewport center before the longshot
+    // windows exist; a null result is handled by the manual mode.
+    let target = unsafe { WindowFromPoint(center) };
+    let target = (!target.0.is_null()).then_some(target);
 
     // 视口边框：提前创建让用户立刻看到截取范围。
     let border_hwnd = border::spawn(x, y, w, h, hinstance, ui);
@@ -214,6 +334,14 @@ pub fn run(
             save_as: None,
             after: After::default(),
             save,
+            auto: false,
+            auto_hint: "",
+            target,
+            viewport: (x, y, w, h),
+            auto_next: 0,
+            auto_pending: false,
+            auto_before: 0,
+            auto_retries: 0,
         });
         let raw = Box::into_raw(win);
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, raw as isize);
