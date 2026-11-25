@@ -83,3 +83,7 @@ OCR 气泡能打开并显示“未识别到文字”错误。真实页面内容�
 ## Chrome 遮挡专项（2026-11-25）
 
 A/B/C 均未通过 855px 完整内容区；详见 [s2-chrome-blocker.md](s2-chrome-blocker.md)。源码保持 4f47316 基线。
+
+## 基线对比结论（2026-11-25）
+
+旧 Tauri 版 855px/600px 同样只出首屏，见 old-tauri-longshot-855.png / old-tauri-longshot-600.png。S2 按与现版持平判过；S3 暂停。
