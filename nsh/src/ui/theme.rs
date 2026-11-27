@@ -34,6 +34,13 @@ pub const DOT_CAPSULE_WIDTH: f32 = 18.0;
 pub const DOT_CAPSULE_HEIGHT: f32 = 12.0;
 /// The collapsed stage: 20px of padding each side, 8px between items.
 pub const ISLAND_PADDING_X: f32 = 20.0;
+/// Left inset that lands the header's action cluster on the island's right edge.
+/// The layout engine positions a fixed-width cluster reliably only from a
+/// leading margin, so the inset is derived from the 620px design width.
+pub const ISLAND_ACTIONS_INSET: f32 = 462.0;
+/// Width of the header's action cluster: search, settings, collapse (3 x 34)
+/// plus its gaps and, when shown, the unseen badge.
+pub const ISLAND_ACTIONS_WIDTH: f32 = 138.0;
 pub const COLLAPSED_PADDING_X: f32 = 18.0;
 /// The gap between the card's header, page panel and footer.
 pub const ISLAND_GAP: f32 = 14.0;

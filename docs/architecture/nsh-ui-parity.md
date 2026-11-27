@@ -45,9 +45,9 @@ Tauri 版的样式分散在 `src/styles/tokens.css` 与各组件的 `*.css` 里�
 
 | # | 屏幕 | Tauri 参考 | NSH 落点 | 状态 |
 |---|---|---|---|---|
-| 1 | 收起胶囊 | `IslandCollapsedBar.tsx/.css` | `lib.rs::collapsed_island` | 本轮完成：38px 圆角胶囊、上下渐变、内嵌高光、9px 状态点带光晕、13px 摘要、`flex-1` 弹性留白、12px 计数、chevron 图标；前 8px 是拖拽区 |
-| 2 | 展开外壳 | `IslandShell.css` | `lib.rs::expanded_island` | 本轮完成：30px 圆角卡片、顶部柔光、投影、14px 分区间距、20/16 内边距、10px 圆角页面容器 |
-| 3 | 页头（标题 / 页点 / 工具按钮） | `IslandHeader.tsx/.css` | `lib.rs::expanded_header` | 本轮完成：15px 粗体标题配强调色图标、三个页点胶囊（悬停放大上浮、选中加长并带光晕）、计数徽章、34px 圆形图标按钮（悬停提亮、按下位移） |
+| 1 | 收起胶囊 | `IslandCollapsedBar.tsx/.css` | `lib.rs::collapsed_island` | 进行中：38px 圆角胶囊、渐变、内嵌高光、9px 状态点带光晕、13px 摘要、计数、chevron 已落地，但**右侧计数与 chevron 被裁到窗口外**（见「阻塞」） |
+| 2 | 展开外壳 | `IslandShell.css` | `lib.rs::expanded_island` | 进行中：30px 圆角卡片、顶部柔光、投影、14px 分区间距、10px 圆角页面容器已落地；卡片横向上仍比窗口宽，右侧内容被裁 |
+| 3 | 页头（标题 / 页点 / 工具按钮） | `IslandHeader.tsx/.css` | `lib.rs::expanded_header` | 进行中：标题、图标、三个页点已对上；**搜索 / 设置 / 收起三个按钮落在窗口右边界之外**（见「阻塞」） |
 | 4 | 剪贴板列表 | `ClipboardHistoryItemRow`、`ClipboardFilters` | `lib.rs::search_and_list` / `history_row` | 本轮完成：32px 搜索框（放大镜图标 + 清空按钮）、44px 行、30px 缩略图/图标、13px 单行预览、发丝分隔线、悬停淡底、26px 圆形复制与收藏按钮。未做：笔记、删除、全部/收藏筛选、面板头、复制成功回钩 |
 | 5 | 设置页 | `src/components/settings/` | `lib.rs` 设置区 | 待做 |
 | 6 | 消息（QQ / 微信 / 邮件） | `IslandMessages*`、`qq_ui.rs`、`mail_ui.rs` | 对应 `*_ui.rs` | 待做 |
@@ -74,8 +74,32 @@ Tauri 版的样式分散在 `src/styles/tokens.css` 与各组件的 `*.css` 里�
 - **页点数量**：Tauri 默认 6 个（待办 / 音乐 / 剪贴板 / 暂存 / 翻译 / 电量），NSH 目前只有剪贴板 / 暂存 / 翻译三页，先按已有三页排布；补齐待办与电量页后再对齐。
 - **图标**：`icons.rs` 由 lucide 生成后带 `#[allow(dead_code)]`，未用到的图标会在对应页面接上后消失。
 
+## 阻塞：右对齐控件落到窗口之外
+
+截图证据在 `docs/assets/nsh-ui-parity/round1/`（`dpi125-collapsed.png`、`dpi125-expanded.png`、`dpi150-*.png`）。现象：
+
+- 收起胶囊：状态点、摘要、计数正常，`chevron` 与右侧留白被切掉；计数紧贴右边缘。
+- 展开页头：标题与页点正常，右侧工具按钮整组消失，只有最左边的一个图标露出半截。
+- 页面正文：电池行、`打开` 按钮等长文本行同样越过右边界被裁。
+
+已试过并且都失败的排布方式（每次都用 PrintWindow 截图确认）：
+
+| 方案 | 结果 |
+|---|---|
+| 行内 `flex_1` 撑开 + 右侧固定组 | 右侧组被推到窗口外 |
+| `justify_between()` 两个组 | 右组完全不可见 |
+| `justify_end()` 单子元素行 | 同组内只有第一个子元素可见 |
+| `absolute().right()` 锚定 | 展开时宿主进程直接崩溃 |
+| 固定宽度 + 前导 `ml()` 绝对偏移 | 组内子元素仍从偏右的位置开始，溢出 |
+
+推论（尚未在 nsh-core 源码中确认）：本项目的行内长文本没有 `truncate`，flex 子项的 `min-width: auto` 取到内容最小宽度，使卡片/行比 620 逻辑宽度更宽；所有"贴右"的东西都跟着被推到窗口外。下一步要先读 `nsh-core` 的 flex 尺寸计算（或做一个最小复现工程）确认这一点，再决定是给每个文本行加省略号，还是改用不依赖右对齐的固定坐标排布。
+
+在解决之前，本轮不宣称任何屏幕"已完成"。
+
 ## 验证
 
 - 静态：`cargo check --manifest-path nsh/host/Cargo.toml`、`cargo clippy --manifest-path nsh/host/Cargo.toml`（`nsh/src/wechat.rs` 的 `is_multiple_of` 提示是既有问题，不在本次范围）。
 - 构建产物：`cargo build --manifest-path nsh/host/Cargo.toml`，运行 `nsh/host/target/debug/focusd-island-host.exe`。
-- 界面验收由人工完成：100% / 125% / 150% 三档 DPI 下分别截图收起、展开、各功能页，与 Tauri 版并排比对，截图放 `docs/assets/nsh-ui-parity/<screen>/`。这项工作尚未开始，完成前不得记作已验证。
+- 截图：`docs/assets/nsh-ui-parity/round1/` 下的 `dpi125-collapsed.png`、`dpi125-expanded.png`、`dpi150-collapsed.png`、`dpi150-expanded.png`，用 `PrintWindow` 抓宿主窗口（`nsh/host/target/debug/focusd-island-host.exe`，抓前先退出已安装的 0.2.0 以避开单实例互斥，抓完恢复）。
+- DPI 说明：125% 档窗口 620x420；150% 档移到缩放 150% 的显示器后窗口仍是 620x420（同一进程早先出现过 744x504），本次没能验证跨显示器重算缩放，150% 截图只能说明逻辑布局，不能说明 DPI 缩放。
+- 逐屏与 Tauri 版并排比对：未完成。当前差异见上面「阻塞」一节，解决前不记作已验证。

@@ -563,7 +563,6 @@ fn collapsed_island(
         .flex_row()
         .items_center()
         .gap(px(theme::SPACE_MD))
-        .px(px(theme::COLLAPSED_PADDING_X))
         .rounded(px(theme::COLLAPSED_RADIUS))
         .overflow_hidden()
         .bg(move || palette(dark.get()).bg)
@@ -586,6 +585,7 @@ fn collapsed_island(
         // The pulse dot: the agent's state color, lit as the Tauri dot is.
         .child(
             view()
+                .ml(px(theme::COLLAPSED_PADDING_X))
                 .w(px(9.0))
                 .h(px(9.0))
                 .flex_shrink(0.0)
@@ -641,6 +641,7 @@ fn collapsed_island(
         )
         .child(
             view()
+                .mr(px(theme::COLLAPSED_PADDING_X))
                 .flex_shrink(0.0)
                 .text_color(theme::TEXT_3)
                 .child(widgets::icon(icons::CHEVRON_UP, 14.0)),
@@ -689,11 +690,8 @@ fn expanded_island(
     view()
         .w_full()
         .h_full()
+        .min_w(px(0.0))
         .flex_col()
-        .gap(px(theme::ISLAND_GAP))
-        .pt(px(18.0))
-        .px(px(theme::ISLAND_PADDING_X))
-        .pb(px(theme::ISLAND_PADDING_X))
         .rounded(px(theme::EXPANDED_RADIUS))
         .overflow_hidden()
         .bg(move || palette(dark.get()).bg)
@@ -708,14 +706,14 @@ fn expanded_island(
             shelf_page,
             launcher,
             launcher_settings,
-            items,
             dark,
             ai,
         ))
         .child(
             view()
                 .flex_1()
-                .w_full()
+                .min_w(px(0.0))
+                .mb(px(theme::ISLAND_PADDING_X))
                 .flex_col()
                 .rounded(px(theme::PANEL_RADIUS))
                 .overflow_hidden()
@@ -727,6 +725,7 @@ fn expanded_island(
                     view()
                         .flex_1()
                         .w_full()
+                        .min_w(px(0.0))
                         .flex_col()
                         .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
                         .child(when(
@@ -756,101 +755,127 @@ fn expanded_header(
     shelf_page: Signal<bool>,
     launcher: LauncherState,
     launcher_settings: LauncherSettingsState,
-    items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
 ) -> impl IntoElement {
     let on_clipboard = move || !island_page.get() && !shelf_page.get();
+    // Two overlaid rows: the title row packs from the left, the actions row packs
+    // from the right. A single row with both cannot keep the actions inside the
+    // window here, and absolute positioning inside the row crashes the layout.
     view()
-        .relative()
-        .flex_row()
-        .items_center()
-        .gap(px(theme::SPACE_MD))
-        .h(px(theme::HEADER_HEIGHT))
+        .flex_col()
         .w_full()
+        .mt(px(18.0))
+        .mb(px(theme::ISLAND_GAP))
         .child(
             view()
-                .absolute()
-                .left(px(0.0))
-                .top(px(0.0))
-                .w(px(8.0))
-                .h(px(theme::HEADER_HEIGHT))
-                .window_drag(true),
-        )
-        .child(
-            view()
+                .relative()
                 .flex_row()
                 .items_center()
-                .gap(px(9.0))
-                .flex_shrink(0.0)
+                .w_full()
+                .h(px(theme::HEADER_HEIGHT))
                 .child(
                     view()
-                        .text_color(theme::ACCENT)
-                        .child(widgets::icon(icons::CLIPBOARD, 15.0)),
+                        .absolute()
+                        .left(px(0.0))
+                        .top(px(0.0))
+                        .w(px(8.0))
+                        .h(px(theme::HEADER_HEIGHT))
+                        .window_drag(true),
                 )
                 .child(
-                    text(move || t!("island.title"))
-                        .text_size(px(theme::BRAND_SIZE))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(move || palette(dark.get()).fg),
+                    view()
+                        .ml(px(theme::ISLAND_PADDING_X))
+                        .flex_row()
+                        .items_center()
+                        .gap(px(9.0))
+                        .flex_shrink(0.0)
+                        .child(
+                            view()
+                                .text_color(theme::ACCENT)
+                                .child(widgets::icon(icons::CLIPBOARD, 15.0)),
+                        )
+                        .child(
+                            text(move || t!("island.title"))
+                                .text_size(px(theme::BRAND_SIZE))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(move || palette(dark.get()).fg),
+                        ),
+                )
+                .child(
+                    view()
+                        .ml(px(theme::SPACE_XL))
+                        .flex_row()
+                        .items_center()
+                        .gap(px(theme::SPACE_XS))
+                        .flex_shrink(0.0)
+                        .child(widgets::page_dot(theme::DOT_CLIPBOARD, on_clipboard()).on_press(
+                            move || {
+                                island_page.set(false);
+                                shelf_page.set(false);
+                            },
+                        ))
+                        .child(
+                            widgets::page_dot(theme::DOT_SHELF, shelf_page.get()).on_press(
+                                move || {
+                                    island_page.set(false);
+                                    shelf_page.set(true);
+                                },
+                            ),
+                        )
+                        .child(
+                            widgets::page_dot(theme::DOT_TRANSLATION, island_page.get()).on_press(
+                                move || {
+                                    island_page.set(true);
+                                    shelf_page.set(false);
+                                },
+                            ),
+                        ),
                 ),
         )
         .child(
             view()
                 .flex_row()
                 .items_center()
-                .gap(px(theme::SPACE_XS))
-                .pl(px(theme::SPACE_XS))
-                .flex_shrink(0.0)
-                .child(widgets::page_dot(theme::DOT_CLIPBOARD, on_clipboard()).on_press(move || {
-                    island_page.set(false);
-                    shelf_page.set(false);
-                }))
+                .w_full()
+                .h(px(theme::HEADER_HEIGHT))
+                .mt(px(-theme::HEADER_HEIGHT))
                 .child(
-                    widgets::page_dot(theme::DOT_SHELF, shelf_page.get()).on_press(move || {
-                        island_page.set(false);
-                        shelf_page.set(true);
-                    }),
-                )
-                .child(
-                    widgets::page_dot(theme::DOT_TRANSLATION, island_page.get()).on_press(move || {
-                        island_page.set(true);
-                        shelf_page.set(false);
-                    }),
+                    view()
+                        .ml(px(theme::ISLAND_ACTIONS_INSET))
+                        .w(px(theme::ISLAND_ACTIONS_WIDTH))
+                        .flex_row()
+                        .items_center()
+                        .gap(px(4.0))
+                        .child(when(move || ai_unseen(ai) > 0, move || {
+                            widgets::count_badge(
+                                move || ai_unseen(ai).to_string(),
+                                theme::ISLAND_BG,
+                                theme::WARNING,
+                            )
+                            .on_press(move || open_cindy(ai))
+                        }))
+                        .child(
+                            widgets::icon_button(icons::SEARCH, 16.0, theme::TEXT_2)
+                                .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
+                        )
+                        .child(when(move || settings_open.get(), move || {
+                            widgets::icon_button(icons::X, 16.0, theme::TEXT_2)
+                                .on_press(move || settings_open.set(false))
+                        }))
+                        .child(when(move || !settings_open.get(), move || {
+                            widgets::icon_button(icons::SETTINGS, 16.0, theme::TEXT_2)
+                                .on_press(move || settings_open.set(true))
+                        }))
+                        .child(
+                            widgets::icon_button(icons::CHEVRON_UP, 16.0, theme::TEXT_2)
+                                .on_press(move || window::set_expanded(expanded, false)),
+                        ),
                 ),
         )
-        .child(view().flex_1())
-        .child(when(on_clipboard, move || {
-            text(move || t!("island.count", count = items.get().len()))
-                .text_size(px(theme::LABEL_SIZE))
-                .text_color(move || palette(dark.get()).faint)
-        }))
-        .child(when(move || ai_unseen(ai) > 0, move || {
-            widgets::count_badge(
-                move || ai_unseen(ai).to_string(),
-                theme::ISLAND_BG,
-                theme::WARNING,
-            )
-            .on_press(move || open_cindy(ai))
-        }))
-        .child(
-            widgets::icon_button(icons::SEARCH, 16.0, theme::TEXT_2)
-                .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
-        )
-        .child(when(move || settings_open.get(), move || {
-            widgets::icon_button(icons::X, 16.0, theme::TEXT_2)
-                .on_press(move || settings_open.set(false))
-        }))
-        .child(when(move || !settings_open.get(), move || {
-            widgets::icon_button(icons::SETTINGS, 16.0, theme::TEXT_2)
-                .on_press(move || settings_open.set(true))
-        }))
-        .child(
-            widgets::icon_button(icons::CHEVRON_UP, 16.0, theme::TEXT_2)
-                .on_press(move || window::set_expanded(expanded, false)),
-        )
 }
-fn ai_panel(ai: AiState, dark: Signal<bool>   ) -> impl IntoElement {
+
+fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_col()
         .gap(px(3.0))
