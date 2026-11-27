@@ -558,11 +558,11 @@ fn collapsed_island(
     };
     view()
         .relative()
-        .w_full()
+        .w(px(theme::COLLAPSED_WIDTH))
         .h(px(theme::COLLAPSED_HEIGHT))
+        .min_w(px(0.0))
         .flex_row()
         .items_center()
-        .gap(px(theme::SPACE_MD))
         .rounded(px(theme::COLLAPSED_RADIUS))
         .overflow_hidden()
         .bg(move || palette(dark.get()).bg)
@@ -597,6 +597,7 @@ fn collapsed_island(
             move || ai.enabled.get() && ai.snapshot.get().state().is_some(),
             move || {
                 text(move || ai_inline_label(ai))
+                    .ml(px(theme::SPACE_MD))
                     .flex_shrink(0.0)
                     .text_size(px(theme::HINT_SIZE))
                     .font_weight(FontWeight::MEDIUM)
@@ -610,12 +611,14 @@ fn collapsed_island(
                 theme::ISLAND_BG,
                 theme::WARNING,
             )
+            .ml(px(theme::SPACE_SM))
             .on_press(move || open_cindy(ai))
         }))
         .child(when(
             move || shelf_show_count.get() && !shelf.items.get().is_empty(),
             move || {
                 view()
+                    .ml(px(theme::SPACE_SM))
                     .h(px(22.0))
                     .px(px(7.0))
                     .flex_shrink(0.0)
@@ -635,6 +638,7 @@ fn collapsed_island(
         ))
         .child(
             text(move || t!("island.count", count = items.get().len()))
+                .ml(px(theme::SPACE_MD))
                 .flex_shrink(0.0)
                 .text_size(px(theme::LABEL_SIZE))
                 .text_color(move || palette(dark.get()).faint),
@@ -688,8 +692,8 @@ fn expanded_island(
     qq_enabled: Signal<bool>,
 ) -> impl IntoElement {
     view()
-        .w_full()
-        .h_full()
+        .w(px(theme::EXPANDED_WIDTH))
+        .h(px(theme::EXPANDED_HEIGHT))
         .min_w(px(0.0))
         .flex_col()
         .rounded(px(theme::EXPANDED_RADIUS))
@@ -878,6 +882,7 @@ fn expanded_header(
 fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_col()
+        .w_full()
         .gap(px(3.0))
         .px(px(14.0))
         .pb(px(6.0))
@@ -1022,6 +1027,7 @@ fn open_cindy(ai: AiState) {
 fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(6.0))
         .px(px(14.0))
@@ -1055,6 +1061,7 @@ fn wechat_panel(
 ) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(6.0))
         .px(px(14.0))
@@ -1165,6 +1172,7 @@ fn qq_toggle_row(state: SettingsState) -> impl IntoElement {
 fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_col()
+        .w_full()
         .gap(px(3.0))
         .px(px(14.0))
         .pb(px(5.0))
@@ -1413,6 +1421,7 @@ fn media_progress(
 fn media_idle(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(8.0))
         .px(px(14.0))

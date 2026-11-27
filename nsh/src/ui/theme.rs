@@ -13,6 +13,12 @@ pub const FONT_UI: &str
 // --- Geometry -----------------------------------------------------------------------
 
 /// The collapsed bar's height (`.island__collapsed`, `IslandShell.css`).
+/// The island's design widths, matching the host's window sizes. The surface is
+/// always this many logical pixels, so a fixed size keeps rows from being
+/// widened by their content.
+pub const COLLAPSED_WIDTH: f32 = 320.0;
+pub const EXPANDED_WIDTH: f32 = 620.0;
+pub const EXPANDED_HEIGHT: f32 = 420.0;
 pub const COLLAPSED_HEIGHT: f32 = 38.0;
 /// The collapsed capsule's corner radius (`.island--collapsed`).
 pub const COLLAPSED_RADIUS: f32 = 19.0;

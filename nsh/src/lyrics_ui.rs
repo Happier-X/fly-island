@@ -21,6 +21,7 @@ use crate::lyrics::{
 };
 use crate::media::MediaState;
 use crate::palette;
+use crate::ui::theme;
 
 #[derive(Clone, Copy)]
 pub struct LyricsState {
@@ -202,6 +203,8 @@ pub fn collapsed(lyrics: LyricsState, media: Signal<Option<MediaState>>, dark: S
     })
     .truncate()
     .flex_1()
+    .min_w(px(0.0))
+    .ml(px(theme::SPACE_MD))
     .text_size(px(13.0))
     .font_weight(FontWeight::MEDIUM)
     .text_color(move || palette(dark.get()).fg)
