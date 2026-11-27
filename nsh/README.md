@@ -4,7 +4,8 @@ This directory is the NSH migration of FocuSD Island. It is independent of
 `../src` and `../src-tauri`; the Tauri app keeps building and shipping
 untouched.
 
-**NSH version:** 0.6.1, pinned. `nsh.json` requires exactly `=0.6.1`; an
+**NSH version:** 0.7.2, pinned. `nsh.json` requires exactly `=0.7.2` and the
+NSH crates in `Cargo.toml`/`host/Cargo.toml` are pinned the same way; an
 upgrade needs its own verification run. The CLI is installed at
 `%LOCALAPPDATA%\nsh` (PATH is set for new terminals).
 
@@ -184,13 +185,29 @@ those in favor of its own.
 - `nsh build nsh -o .nsh/out` reports `no bundle: its runners mount the root`; the output holds only `app.json` and the app assets, with no JS or QuickJS bytecode.
 - `nsh run nsh` reports `running FocuSD Island (NSH) (Rust, no JS runtime)`.
 
-## Packaging
+## 打包 / Packaging
+
+发布必须使用完整 Win32 宿主 `focusd-island-host.exe`，不能使用 `nsh package`
+的默认 runner。现有脚本复用 `nsh build` 生成资源，打包 `nsh/app.json` 与 `nsh/assets/`。
+从独立副本根目录运行（本轮未执行）：
 
 ```powershell
-nsh package nsh --target windows -o nsh/dist
+pwsh -NoProfile -File .\nsh\scripts\package.ps1
+# 复用此副本已有的宿主与资源 / Reuse this copy's prior build:
+pwsh -NoProfile -File .\nsh\scripts\package.ps1 -SkipBuild
+# 仅便携包，不调用 ISCC / Portable only:
+pwsh -NoProfile -File .\nsh\scripts\package.ps1 -PortableOnly
 ```
 
-`nsh/dist/FocuSD Island (NSH).zip` is the portable first distribution (exe, nsh/app.json, assets). `nsh/dist/FocuSD Island (NSH).iss` needs Inno Setup 6; it is not installed automatically. Updates use a separate manifest and SHA-256; see docs/architecture/nsh-release.md.
+需要 PowerShell 7、已有 Rust/MSVC 工具链和离线依赖缓存、NSH CLI 0.7.2。
+Inno Setup 6.7.3 已安装，脚本不下载或安装任何工具。产物在
+`nsh/dist/FocuSD-Island-NSH-<version>-win-x64/`；同版本目录存在时不覆盖。
+第一版未签名，安装/运行/卸载待主人验收，邮箱配置延期。详见
+`docs/architecture/nsh-release.md` 的命令、资源布局与人工检查清单。
+
+Use the full Win32 host, not the default NSH runner. The script builds offline,
+packages a portable zip and optionally invokes an existing Inno Setup compiler.
+Artifacts are unsigned. No installer has been built or exercised in this change.
 
 ## Known limits
 

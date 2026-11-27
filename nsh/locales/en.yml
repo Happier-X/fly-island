@@ -251,4 +251,4 @@ island:
   screenshot_tool_keys_hint: A letter, digit or F1-F24; empty unbinds.
   screenshot_toolbar: Toolbar items
   screenshot_toolbar_hint: Click to show or hide; matches the overlay toolbar.
-  about: FocuSD Island (NSH) %{version} · NSH 0.6.1
+  about: FocuSD Island (NSH) %{version} · NSH 0.7.2

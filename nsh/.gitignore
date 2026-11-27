@@ -1,2 +1,5 @@
 .nsh/
 target/
+# 本副本的打包中间文件与最终产物
+.package/
+dist/

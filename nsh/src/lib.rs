@@ -1624,7 +1624,9 @@ fn history_row(
                 .rounded(px(8.0))
                 .active(|s| s.bg(palette(dark.get()).row))
                 .on_press(move || match copy_target(&copy) {
-                    CopyTarget::Text(text) => set_clipboard(text),
+                    CopyTarget::Text(text) => {
+                        let _ = set_clipboard(text);
+                    }
                     CopyTarget::Image(url) => {
                         if !clipboard::write_image(&url) {
                             set_clipboard_image(url);

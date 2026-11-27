@@ -251,4 +251,4 @@ island:
   screenshot_tool_keys_hint: 单个字母/数字或 F1–F24，留空取消绑定。
   screenshot_toolbar: 工具栏可见项
   screenshot_toolbar_hint: 点一下切换显示/隐藏，与覆盖层工具栏一一对应。
-  about: 焦点岛（NSH）%{version} · NSH 0.6.1
+  about: 焦点岛（NSH）%{version} · NSH 0.7.2

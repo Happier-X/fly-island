@@ -1,18 +1,76 @@
 # NSH 发版与更新链路（2026-11-25）
 
-## 打包
+## 打包（2026-11-27 配置，尚未实跑）
 
-命令：
+本机已安装 Inno Setup 6.7.3，不需要再次安装。第一版不签名，邮箱配置延期。
+使用 `nsh/scripts/package.ps1`，不要将 `nsh package` 的默认 runner 当成发布程序。
+完整入口是 `nsh/host/src/main.rs`：宿主负责 Win32 消息循环、托盘、全局快捷键、
+DPI、拖放与截图联动。只使用 `focusd-island-host.exe`，不混入第二个应用 exe。
 
-    nsh package nsh --target windows -o dist-nsh
+前置条件由主人预先准备：PowerShell 7、仓库固定的 Rust 工具链、x64 MSVC target、
+MSVC/Windows SDK、NSH CLI 0.7.2 及 Cargo.lock 对应的本地依赖缓存。
+脚本不安装依赖；Cargo 使用 `--locked --offline`，通过不带 `--install` 的
+`rustup run` 使用已有工具链。缺少依赖/工具链时停止，由主人决定后续处理。
+NSH CLI 必须提前可用；脚本不运行其安装或 package 命令。
 
-产物：
+在独立副本根目录执行（以下命令本轮均未执行）：
 
-- dist-nsh/FocuSD Island (NSH)/：便携目录，包含 exe、nsh/app.json、nsh/assets/。
-- dist-nsh/FocuSD Island (NSH).zip：第一个可分发形态，解压即用。
-- dist-nsh/FocuSD Island (NSH).iss：Inno Setup 脚本。当前机器未安装 Inno Setup，未生成安装器；需要用户自行安装 Inno Setup 6 后运行 ISCC。
+```powershell
+# 完整宿主 + NSH 资源 + 便携 zip + 未签名安装器
+pwsh -NoProfile -File .\nsh\scripts\package.ps1
+# 复用本脚本此前在此副本生成的宿主和资源；不构建源码
+pwsh -NoProfile -File .\nsh\scripts\package.ps1 -SkipBuild
+# 只要便携目录/zip，不调用 ISCC
+pwsh -NoProfile -File .\nsh\scripts\package.ps1 -PortableOnly
+# ISCC 安装在其他位置时显式指定（不重新安装）
+pwsh -NoProfile -File .\nsh\scripts\package.ps1 -IsccPath 'D:\Tools\Inno Setup 6\ISCC.exe'
+```
 
-便携版不写系统目录、不注册卸载项；应用数据在 %APPDATA%\com.focusd.island.nsh。
+输入与产物均在副本内；不依赖 `C:/code/fly-island` 下的编译产物：
+
+- `nsh/.package/target/x86_64-pc-windows-msvc/release/focusd-island-host.exe`：显式构建 `nsh/host/Cargo.toml` 的宿主。
+- `nsh/.package/resources/`：由现有 `nsh build` 生成的 `app.json` 和 `assets/`，不手写运行时格式。
+- `nsh/dist/FocuSD-Island-NSH-<version>-win-x64/portable/`：宿主 exe、`nsh/app.json`、`nsh/assets/`、许可证、NOTICE、AirSnip 依赖声明和 `UNSIGNED.txt`。
+- 同级 `FocuSD-Island-NSH-<version>-win-x64.zip`：便携更新包，根目录只有一个宿主 exe，兼容更新器的包根/程序发现逻辑。
+- 同级 `FocuSD-Island-NSH-<version>-win-x64-setup.exe`：仅在 ISCC 成功后才存在。
+- 同级 `SHA256SUMS.txt`、`package-inputs.json`：实际产物哈希、宿主/资源清单哈希与是否跳过构建；不是签名或源码一致性证明。
+
+版本读取 `nsh/nsh.json`，必须与 app/host 两份 Cargo.toml 一致，目前为 `0.1.0`。
+同版本输出目录已存在时拒绝覆盖；请先人工保留或移走，失败残留也不自动删除。
+`-SkipBuild` 不保证二进制与当前源码一致，发布者必须自行确认输入来源。
+宿主翻译及提示音已由源码内嵌；随包仍携带完整 NSH 生成资源，不重新实现资源生成。
+构建的 Cargo target 和 TEMP/TMP 定向到 `nsh/.package/`；不改变全局环境配置。
+
+### 安装行为
+
+配置在 `nsh/installer/focusd-island.iss`。使用独立 `com.focusd.island.nsh` 标识，
+默认安装到当前用户的 `%LOCALAPPDATA%\Programs\FocuSD Island NSH`，不请求管理员权限。
+安装向导保留目录选择和开始菜单文件夹选择；默认创建开始菜单应用/卸载入口，
+桌面快捷方式默认不勾选；所有应用快捷方式的工作目录为安装目录。
+自选目录请保持当前用户可写，否则现有在线更新器无法覆盖文件。
+
+系统应用列表中注册卸载项；卸载只按 Inno 日志移除其安装文件和快捷方式，
+不递归删除用户数据/旧 Tauri 数据；便携更新新增的文件可能需主人手工清理。
+安装前从托盘退出 NSH；安装器不自动关闭/重启宿主，安装结束也不自动运行应用。
+- 安装器界面使用 Inno 自带英文语言，未签名提示用自定义安装前说明替换；不下载额外语言包。
+`UNSIGNED.txt` 在安装前展示并随包安装；不注册自启，不修改账号，不配置邮箱。
+安装器图标复用仓库已有 `src-tauri/icons/icon.ico`，不引入新的图标生成过程。
+
+### 主人构建与安装清单（本轮未执行）
+
+- 按上述命令构建；确认日志构建的是 `nsh/host/Cargo.toml`，资源来自固定版本 NSH CLI；检查依赖/运行库在干净机器上是否齐全。
+- 检查便携目录与 zip 的 exe 名和资源布局，核对 SHA-256；从任意工作目录运行宿主，检查托盘、全局快捷键、DPI、截图和资源显示。
+- 在当前用户可写且含中文/空格的自选目录安装；确认目录页、开始菜单页、桌面选项默认不勾选及系统卸载项。
+- 分别检查开始菜单和可选桌面快捷方式；检查 SmartScreen/未签名说明，不能声称签名受信任。
+- 关闭 NSH 后覆盖安装后续版本；核对独立更新 zip 的下载/重启链路，避免选中安装器 exe。
+- 卸载后检查快捷方式及系统卸载项移除、NSH 数据保留、Tauri 安装/数据不变；邮箱及其余需人工授权的项目留给主人。
+- 按 GPL-3.0 提供对应的完整源码及构建说明；分发前复核第三方资源与依赖的许可要求。
+
+本轮没有宿主二进制，未生成安装器；只交付配置和构建命令。
+未运行脚本、NSH CLI、构建、测试、安装/卸载或 GUI；资源生成命令与 ISCC 配置未实跑，
+不能称安装、资源加载、干净机依赖或更新链路已验证。
+
+便携版不注册卸载项；应用运行后的数据在 `%APPDATA%\com.focusd.island.nsh`。
 
 ## 更新清单
 
@@ -61,7 +119,7 @@
 - 第一版 NSH 必须包含截图套件；不能以“截图继续留在 Tauri 旧版”作为发布口径。截图由独立专项任务实现，但其完成是首版发布前置条件。
 - 截图现状（2026-11-25）：S1–S3 完成，混合 DPI/HDR 通过；Chromium 长截图与旧版一致受限（旧版 600/855 仅首屏，NSH 600 可连续拼接、855 同旧版），按“与现版持平”记录，不算回归；NSH 设置页已补齐自定义色板、命名模板、工具键、工具栏显隐与界面缩放，对丢矩阵无未分类行，截图不再阻塞发布。详见 docs/architecture/nsh-screenshot.md。
 
-## 验收（2026-11-25）
+## 历史验收（2026-11-25，非本次安装器验证）
 
 - 本地 Python HTTP 服务 127.0.0.1:8765 提供 manifest 与 zip；宿主启动后自动检查到 0.1.2。
 - 点击“下载并重启”：下载、SHA-256、解包、复制到临时 target、启动新 exe 全流程通过；target 出现新 exe 与 nsh/app.json，新进程运行。
