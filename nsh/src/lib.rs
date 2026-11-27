@@ -763,118 +763,108 @@ fn expanded_header(
     ai: AiState,
 ) -> impl IntoElement {
     let on_clipboard = move || !island_page.get() && !shelf_page.get();
-    // Two overlaid rows: the title row packs from the left, the actions row packs
-    // from the right. A single row with both cannot keep the actions inside the
-    // window here, and absolute positioning inside the row crashes the layout.
+    // One relative row: the title and page dots flow from the left, the action
+    // cluster is pinned at `ISLAND_ACTIONS_INSET` so it cannot be pushed out by
+    // whatever the title or a long page row happens to measure.
     view()
-        .flex_col()
+        .relative()
+        .flex_row()
+        .items_center()
         .w_full()
+        .h(px(theme::HEADER_HEIGHT))
         .mt(px(18.0))
         .mb(px(theme::ISLAND_GAP))
         .child(
             view()
-                .relative()
+                .absolute()
+                .left(px(0.0))
+                .top(px(0.0))
+                .w(px(8.0))
+                .h(px(theme::HEADER_HEIGHT))
+                .window_drag(true),
+        )
+        .child(
+            view()
+                .ml(px(theme::ISLAND_PADDING_X))
                 .flex_row()
                 .items_center()
-                .w_full()
-                .h(px(theme::HEADER_HEIGHT))
+                .gap(px(9.0))
+                .flex_shrink(0.0)
                 .child(
                     view()
-                        .absolute()
-                        .left(px(0.0))
-                        .top(px(0.0))
-                        .w(px(8.0))
-                        .h(px(theme::HEADER_HEIGHT))
-                        .window_drag(true),
+                        .text_color(theme::ACCENT)
+                        .child(widgets::icon(icons::CLIPBOARD, 15.0)),
                 )
                 .child(
-                    view()
-                        .ml(px(theme::ISLAND_PADDING_X))
-                        .flex_row()
-                        .items_center()
-                        .gap(px(9.0))
-                        .flex_shrink(0.0)
-                        .child(
-                            view()
-                                .text_color(theme::ACCENT)
-                                .child(widgets::icon(icons::CLIPBOARD, 15.0)),
-                        )
-                        .child(
-                            text(move || t!("island.title"))
-                                .text_size(px(theme::BRAND_SIZE))
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(move || palette(dark.get()).fg),
-                        ),
-                )
-                .child(
-                    view()
-                        .ml(px(theme::SPACE_XL))
-                        .flex_row()
-                        .items_center()
-                        .gap(px(theme::SPACE_XS))
-                        .flex_shrink(0.0)
-                        .child(widgets::page_dot(theme::DOT_CLIPBOARD, on_clipboard()).on_press(
-                            move || {
-                                island_page.set(false);
-                                shelf_page.set(false);
-                            },
-                        ))
-                        .child(
-                            widgets::page_dot(theme::DOT_SHELF, shelf_page.get()).on_press(
-                                move || {
-                                    island_page.set(false);
-                                    shelf_page.set(true);
-                                },
-                            ),
-                        )
-                        .child(
-                            widgets::page_dot(theme::DOT_TRANSLATION, island_page.get()).on_press(
-                                move || {
-                                    island_page.set(true);
-                                    shelf_page.set(false);
-                                },
-                            ),
-                        ),
+                    text(move || t!("island.title"))
+                        .text_size(px(theme::BRAND_SIZE))
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(move || palette(dark.get()).fg)
+                        .truncate(),
                 ),
         )
         .child(
             view()
+                .ml(px(theme::SPACE_XL))
                 .flex_row()
                 .items_center()
-                .w_full()
-                .h(px(theme::HEADER_HEIGHT))
-                .mt(px(-theme::HEADER_HEIGHT))
+                .gap(px(theme::SPACE_XS))
+                .flex_shrink(0.0)
+                .child(widgets::page_dot(theme::DOT_CLIPBOARD, on_clipboard()).on_press(
+                    move || {
+                        island_page.set(false);
+                        shelf_page.set(false);
+                    },
+                ))
                 .child(
-                    view()
-                        .ml(px(theme::ISLAND_ACTIONS_INSET))
-                        .w(px(theme::ISLAND_ACTIONS_WIDTH))
-                        .flex_row()
-                        .items_center()
-                        .gap(px(4.0))
-                        .child(when(move || ai_unseen(ai) > 0, move || {
-                            widgets::count_badge(
-                                move || ai_unseen(ai).to_string(),
-                                theme::ISLAND_BG,
-                                theme::WARNING,
-                            )
-                            .on_press(move || open_cindy(ai))
-                        }))
-                        .child(
-                            widgets::icon_button(icons::SEARCH, 16.0, theme::TEXT_2)
-                                .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
-                        )
-                        .child(when(move || settings_open.get(), move || {
-                            widgets::icon_button(icons::X, 16.0, theme::TEXT_2)
-                                .on_press(move || settings_open.set(false))
-                        }))
-                        .child(when(move || !settings_open.get(), move || {
-                            widgets::icon_button(icons::SETTINGS, 16.0, theme::TEXT_2)
-                                .on_press(move || settings_open.set(true))
-                        }))
-                        .child(
-                            widgets::icon_button(icons::CHEVRON_UP, 16.0, theme::TEXT_2)
-                                .on_press(move || window::set_expanded(expanded, false)),
-                        ),
+                    widgets::page_dot(theme::DOT_SHELF, shelf_page.get()).on_press(
+                        move || {
+                            island_page.set(false);
+                            shelf_page.set(true);
+                        },
+                    ),
+                )
+                .child(
+                    widgets::page_dot(theme::DOT_TRANSLATION, island_page.get()).on_press(
+                        move || {
+                            island_page.set(true);
+                            shelf_page.set(false);
+                        },
+                    ),
+                ),
+        )
+        .child(
+            view()
+                .absolute()
+                .left(px(theme::ISLAND_ACTIONS_INSET))
+                .top(px(0.0))
+                .w(px(theme::ISLAND_ACTIONS_WIDTH))
+                .flex_row()
+                .items_center()
+                .gap(px(4.0))
+                .child(when(move || ai_unseen(ai) > 0, move || {
+                    widgets::count_badge(
+                        move || ai_unseen(ai).to_string(),
+                        theme::ISLAND_BG,
+                        theme::WARNING,
+                    )
+                    .on_press(move || open_cindy(ai))
+                }))
+                .child(
+                    widgets::icon_button(icons::SEARCH, 16.0, theme::TEXT_2)
+                        .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
+                )
+                .child(when(move || settings_open.get(), move || {
+                    widgets::icon_button(icons::X, 16.0, theme::TEXT_2)
+                        .on_press(move || settings_open.set(false))
+                }))
+                .child(when(move || !settings_open.get(), move || {
+                    widgets::icon_button(icons::SETTINGS, 16.0, theme::TEXT_2)
+                        .on_press(move || settings_open.set(true))
+                }))
+                .child(
+                    widgets::icon_button(icons::CHEVRON_UP, 16.0, theme::TEXT_2)
+                        .on_press(move || window::set_expanded(expanded, false)),
                 ),
         )
 }
