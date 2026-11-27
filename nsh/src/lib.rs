@@ -29,6 +29,7 @@ mod file_shelf_media;
 pub mod file_shelf_drag;
 pub mod file_shelf_picker;
 mod file_shelf_ui;
+mod ui;
 pub mod focus;
 #[cfg(feature = "embedded")]
 pub mod embedded;
@@ -49,6 +50,7 @@ use launcher_ui::{LauncherSettingsState, LauncherState};
 use lyrics_ui::LyricsState;
 use translation_ui::{TranslationSettings, TranslationState};
 use media::MediaState;
+use ui::{icons, theme, widgets};
 
 #[cfg(feature = "embedded")]
 fn wechat_set_enabled(enabled: bool) {
@@ -111,10 +113,12 @@ pub(crate) fn request_file_pick() {
 pub(crate) fn request_file_pick() {}
 
 
-const COLLAPSED_WIDTH: f32 = 320.0;
-const COLLAPSED_HEIGHT: f32 = 40.0;
-const EXPANDED_WIDTH: f32 = 620.0;
-const EXPANDED_HEIGHT: f32 = 420.0;
+// The standalone build sizes its window with these; the embedded host keeps its own copy
+// in `host/src/island.rs`, so they read as unused there.
+#[allow(dead_code)] const COLLAPSED_WIDTH: f32 = 320.0;
+#[allow(dead_code)] const COLLAPSED_HEIGHT: f32 = 40.0;
+#[allow(dead_code)] const EXPANDED_WIDTH: f32 = 620.0;
+#[allow(dead_code)] const EXPANDED_HEIGHT: f32 = 420.0;
 
 #[derive(Clone, Copy)]
 pub(crate) struct Palette {
@@ -132,30 +136,32 @@ pub(crate) struct Palette {
 }
 
 pub(crate) fn palette(dark: bool) -> Palette {
+    // The dark side is the Tauri island's own palette (`src/styles/tokens.css`); a light island
+    // keeps the same alphas over a paper surface.
     if dark {
         Palette {
-            bg: rgba(0x1B1D21F2).into(),
-            fg: white().into(),
-            muted: rgba(0xFFFFFF99).into(),
-            faint: rgba(0xFFFFFF59).into(),
-            border: rgba(0xFFFFFF1F).into(),
-            row: rgba(0xFFFFFF14).into(),
-            input: rgba(0xFFFFFF1A).into(),
-            accent: rgb(0x6ABF9B).into(),
-            running: rgb(0x5B9CF5).into(),
-            warning: rgb(0xE5A84A).into(),
-            success: rgb(0x4CB782).into(),
+            bg: theme::ISLAND_BG,
+            fg: theme::TEXT_1,
+            muted: theme::TEXT_2,
+            faint: theme::TEXT_3,
+            border: theme::WHITE_A08,
+            row: theme::WHITE_A04,
+            input: theme::WHITE_A06,
+            accent: theme::ACCENT,
+            running: Color::rgba(91, 156, 245, 255),
+            warning: theme::WARNING,
+            success: theme::SUCCESS,
         }
     } else {
         Palette {
-            bg: rgba(0xF7F7F5F2).into(),
+            bg: rgba(0xF7F7F5FF).into(),
             fg: rgb(0x1B1D21).into(),
-            muted: rgba(0x1B1D2199).into(),
-            faint: rgba(0x1B1D2159).into(),
-            border: rgba(0x00000024).into(),
-            row: rgba(0x0000000F).into(),
+            muted: rgba(0x1B1D21AE).into(),
+            faint: rgba(0x1B1D218A).into(),
+            border: rgba(0x00000014).into(),
+            row: rgba(0x0000000A).into(),
             input: rgba(0x0000000F).into(),
-            accent: rgb(0x3A8F72).into(),
+            accent: rgb(0x2E86B8).into(),
             running: rgb(0x2F6FD0).into(),
             warning: rgb(0xB57616).into(),
             success: rgb(0x2E8B62).into(),
@@ -522,6 +528,7 @@ pub fn App() -> impl IntoElement {
     view()
         .flex_1()
         .items_center()
+        .justify_center()
         .child(when(expanded, move || {
             expanded_island(expanded, settings_open, island_page, shelf_page, shelf, query, items, visible, dark, ai_state, media_state, lyrics, translation, translation_settings, launcher, launcher_settings, batteries, wechat, wechat_enabled, qq, qq_enabled)
         }))
@@ -542,61 +549,109 @@ fn collapsed_island(
     ai: AiState,
     media_state: Signal<Option<MediaState>>,
     lyrics: LyricsState,
-   ) -> impl IntoElement {
+) -> impl IntoElement {
+    let pulse_color = move || {
+        if !ai.enabled.get() {
+            return theme::PULSE;
+        }
+        ai_state_color(palette(dark.get()), ai.snapshot.get().state())
+    };
     view()
-        .bg(move || palette(dark.get()).bg)
-        .border(px(1.0))
-        .border_color(move || palette(dark.get()).border)
-        .rounded(px(18.0))
-        .overflow_hidden()
+        .relative()
+        .w(px(theme::COLLAPSED_WIDTH))
+        .h(px(theme::COLLAPSED_HEIGHT))
+        .min_w(px(0.0))
         .flex_row()
         .items_center()
-        .gap(px(10.0))
-        .px(px(16.0))
-        .h(px(COLLAPSED_HEIGHT))
-        .w(px(COLLAPSED_WIDTH))
-        .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
-        .child(ai_dot(dark, ai))
+        .rounded(px(theme::COLLAPSED_RADIUS))
+        .overflow_hidden()
+        .bg(move || palette(dark.get()).bg)
+        .bg_linear_to_b()
+        .gradient_from(theme::COLLAPSED_TOP)
+        .gradient_to(theme::COLLAPSED_BOTTOM)
+        .shadow(theme::collapsed_shadow(false))
+        .cursor_pointer()
+        .text_color(move || palette(dark.get()).fg)
+        // The leading 8px strip drags the window; the rest of the bar opens it.
+        .child(
+            view()
+                .absolute()
+                .left(px(0.0))
+                .top(px(0.0))
+                .w(px(8.0))
+                .h(px(theme::COLLAPSED_HEIGHT))
+                .window_drag(true),
+        )
+        // The pulse dot: the agent's state color, lit as the Tauri dot is.
+        .child(
+            view()
+                .ml(px(theme::COLLAPSED_PADDING_X))
+                .w(px(9.0))
+                .h(px(9.0))
+                .flex_shrink(0.0)
+                .rounded(px(4.5))
+                .bg(pulse_color)
+                .shadow(theme::soft_glow(theme::PULSE_GLOW, 14.0)),
+        )
         .child(when(
             move || ai.enabled.get() && ai.snapshot.get().state().is_some(),
             move || {
                 text(move || ai_inline_label(ai))
-                    .text_size(px(11.0))
+                    .ml(px(theme::SPACE_MD))
+                    .flex_shrink(0.0)
+                    .text_size(px(theme::HINT_SIZE))
+                    .font_weight(FontWeight::MEDIUM)
                     .text_color(move || ai_state_color(palette(dark.get()), ai.snapshot.get().state()))
             },
         ))
         .child(lyrics_ui::collapsed(lyrics, media_state, dark))
         .child(when(move || ai_unseen(ai) > 0, move || {
-            view()
-                .px(px(6.0))
-                .py(px(1.0))
-                .rounded(px(9.0))
-                .bg(move || palette(dark.get()).warning)
-                .child(
-                    text(move || ai_unseen(ai).to_string())
-                        .text_size(px(9.0))
-                        .text_color(move || palette(dark.get()).bg),
-                )
-                .on_press(move || open_cindy(ai))
+            widgets::count_badge(
+                move || ai_unseen(ai).to_string(),
+                theme::ISLAND_BG,
+                theme::WARNING,
+            )
+            .ml(px(theme::SPACE_SM))
+            .on_press(move || open_cindy(ai))
         }))
-        .child(when(move || shelf_show_count.get() && !shelf.items.get().is_empty(), move || {
-            text(move || t!("island.shelf_collapsed", count = shelf.items.get().len()))
-                .text_size(px(11.0))
-                .text_color(move || palette(dark.get()).muted)
-        }))
+        .child(when(
+            move || shelf_show_count.get() && !shelf.items.get().is_empty(),
+            move || {
+                view()
+                    .ml(px(theme::SPACE_SM))
+                    .h(px(22.0))
+                    .px(px(7.0))
+                    .flex_shrink(0.0)
+                    .flex_row()
+                    .items_center()
+                    .gap(px(4.0))
+                    .rounded(px(11.0))
+                    .bg(theme::WHITE_A08)
+                    .text_color(theme::TEXT_2)
+                    .child(widgets::icon(icons::INBOX, 13.0))
+                    .child(
+                        text(move || shelf.items.get().len().to_string())
+                            .text_size(px(theme::HINT_SIZE))
+                            .font_weight(FontWeight::SEMIBOLD),
+                    )
+            },
+        ))
         .child(
             text(move || t!("island.count", count = items.get().len()))
-                .text_size(px(12.0))
-                .text_color(move || palette(dark.get()).muted),
+                .ml(px(theme::SPACE_MD))
+                .flex_shrink(0.0)
+                .text_size(px(theme::LABEL_SIZE))
+                .text_color(move || palette(dark.get()).faint),
         )
         .child(
-            text("⌄")
-                .text_size(px(16.0))
-                .text_color(move || palette(dark.get()).muted),
+            view()
+                .mr(px(theme::COLLAPSED_PADDING_X))
+                .flex_shrink(0.0)
+                .text_color(theme::TEXT_3)
+                .child(widgets::icon(icons::CHEVRON_UP, 14.0)),
         )
         .on_press(move || window::set_expanded(expanded, true))
 }
-
 enum CopyTarget {
     Text(String),
     Image(String),
@@ -637,49 +692,64 @@ fn expanded_island(
     qq_enabled: Signal<bool>,
 ) -> impl IntoElement {
     view()
-        .bg(move || palette(dark.get()).bg)
-        .border(px(1.0))
-        .border_color(move || palette(dark.get()).border)
-        .rounded(px(18.0))
-        .overflow_hidden()
-        .w(px(EXPANDED_WIDTH))
-        .h(px(EXPANDED_HEIGHT))
+        .w(px(theme::EXPANDED_WIDTH))
+        .h(px(theme::EXPANDED_HEIGHT))
+        .min_w(px(0.0))
         .flex_col()
-        .child(expanded_header(expanded, settings_open, island_page, shelf_page, launcher, launcher_settings, items, dark, ai))
-        .child(when(move || island_page.get(), move || {
-            translation_ui::island_panel(translation, translation_settings, settings_open, dark)
-        }))
-        .child(when(move || shelf_page.get(), move || file_shelf_ui::panel(shelf, dark)))
-        .child(when(move || !island_page.get() && !shelf_page.get(), move || {
+        .rounded(px(theme::EXPANDED_RADIUS))
+        .overflow_hidden()
+        .bg(move || palette(dark.get()).bg)
+        .bg_linear_to_b()
+        .gradient_from(theme::CARD_TOP)
+        .gradient_to(Color::TRANSPARENT)
+        .shadow(theme::card_shadow())
+        .child(expanded_header(
+            expanded,
+            settings_open,
+            island_page,
+            shelf_page,
+            launcher,
+            launcher_settings,
+            dark,
+            ai,
+        ))
+        .child(
             view()
                 .flex_1()
+                .min_w(px(0.0))
+                .mb(px(theme::ISLAND_PADDING_X))
                 .flex_col()
-                .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
-                .child(when(
-                    move || media_state.get().as_ref().is_some_and(|media| media.available),
-                    move || media_panel(media_state, dark),
-                ))
-                .child(when(
-                    move || !media_state.get().as_ref().is_some_and(|media| media.available),
-                    move || media_idle(media_state, dark),
-                ))
-                .child(when(
-                    move || media_state.get().as_ref().is_some_and(|media| media.available),
-                    move || lyrics_ui::panel(lyrics, media_state, dark),
-                ))
-                .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
-                .child(wechat_panel(wechat, wechat_enabled, dark))
-                .child(when(move || qq_enabled.get(), move || qq_ui::panel(qq, dark)))
-                .child(divider(dark))
-                .child(search_and_list(query, items, visible, dark))
-                .child(
-                    view().px(px(18.0)).py(px(8.0)).child(
-                        text(move || t!("island.hint"))
-                            .text_size(px(11.0))
-                            .text_color(move || palette(dark.get()).faint),
-                    ),
-                )
-        }))
+                .rounded(px(theme::PANEL_RADIUS))
+                .overflow_hidden()
+                .child(when(move || island_page.get(), move || {
+                    translation_ui::island_panel(translation, translation_settings, settings_open, dark)
+                }))
+                .child(when(move || shelf_page.get(), move || file_shelf_ui::panel(shelf, dark)))
+                .child(when(move || !island_page.get() && !shelf_page.get(), move || {
+                    view()
+                        .flex_1()
+                        .w_full()
+                        .min_w(px(0.0))
+                        .flex_col()
+                        .child(when(move || ai.enabled.get(), move || ai_panel(ai, dark)))
+                        .child(when(
+                            move || media_state.get().as_ref().is_some_and(|media| media.available),
+                            move || media_panel(media_state, dark),
+                        ))
+                        .child(when(
+                            move || !media_state.get().as_ref().is_some_and(|media| media.available),
+                            move || media_idle(media_state, dark),
+                        ))
+                        .child(when(
+                            move || media_state.get().as_ref().is_some_and(|media| media.available),
+                            move || lyrics_ui::panel(lyrics, media_state, dark),
+                        ))
+                        .child(when(move || !batteries.get().is_empty(), move || battery_panel(batteries, dark)))
+                        .child(wechat_panel(wechat, wechat_enabled, dark))
+                        .child(when(move || qq_enabled.get(), move || qq_ui::panel(qq, dark)))
+                        .child(search_and_list(query, items, visible, dark))
+                })),
+        )
 }
 
 fn expanded_header(
@@ -689,93 +759,120 @@ fn expanded_header(
     shelf_page: Signal<bool>,
     launcher: LauncherState,
     launcher_settings: LauncherSettingsState,
-    items: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
     ai: AiState,
-   ) -> impl IntoElement {
+) -> impl IntoElement {
+    let on_clipboard = move || !island_page.get() && !shelf_page.get();
+    // One relative row: the title and page dots flow from the left, the action
+    // cluster is pinned at `ISLAND_ACTIONS_INSET` so it cannot be pushed out by
+    // whatever the title or a long page row happens to measure.
     view()
+        .relative()
         .flex_row()
         .items_center()
-        .gap(px(10.0))
-        .px(px(18.0))
-        .h(px(44.0))
-        .child(view().w(px(8.0)).h(px(40.0)).window_drag(true))
-        .child(ai_dot(dark, ai))
+        .w_full()
+        .h(px(theme::HEADER_HEIGHT))
+        .mt(px(18.0))
+        .mb(px(theme::ISLAND_GAP))
         .child(
-            text(move || t!("island.clipboard_tab"))
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(move || if island_page.get() || shelf_page.get() { palette(dark.get()).muted } else { palette(dark.get()).fg })
-                .on_press(move || {
-                    island_page.set(false);
-                    shelf_page.set(false);
-                }),
-        )
-        .child(
-            text(move || t!("island.shelf_tab"))
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(move || if shelf_page.get() { palette(dark.get()).fg } else { palette(dark.get()).muted })
-                .on_press(move || {
-                    island_page.set(false);
-                    shelf_page.set(true);
-                }),
-        )
-        .child(
-            text(move || t!("island.translation_tab"))
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(move || if island_page.get() { palette(dark.get()).fg } else { palette(dark.get()).muted })
-                .on_press(move || {
-                    island_page.set(true);
-                    shelf_page.set(false);
-                }),
-        )
-        .child(when(move || !island_page.get() && !shelf_page.get(), move || {
-            text(move || t!("island.count", count = items.get().len()))
-                .text_size(px(12.0))
-                .text_color(move || palette(dark.get()).faint)
-        }))
-        .child(view().flex_1())
-        .child(when(move || ai_unseen(ai) > 0, move || {
             view()
-                .px(px(6.0))
-                .py(px(1.0))
-                .rounded(px(9.0))
-                .bg(move || palette(dark.get()).warning)
+                .absolute()
+                .left(px(0.0))
+                .top(px(0.0))
+                .w(px(8.0))
+                .h(px(theme::HEADER_HEIGHT))
+                .window_drag(true),
+        )
+        .child(
+            view()
+                .ml(px(theme::ISLAND_PADDING_X))
+                .flex_row()
+                .items_center()
+                .gap(px(9.0))
+                .flex_shrink(0.0)
                 .child(
-                    text(move || ai_unseen(ai).to_string())
-                        .text_size(px(9.0))
-                        .text_color(move || palette(dark.get()).bg),
+                    view()
+                        .text_color(theme::ACCENT)
+                        .child(widgets::icon(icons::CLIPBOARD, 15.0)),
                 )
-                .on_press(move || open_cindy(ai))
-        }))
-        .child(
-            text("启")
-                .text_size(px(12.0))
-                .text_color(move || palette(dark.get()).muted)
-                .px(px(6.0))
-                .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
+                .child(
+                    text(move || t!("island.title"))
+                        .text_size(px(theme::BRAND_SIZE))
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(move || palette(dark.get()).fg)
+                        .truncate(),
+                ),
         )
         .child(
-            text(move || if settings_open.get() { "✕" } else { "⚙" })
-                .text_size(px(14.0))
-                .text_color(move || palette(dark.get()).muted)
-                .px(px(6.0))
-                .on_press(move || settings_open.set(!settings_open.get_untracked())),
+            view()
+                .ml(px(theme::SPACE_XL))
+                .flex_row()
+                .items_center()
+                .gap(px(theme::SPACE_XS))
+                .flex_shrink(0.0)
+                .child(widgets::page_dot(theme::DOT_CLIPBOARD, on_clipboard()).on_press(
+                    move || {
+                        island_page.set(false);
+                        shelf_page.set(false);
+                    },
+                ))
+                .child(
+                    widgets::page_dot(theme::DOT_SHELF, shelf_page.get()).on_press(
+                        move || {
+                            island_page.set(false);
+                            shelf_page.set(true);
+                        },
+                    ),
+                )
+                .child(
+                    widgets::page_dot(theme::DOT_TRANSLATION, island_page.get()).on_press(
+                        move || {
+                            island_page.set(true);
+                            shelf_page.set(false);
+                        },
+                    ),
+                ),
         )
         .child(
-            text("⌃")
-                .text_size(px(15.0))
-                .text_color(move || palette(dark.get()).muted)
-                .px(px(6.0))
-                .on_press(move || window::set_expanded(expanded, false)),
+            view()
+                .absolute()
+                .left(px(theme::ISLAND_ACTIONS_INSET))
+                .top(px(0.0))
+                .w(px(theme::ISLAND_ACTIONS_WIDTH))
+                .flex_row()
+                .items_center()
+                .gap(px(4.0))
+                .child(when(move || ai_unseen(ai) > 0, move || {
+                    widgets::count_badge(
+                        move || ai_unseen(ai).to_string(),
+                        theme::ISLAND_BG,
+                        theme::WARNING,
+                    )
+                    .on_press(move || open_cindy(ai))
+                }))
+                .child(
+                    widgets::icon_button(icons::SEARCH, 16.0, theme::TEXT_2)
+                        .on_press(move || launcher_ui::open_now(launcher, launcher_settings)),
+                )
+                .child(when(move || settings_open.get(), move || {
+                    widgets::icon_button(icons::X, 16.0, theme::TEXT_2)
+                        .on_press(move || settings_open.set(false))
+                }))
+                .child(when(move || !settings_open.get(), move || {
+                    widgets::icon_button(icons::SETTINGS, 16.0, theme::TEXT_2)
+                        .on_press(move || settings_open.set(true))
+                }))
+                .child(
+                    widgets::icon_button(icons::CHEVRON_UP, 16.0, theme::TEXT_2)
+                        .on_press(move || window::set_expanded(expanded, false)),
+                ),
         )
 }
 
-fn ai_panel(ai: AiState, dark: Signal<bool>   ) -> impl IntoElement {
+fn ai_panel(ai: AiState, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_col()
+        .w_full()
         .gap(px(3.0))
         .px(px(14.0))
         .pb(px(6.0))
@@ -841,19 +938,6 @@ fn ai_row(ai: AiState, session: ReadSignal<AgentSession>, dark: Signal<bool>) ->
                 .text_size(px(11.0))
                 .text_color(move || palette(dark.get()).fg),
         )
-}
-
-fn ai_dot(dark: Signal<bool>, ai: AiState   ) -> impl IntoElement {
-    view()
-        .w(px(7.0))
-        .h(px(7.0))
-        .rounded(px(4.0))
-        .bg(move || {
-            if !ai.enabled.get() {
-                return palette(dark.get()).accent;
-            }
-            ai_state_color(palette(dark.get()), ai.snapshot.get().state())
-        })
 }
 
 fn ai_state_color(palette: Palette, state: Option<AgentState>) -> Color {
@@ -933,6 +1017,7 @@ fn open_cindy(ai: AiState) {
 fn battery_panel(batteries: Signal<Vec<PeripheralBatteryDevice>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(6.0))
         .px(px(14.0))
@@ -966,6 +1051,7 @@ fn wechat_panel(
 ) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(6.0))
         .px(px(14.0))
@@ -1076,6 +1162,7 @@ fn qq_toggle_row(state: SettingsState) -> impl IntoElement {
 fn media_panel(media_state: Signal<Option<MediaState>>, dark: Signal<bool>   ) -> impl IntoElement {
     view()
         .flex_col()
+        .w_full()
         .gap(px(3.0))
         .px(px(14.0))
         .pb(px(5.0))
@@ -1324,6 +1411,7 @@ fn media_progress(
 fn media_idle(media_state: Signal<Option<MediaState>>, dark: Signal<bool>) -> impl IntoElement {
     view()
         .flex_row()
+        .w_full()
         .items_center()
         .gap(px(8.0))
         .px(px(14.0))
@@ -1532,97 +1620,123 @@ fn search_and_list(
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
-   ) -> impl IntoElement {
+) -> impl IntoElement {
     view()
         .flex_1()
         .flex_col()
+        .gap(px(theme::SPACE_LG))
+        .pt(px(theme::PANEL_PADDING))
+        .pb(px(18.0))
+        // `.clipboard-search`: a 32px field, white 6% fill, focus ring soft.
         .child(
-            view().px(px(12.0)).pt(px(8.0)).pb(px(4.0)).child(
-                input()
-                    .value(move || query.get())
-                    .placeholder(move || t!("island.search"))
-                    .placeholder_color(move || palette(dark.get()).faint)
-                    .text_color(move || palette(dark.get()).fg)
-                    .bg(move || palette(dark.get()).input)
-                    .h(px(30.0))
-                    .px(px(10.0))
-                    .rounded(px(8.0))
-                    .on_focus(move || focus::set_input_focused(true))
-                    .on_blur(move || focus::set_input_focused(false))
-                    .on_change(move |text: &str| {
-                        query.set(text.to_string());
-                    }),
-            ),
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(theme::SPACE_MD))
+                .h(px(32.0))
+                .px(px(9.0))
+                .rounded(px(theme::CARD_RADIUS))
+                .bg(theme::WHITE_A06)
+                .text_color(theme::TEXT_3)
+                .child(widgets::icon(icons::SEARCH, 14.0))
+                .child(
+                    input()
+                        .flex_1()
+                        .value(move || query.get())
+                        .placeholder(move || t!("island.search"))
+                        .placeholder_color(theme::TEXT_PLACEHOLDER)
+                        .text_color(theme::TEXT_1)
+                        .text_size(px(theme::BODY_SIZE))
+                        .on_focus(move || focus::set_input_focused(true))
+                        .on_blur(move || focus::set_input_focused(false))
+                        .on_change(move |text: &str| {
+                            query.set(text.to_string());
+                        }),
+                )
+                .child(when(move || !query.get().is_empty(), move || {
+                    view()
+                        .w(px(24.0))
+                        .h(px(24.0))
+                        .flex_shrink(0.0)
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(12.0))
+                        .text_color(theme::TEXT_2)
+                        .transition()
+                        .duration(140.0)
+                        .hover(|s| s.bg(theme::WHITE_A10).text_color(white()))
+                        .on_press(move || query.set(String::new()))
+                        .child(widgets::icon(icons::X, 13.0))
+                })),
         )
         .child(
             scroll()
                 .flex_1()
                 .scrollbar(false)
-                .px(px(10.0))
-                .py(px(4.0))
+                .pr(px(4.0))
                 .child(when(
                     move || visible.get().is_empty() && !query.get().is_empty(),
                     move || no_results(dark),
                 ))
-                .child(when(
-                    move || items.get().is_empty(),
-                    move || empty_state(dark),
-                ))
+                .child(when(move || items.get().is_empty(), move || empty_state(dark)))
                 .child(each(visible, |item| item.id, move |item, _| {
-                    history_row(item, items, dark)
+                    history_row(item, items)
                 })),
         )
 }
 
-fn history_row(
-    item: ReadSignal<ClipItem>,
-    items: Signal<Vec<ClipItem>>,
-    dark: Signal<bool>,
-) -> impl IntoElement {
+/// One `.clipboard-item`: 44px tall, a 30px lead, a one-line preview, and the
+/// actions that matter (a star when favorited, copy on hover), over a hairline.
+fn history_row(item: ReadSignal<ClipItem>, items: Signal<Vec<ClipItem>>) -> impl IntoElement {
     let snapshot = item.get();
     let copy = snapshot.clone();
     let id = snapshot.id;
-    let content: AnyElement = if snapshot.kind == ClipKind::Image {
-        let thumb: AnyElement = match snapshot.image_url.clone() {
-            Some(url) => image(url)
-                .w(px(120.0))
-                .h(px(48.0))
+    let lead: AnyElement = if snapshot.kind == ClipKind::Image {
+        match snapshot.image_url.clone() {
+            Some(url) => view()
+                .w(px(30.0))
+                .h(px(30.0))
+                .flex_shrink(0.0)
+                .overflow_hidden()
+                .rounded(px(6.0))
+                .bg(theme::WHITE_A04)
+                .child(image(url).w(px(30.0)).h(px(30.0)).object_fit(ResizeMode::Cover))
+                .into_element(),
+            None => widgets::icon_chip(icons::IMAGE, 30.0, theme::TEXT_2, theme::WHITE_A04)
                 .rounded(px(6.0))
                 .into_element(),
-            None => text(move || t!("island.image_missing"))
-                .text_color(move || palette(dark.get()).faint)
-                .into_element(),
-        };
-        view()
-            .flex_col()
-            .gap(px(2.0))
-            .child(thumb)
-            .child(
-                text(format!("{} × {}", snapshot.width, snapshot.height))
-                    .text_size(px(10.0))
-                    .text_color(move || palette(dark.get()).faint),
-            )
-            .into_element()
+        }
     } else {
-        text(snapshot.text.chars().take(160).collect::<String>())
-            .truncate()
-            .text_size(px(12.5))
-            .text_color(move || palette(dark.get()).fg)
+        view()
+            .w(px(30.0))
+            .h(px(30.0))
+            .flex_shrink(0.0)
+            .items_center()
+            .justify_center()
+            .text_color(theme::TEXT_2)
+            .child(widgets::icon(icons::CLIPBOARD, 14.0))
             .into_element()
     };
     view()
+        .group()
         .flex_row()
         .items_center()
-        .gap(px(10.0))
+        .gap(px(theme::SPACE_MD))
+        .h(px(44.0))
+        .px(px(theme::SPACE_MD))
+        .border_b(px(1.0))
+        .border_b_color(theme::WHITE_A08)
+        .transition()
+        .duration(150.0)
+        .hover(|s| s.bg(theme::WHITE_A04))
         .child(
             view()
                 .flex_1()
+                .min_w(px(0.0))
+                .h_full()
                 .flex_row()
                 .items_center()
-                .px(px(10.0))
-                .py(px(8.0))
-                .rounded(px(8.0))
-                .active(|s| s.bg(palette(dark.get()).row))
+                .gap(px(theme::SPACE_MD))
                 .on_press(move || match copy_target(&copy) {
                     CopyTarget::Text(text) => {
                         let _ = set_clipboard(text);
@@ -1634,27 +1748,74 @@ fn history_row(
                     }
                     CopyTarget::None => {}
                 })
-                .child(content)
-                .child(view().flex_1())
+                .child(lead)
                 .child(
-                    text(move || t!("island.copy"))
-                        .text_size(px(10.0))
-                        .text_color(move || palette(dark.get()).faint),
+                    text(snapshot.text.chars().take(160).collect::<String>())
+                        .truncate()
+                        .text_size(px(theme::BODY_SIZE))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(theme::TEXT_1),
                 ),
         )
+        // At rest a row shows only what it holds; copy appears on hover, as the
+        // Tauri row does.
         .child(
-            text(move || if item.get().favorite { "★" } else { "☆" })
-                .text_size(px(15.0))
-                .text_color(move || {
-                    if item.get().favorite {
-                        palette(dark.get()).accent
-                    } else {
-                        palette(dark.get()).faint
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_3)
+                .opacity(0.0)
+                .transition()
+                .duration(150.0)
+                .group_hover(|s| s.opacity(1.0))
+                .hover(|s| s.bg(theme::WHITE_A16).text_color(white()))
+                .on_press(move || match copy_target(&snapshot) {
+                    CopyTarget::Text(text) => {
+                        let _ = set_clipboard(text);
                     }
+                    CopyTarget::Image(url) => {
+                        if !clipboard::write_image(&url) {
+                            set_clipboard_image(url);
+                        }
+                    }
+                    CopyTarget::None => {}
                 })
-                .px(px(8.0))
-                .on_press(move || clipboard::toggle_favorite(items, id)),
+                .child(widgets::icon(icons::COPY, 14.0)),
         )
+        .child(when(move || item.get().favorite, move || {
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_1)
+                .hover(|s| s.bg(theme::WHITE_A16))
+                .on_press(move || clipboard::toggle_favorite(items, id))
+                .child(widgets::icon(icons::STAR, 14.0))
+        }))
+        .child(when(move || !item.get().favorite, move || {
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_3)
+                .opacity(0.0)
+                .transition()
+                .duration(150.0)
+                .group_hover(|s| s.opacity(1.0))
+                .hover(|s| s.bg(theme::WHITE_A16).text_color(white()))
+                .on_press(move || clipboard::toggle_favorite(items, id))
+                .child(widgets::icon(icons::STAR, 14.0))
+        }))
 }
 fn settings_window(
     open: Signal<bool>,
@@ -2226,13 +2387,6 @@ fn no_results(dark: Signal<bool>   ) -> impl IntoElement {
             .text_size(px(12.0))
             .text_color(move || palette(dark.get()).faint),
     )
-}
-
-fn divider(dark: Signal<bool>   ) -> impl IntoElement {
-    view()
-        .h(px(1.0))
-        .w_full()
-        .bg(move || palette(dark.get()).border)
 }
 
 fn save_settings(state: SettingsState) {
