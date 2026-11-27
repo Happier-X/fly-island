@@ -78,6 +78,7 @@ Section "Install"
   Delete "$SMPROGRAMS\fly-island.lnk"
   Delete "$SMPROGRAMS\${AppName}.lnk"
   RMDir /r "$SMPROGRAMS\fly-island"
+  Delete "$DESKTOP\fly-island.lnk"
 
   SetOutPath "$INSTDIR"
   File "${PackageDir}\${AppExe}"
