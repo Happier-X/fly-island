@@ -125,12 +125,22 @@ pwsh -NoProfile -File .\nsh\scripts\tauri-bridge.ps1 -PackageDir nsh\.package\di
   桥接包两种参数都按静默安装处理。
 - 桥接包会结束旧进程、删除 `%LOCALAPPDATA%\fly-island`、旧 Run 值和旧卸载项，再装 NSH 版并拉起岛；
   旧数据目录 `%APPDATA%\com.focusd.island` 保留。
+- 开机自启只在旧版原本开着时才给新版也开：桥接包先读旧 Run 值再删除，不替主人改设置；
+  同时清掉早期 Inno 版留下的 `unins000.*` 和“FocuSD Island (NSH)”快捷方式分组，避免出现两套入口。
 - 桥接版本号必须高于旧 Tauri 版的当前版本（本轮 `3.6.0` → `3.6.1`），并让该 release 成为 Latest，
   `releases/latest/download/latest.json` 才会返回新清单。
 - NSH 自身的更新清单（`app.json` + zip + SHA-256）与 Tauri 的 `latest.json` 是两套格式，不要互相顶替。
 - 已发布资产（`v3.6.0-nsh` 的 Inno 包、zip）保持不动；桥接包是独立文件，不覆盖旧资产。
 - 第一版 NSH 必须包含截图套件；不能以“截图继续留在 Tauri 旧版”作为发布口径。截图由独立专项任务实现，但其完成是首版发布前置条件。
 - 截图现状（2026-11-25）：S1–S3 完成，混合 DPI/HDR 通过；Chromium 长截图与旧版一致受限（旧版 600/855 仅首屏，NSH 600 可连续拼接、855 同旧版），按“与现版持平”记录，不算回归；NSH 设置页已补齐自定义色板、命名模板、工具键、工具栏显隐与界面缩放，对丢矩阵无未分类行，截图不再阻塞发布。详见 docs/architecture/nsh-screenshot.md。
+
+## 迁移验收（2026-11-27 实测）
+
+- 真实路径：本机 Tauri 3.6.0 的自带更新器检查到 3.6.1，下载后以 `/passive /UPDATE` 调桥接包（临时目录名 `fly-island-3.6.1-updater-*`），静默安装完成并自动拉起岛。
+- 安装后目录只有宿主、`app.ico`、`nsh/`、许可证、`uninstall.exe`；宿主 SHA-256 与打包产物一致；窗口 320×40、可见、主屏顶部居中。
+- `%LOCALAPPDATA%\fly-island`、旧 Run 值、旧卸载键、旧快捷方式全部清掉；系统应用列表只剩 `FocuSD Island (NSH) 0.2.0`。
+- 手动以 `/passive /UPDATE` 重复运行验证幂等与自启保留：旧自启不存在时不新开；模拟旧自启存在时迁移为 `FocuSD Island (NSH)` 并删除旧值。
+- 未测：卸载全流程、开机自启在真实登录时生效、托盘图标的视觉确认。
 
 ## 历史验收（2026-11-25，非本次安装器验证）
 

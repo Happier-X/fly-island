@@ -72,6 +72,9 @@ Section "Install"
   Pop $0
 
   ; 迁移：移除旧 Tauri 版的删除残留、开机自启和卸载项。
+  ; 先看旧版是否开着开机自启：只有原来开着才给新版也开，不替主人改设置。
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "FocuSD Island"
+  StrCpy $1 $0
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "FocuSD Island"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\fly-island"
   RMDir /r "${OldInstallDir}"
@@ -79,6 +82,13 @@ Section "Install"
   Delete "$SMPROGRAMS\${AppName}.lnk"
   RMDir /r "$SMPROGRAMS\fly-island"
   Delete "$DESKTOP\fly-island.lnk"
+  ; 早期 NSH 安装器（Inno）留下的卸载器与快捷方式分组，否则会出现两套入口。
+  Delete "$INSTDIR\unins000.exe"
+  Delete "$INSTDIR\unins000.dat"
+  Delete "$SMPROGRAMS\${AppName} (NSH)\${AppName} (NSH).lnk"
+  Delete "$SMPROGRAMS\${AppName} (NSH)\Uninstall ${AppName} (NSH).lnk"
+  RMDir "$SMPROGRAMS\${AppName} (NSH)"
+  Delete "$DESKTOP\${AppName} (NSH).lnk"
 
   SetOutPath "$INSTDIR"
   File "${PackageDir}\${AppExe}"
@@ -98,8 +108,10 @@ Section "Install"
   CreateShortcut "$SMPROGRAMS\${AppName}.lnk" "$INSTDIR\${AppExe}" "" "$INSTDIR\${AppExe}" 0
   CreateShortcut "$DESKTOP\${AppName}.lnk" "$INSTDIR\${AppExe}" "" "$INSTDIR\${AppExe}" 0
 
-  ; 与托盘菜单的“开机自启”共用同一个 Run 值。
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${RunValue}" '"$INSTDIR\${AppExe}"'
+  ; 与托盘菜单的“开机自启”共用同一个 Run 值；仅在旧版原本开着时才写。
+  ${If} $1 != ""
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${RunValue}" '"$INSTDIR\${AppExe}"'
+  ${EndIf}
 
   WriteRegStr HKCU "${UninstallKey}" "DisplayName" "${AppName} (NSH)"
   WriteRegStr HKCU "${UninstallKey}" "DisplayVersion" "${AppVersion}"
