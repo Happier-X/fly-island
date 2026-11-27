@@ -48,7 +48,7 @@ Tauri 版的样式分散在 `src/styles/tokens.css` 与各组件的 `*.css` 里�
 | 1 | 收起胶囊 | `IslandCollapsedBar.tsx/.css` | `lib.rs::collapsed_island` | 本轮完成：38px 圆角胶囊、上下渐变、内嵌高光、9px 状态点带光晕、13px 摘要、`flex-1` 弹性留白、12px 计数、chevron 图标；前 8px 是拖拽区 |
 | 2 | 展开外壳 | `IslandShell.css` | `lib.rs::expanded_island` | 本轮完成：30px 圆角卡片、顶部柔光、投影、14px 分区间距、20/16 内边距、10px 圆角页面容器 |
 | 3 | 页头（标题 / 页点 / 工具按钮） | `IslandHeader.tsx/.css` | `lib.rs::expanded_header` | 本轮完成：15px 粗体标题配强调色图标、三个页点胶囊（悬停放大上浮、选中加长并带光晕）、计数徽章、34px 圆形图标按钮（悬停提亮、按下位移） |
-| 4 | 剪贴板列表 | `IslandClipboard*` | `lib.rs::search_and_list` / `history_row` | 待做：目前是纯文字行 + 文字按钮 |
+| 4 | 剪贴板列表 | `ClipboardHistoryItemRow`、`ClipboardFilters` | `lib.rs::search_and_list` / `history_row` | 本轮完成：32px 搜索框（放大镜图标 + 清空按钮）、44px 行、30px 缩略图/图标、13px 单行预览、发丝分隔线、悬停淡底、26px 圆形复制与收藏按钮。未做：笔记、删除、全部/收藏筛选、面板头、复制成功回钩 |
 | 5 | 设置页 | `src/components/settings/` | `lib.rs` 设置区 | 待做 |
 | 6 | 消息（QQ / 微信 / 邮件） | `IslandMessages*`、`qq_ui.rs`、`mail_ui.rs` | 对应 `*_ui.rs` | 待做 |
 | 7 | 电量 | `IslandBattery*` | `lib.rs::battery_panel` | 待做 |

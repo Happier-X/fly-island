@@ -1596,97 +1596,123 @@ fn search_and_list(
     items: Signal<Vec<ClipItem>>,
     visible: Signal<Vec<ClipItem>>,
     dark: Signal<bool>,
-   ) -> impl IntoElement {
+) -> impl IntoElement {
     view()
         .flex_1()
         .flex_col()
+        .gap(px(theme::SPACE_LG))
+        .pt(px(theme::PANEL_PADDING))
+        .pb(px(18.0))
+        // `.clipboard-search`: a 32px field, white 6% fill, focus ring soft.
         .child(
-            view().px(px(12.0)).pt(px(8.0)).pb(px(4.0)).child(
-                input()
-                    .value(move || query.get())
-                    .placeholder(move || t!("island.search"))
-                    .placeholder_color(move || palette(dark.get()).faint)
-                    .text_color(move || palette(dark.get()).fg)
-                    .bg(move || palette(dark.get()).input)
-                    .h(px(30.0))
-                    .px(px(10.0))
-                    .rounded(px(8.0))
-                    .on_focus(move || focus::set_input_focused(true))
-                    .on_blur(move || focus::set_input_focused(false))
-                    .on_change(move |text: &str| {
-                        query.set(text.to_string());
-                    }),
-            ),
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(theme::SPACE_MD))
+                .h(px(32.0))
+                .px(px(9.0))
+                .rounded(px(theme::CARD_RADIUS))
+                .bg(theme::WHITE_A06)
+                .text_color(theme::TEXT_3)
+                .child(widgets::icon(icons::SEARCH, 14.0))
+                .child(
+                    input()
+                        .flex_1()
+                        .value(move || query.get())
+                        .placeholder(move || t!("island.search"))
+                        .placeholder_color(theme::TEXT_PLACEHOLDER)
+                        .text_color(theme::TEXT_1)
+                        .text_size(px(theme::BODY_SIZE))
+                        .on_focus(move || focus::set_input_focused(true))
+                        .on_blur(move || focus::set_input_focused(false))
+                        .on_change(move |text: &str| {
+                            query.set(text.to_string());
+                        }),
+                )
+                .child(when(move || !query.get().is_empty(), move || {
+                    view()
+                        .w(px(24.0))
+                        .h(px(24.0))
+                        .flex_shrink(0.0)
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(12.0))
+                        .text_color(theme::TEXT_2)
+                        .transition()
+                        .duration(140.0)
+                        .hover(|s| s.bg(theme::WHITE_A10).text_color(white()))
+                        .on_press(move || query.set(String::new()))
+                        .child(widgets::icon(icons::X, 13.0))
+                })),
         )
         .child(
             scroll()
                 .flex_1()
                 .scrollbar(false)
-                .px(px(10.0))
-                .py(px(4.0))
+                .pr(px(4.0))
                 .child(when(
                     move || visible.get().is_empty() && !query.get().is_empty(),
                     move || no_results(dark),
                 ))
-                .child(when(
-                    move || items.get().is_empty(),
-                    move || empty_state(dark),
-                ))
+                .child(when(move || items.get().is_empty(), move || empty_state(dark)))
                 .child(each(visible, |item| item.id, move |item, _| {
-                    history_row(item, items, dark)
+                    history_row(item, items)
                 })),
         )
 }
 
-fn history_row(
-    item: ReadSignal<ClipItem>,
-    items: Signal<Vec<ClipItem>>,
-    dark: Signal<bool>,
-) -> impl IntoElement {
+/// One `.clipboard-item`: 44px tall, a 30px lead, a one-line preview, and the
+/// actions that matter (a star when favorited, copy on hover), over a hairline.
+fn history_row(item: ReadSignal<ClipItem>, items: Signal<Vec<ClipItem>>) -> impl IntoElement {
     let snapshot = item.get();
     let copy = snapshot.clone();
     let id = snapshot.id;
-    let content: AnyElement = if snapshot.kind == ClipKind::Image {
-        let thumb: AnyElement = match snapshot.image_url.clone() {
-            Some(url) => image(url)
-                .w(px(120.0))
-                .h(px(48.0))
+    let lead: AnyElement = if snapshot.kind == ClipKind::Image {
+        match snapshot.image_url.clone() {
+            Some(url) => view()
+                .w(px(30.0))
+                .h(px(30.0))
+                .flex_shrink(0.0)
+                .overflow_hidden()
+                .rounded(px(6.0))
+                .bg(theme::WHITE_A04)
+                .child(image(url).w(px(30.0)).h(px(30.0)).object_fit(ResizeMode::Cover))
+                .into_element(),
+            None => widgets::icon_chip(icons::IMAGE, 30.0, theme::TEXT_2, theme::WHITE_A04)
                 .rounded(px(6.0))
                 .into_element(),
-            None => text(move || t!("island.image_missing"))
-                .text_color(move || palette(dark.get()).faint)
-                .into_element(),
-        };
-        view()
-            .flex_col()
-            .gap(px(2.0))
-            .child(thumb)
-            .child(
-                text(format!("{} × {}", snapshot.width, snapshot.height))
-                    .text_size(px(10.0))
-                    .text_color(move || palette(dark.get()).faint),
-            )
-            .into_element()
+        }
     } else {
-        text(snapshot.text.chars().take(160).collect::<String>())
-            .truncate()
-            .text_size(px(12.5))
-            .text_color(move || palette(dark.get()).fg)
+        view()
+            .w(px(30.0))
+            .h(px(30.0))
+            .flex_shrink(0.0)
+            .items_center()
+            .justify_center()
+            .text_color(theme::TEXT_2)
+            .child(widgets::icon(icons::CLIPBOARD, 14.0))
             .into_element()
     };
     view()
+        .group()
         .flex_row()
         .items_center()
-        .gap(px(10.0))
+        .gap(px(theme::SPACE_MD))
+        .h(px(44.0))
+        .px(px(theme::SPACE_MD))
+        .border_b(px(1.0))
+        .border_b_color(theme::WHITE_A08)
+        .transition()
+        .duration(150.0)
+        .hover(|s| s.bg(theme::WHITE_A04))
         .child(
             view()
                 .flex_1()
+                .min_w(px(0.0))
+                .h_full()
                 .flex_row()
                 .items_center()
-                .px(px(10.0))
-                .py(px(8.0))
-                .rounded(px(8.0))
-                .active(|s| s.bg(palette(dark.get()).row))
+                .gap(px(theme::SPACE_MD))
                 .on_press(move || match copy_target(&copy) {
                     CopyTarget::Text(text) => {
                         let _ = set_clipboard(text);
@@ -1698,27 +1724,74 @@ fn history_row(
                     }
                     CopyTarget::None => {}
                 })
-                .child(content)
-                .child(view().flex_1())
+                .child(lead)
                 .child(
-                    text(move || t!("island.copy"))
-                        .text_size(px(10.0))
-                        .text_color(move || palette(dark.get()).faint),
+                    text(snapshot.text.chars().take(160).collect::<String>())
+                        .truncate()
+                        .text_size(px(theme::BODY_SIZE))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(theme::TEXT_1),
                 ),
         )
+        // At rest a row shows only what it holds; copy appears on hover, as the
+        // Tauri row does.
         .child(
-            text(move || if item.get().favorite { "★" } else { "☆" })
-                .text_size(px(15.0))
-                .text_color(move || {
-                    if item.get().favorite {
-                        palette(dark.get()).accent
-                    } else {
-                        palette(dark.get()).faint
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_3)
+                .opacity(0.0)
+                .transition()
+                .duration(150.0)
+                .group_hover(|s| s.opacity(1.0))
+                .hover(|s| s.bg(theme::WHITE_A16).text_color(white()))
+                .on_press(move || match copy_target(&snapshot) {
+                    CopyTarget::Text(text) => {
+                        let _ = set_clipboard(text);
                     }
+                    CopyTarget::Image(url) => {
+                        if !clipboard::write_image(&url) {
+                            set_clipboard_image(url);
+                        }
+                    }
+                    CopyTarget::None => {}
                 })
-                .px(px(8.0))
-                .on_press(move || clipboard::toggle_favorite(items, id)),
+                .child(widgets::icon(icons::COPY, 14.0)),
         )
+        .child(when(move || item.get().favorite, move || {
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_1)
+                .hover(|s| s.bg(theme::WHITE_A16))
+                .on_press(move || clipboard::toggle_favorite(items, id))
+                .child(widgets::icon(icons::STAR, 14.0))
+        }))
+        .child(when(move || !item.get().favorite, move || {
+            view()
+                .w(px(26.0))
+                .h(px(26.0))
+                .flex_shrink(0.0)
+                .items_center()
+                .justify_center()
+                .rounded(px(13.0))
+                .text_color(theme::TEXT_3)
+                .opacity(0.0)
+                .transition()
+                .duration(150.0)
+                .group_hover(|s| s.opacity(1.0))
+                .hover(|s| s.bg(theme::WHITE_A16).text_color(white()))
+                .on_press(move || clipboard::toggle_favorite(items, id))
+                .child(widgets::icon(icons::STAR, 14.0))
+        }))
 }
 fn settings_window(
     open: Signal<bool>,
