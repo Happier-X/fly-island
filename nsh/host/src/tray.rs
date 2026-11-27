@@ -12,9 +12,10 @@ use windows::{
                 Shell_NotifyIconW,
             },
             WindowsAndMessaging::{
-                AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, IDI_APPLICATION, LoadIconW,
-                MF_SEPARATOR, MF_STRING, PostMessageW, SetForegroundWindow, TPM_RETURNCMD,
-                TPM_RIGHTBUTTON, TrackPopupMenu, WM_CLOSE, WM_LBUTTONUP, WM_RBUTTONUP,
+                AppendMenuW, CheckMenuItem, CreatePopupMenu, DestroyMenu, GetCursorPos,
+                IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, LoadIconW, LoadImageW,
+                MF_CHECKED, MF_SEPARATOR, MF_STRING, PostMessageW, SetForegroundWindow,
+                TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WM_CLOSE, WM_LBUTTONUP, WM_RBUTTONUP,
             },
         },
     },
@@ -22,6 +23,7 @@ use windows::{
 };
 
 use crate::{
+    autostart,
     host::{WM_HOST_TRAY, set_expanded, toggle, toggle_pointer_through},
     island,
 };
@@ -38,11 +40,39 @@ fn icon_data(host: HWND) -> NOTIFYICONDATAW {
     data.uID = 1;
     data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     data.uCallbackMessage = WM_HOST_TRAY;
-    data.hIcon = unsafe { LoadIconW(None, IDI_APPLICATION) }.unwrap_or_default();
+    data.hIcon = app_icon();
     for (slot, unit) in data.szTip.iter_mut().zip("焦点岛".encode_utf16()) {
         *slot = unit;
     }
     data
+}
+
+/// 安装目录旁的 `app.ico`；缺失时退回系统默认图标。
+fn app_icon() -> windows::Win32::UI::WindowsAndMessaging::HICON {
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join("app.ico")));
+    if let Some(path) = path
+        && path.exists()
+    {
+        let wide_path: Vec<u16> = path.to_string_lossy().encode_utf16().chain(Some(0)).collect();
+        // SAFETY: the path is NUL-terminated and `LR_LOADFROMFILE` only reads it.
+        let icon = unsafe {
+            LoadImageW(
+                None,
+                PCWSTR(wide_path.as_ptr()),
+                IMAGE_ICON,
+                0,
+                0,
+                LR_LOADFROMFILE | LR_DEFAULTSIZE,
+            )
+        };
+        if let Ok(handle) = icon {
+            return windows::Win32::UI::WindowsAndMessaging::HICON(handle.0);
+        }
+    }
+    // SAFETY: loading the shared system icon.
+    unsafe { LoadIconW(None, IDI_APPLICATION) }.unwrap_or_default()
 }
 
 pub fn add(host: HWND) {
@@ -81,6 +111,7 @@ fn menu(host: HWND) {
         let monitor_item = wide("移到下一块屏幕");
         let settings_item = wide("设置");
         let shot_item = wide("截图");
+        let autostart_item = wide("开机自启");
         let quit_item = wide("退出");
         let _ = AppendMenuW(menu, MF_STRING, 1, PCWSTR(toggle_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 2, PCWSTR(through_item.as_ptr()));
@@ -88,6 +119,8 @@ fn menu(host: HWND) {
         let _ = AppendMenuW(menu, MF_STRING, 6, PCWSTR(settings_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 7, PCWSTR(shot_item.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, 3, PCWSTR(monitor_item.as_ptr()));
+        let _ = AppendMenuW(menu, MF_STRING, 8, PCWSTR(autostart_item.as_ptr()));
+        let _ = CheckMenuItem(menu, 8, if autostart::enabled() { MF_CHECKED.0 } else { 0 });
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let _ = AppendMenuW(menu, MF_STRING, 4, PCWSTR(quit_item.as_ptr()));
         let mut point = zeroed();
@@ -110,6 +143,7 @@ fn menu(host: HWND) {
             5 => island::toggle_tuck(),
             6 => nsh_app_focusd_island_nsh::embedded::request_settings(),
             7 => nsh_app_focusd_island_nsh::screenshot::capture(),
+            8 => autostart::toggle(),
             4 => {
                 let _ = PostMessageW(Some(host), WM_CLOSE, WPARAM(0), LPARAM(0));
             }

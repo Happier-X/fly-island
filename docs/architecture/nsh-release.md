@@ -1,6 +1,6 @@
 # NSH 发版与更新链路（2026-11-25）
 
-## 打包（2026-11-27 配置，尚未实跑）
+## 打包（2026-11-27，NSH 0.2.0 已实跑）
 
 本机已安装 Inno Setup 6.7.3，不需要再次安装。第一版不签名，邮箱配置延期。
 使用 `nsh/scripts/package.ps1`，不要将 `nsh package` 的默认 runner 当成发布程序。
@@ -24,19 +24,21 @@ pwsh -NoProfile -File .\nsh\scripts\package.ps1 -SkipBuild
 pwsh -NoProfile -File .\nsh\scripts\package.ps1 -PortableOnly
 # ISCC 安装在其他位置时显式指定（不重新安装）
 pwsh -NoProfile -File .\nsh\scripts\package.ps1 -IsccPath 'D:\Tools\Inno Setup 6\ISCC.exe'
+# 老 Tauri 用户在线升级用的 NSIS 桥接包（输入是上面产出的 portable 目录）
+pwsh -NoProfile -File .\nsh\scripts\tauri-bridge.ps1 -PackageDir nsh\.package\dist-0.2.0\portable -BridgeVersion 3.6.1
 ```
 
 输入与产物均在副本内；不依赖 `C:/code/fly-island` 下的编译产物：
 
 - `nsh/.package/target/x86_64-pc-windows-msvc/release/focusd-island-host.exe`：显式构建 `nsh/host/Cargo.toml` 的宿主。
 - `nsh/.package/resources/`：由现有 `nsh build` 生成的 `app.json` 和 `assets/`，不手写运行时格式。
-- `nsh/dist/FocuSD-Island-NSH-<version>-win-x64/portable/`：宿主 exe、`nsh/app.json`、`nsh/assets/`、许可证、NOTICE、AirSnip 依赖声明和 `UNSIGNED.txt`。
+- `nsh/.package/dist-<version>/portable/`：宿主 exe、`nsh/app.json`、`nsh/assets/`、许可证、NOTICE、AirSnip 依赖声明和 `UNSIGNED.txt`。
 - 同级 `FocuSD-Island-NSH-<version>-win-x64.zip`：便携更新包，根目录只有一个宿主 exe，兼容更新器的包根/程序发现逻辑。
 - 同级 `FocuSD-Island-NSH-<version>-win-x64-setup.exe`：仅在 ISCC 成功后才存在。
 - 同级 `SHA256SUMS.txt`、`package-inputs.json`：实际产物哈希、宿主/资源清单哈希与是否跳过构建；不是签名或源码一致性证明。
 
-版本读取 `nsh/nsh.json`，必须与 app/host 两份 Cargo.toml 一致，目前为 `0.1.0`。
-同版本输出目录已存在时拒绝覆盖；请先人工保留或移走，失败残留也不自动删除。
+版本读取 `nsh/nsh.json`，必须与 app/host 两份 Cargo.toml 一致，目前为 `0.2.0`。
+版本号同时决定暂存目录 `nsh/.package/dist-<version>`：暂存刻意留在 `.package` 下，Inno Setup 的 260 字符路径上限容不下带完整包名的深路径。同版本输出目录已存在时拒绝覆盖；请先人工保留或移走，失败残留也不自动删除。
 `-SkipBuild` 不保证二进制与当前源码一致，发布者必须自行确认输入来源。
 宿主翻译及提示音已由源码内嵌；随包仍携带完整 NSH 生成资源，不重新实现资源生成。
 构建的 Cargo target 和 TEMP/TMP 定向到 `nsh/.package/`；不改变全局环境配置。
@@ -49,11 +51,13 @@ pwsh -NoProfile -File .\nsh\scripts\package.ps1 -IsccPath 'D:\Tools\Inno Setup 6
 桌面快捷方式默认不勾选；所有应用快捷方式的工作目录为安装目录。
 自选目录请保持当前用户可写，否则现有在线更新器无法覆盖文件。
 
+勾选“开机自动启动”时写当前用户 Run 值 `FocuSD Island (NSH)`，与宿主托盘菜单里的同一开关共用；
+卸载时由 Inno 的 `uninsdeletevalue` 移除。托盘图标读取安装目录下的 `app.ico`，缺失时回退系统默认图标。
 系统应用列表中注册卸载项；卸载只按 Inno 日志移除其安装文件和快捷方式，
 不递归删除用户数据/旧 Tauri 数据；便携更新新增的文件可能需主人手工清理。
 安装前从托盘退出 NSH；安装器不自动关闭/重启宿主，安装结束也不自动运行应用。
 - 安装器界面使用 Inno 自带英文语言，未签名提示用自定义安装前说明替换；不下载额外语言包。
-`UNSIGNED.txt` 在安装前展示并随包安装；不注册自启，不修改账号，不配置邮箱。
+`UNSIGNED.txt` 在安装前展示并随包安装；不修改账号，不配置邮箱。
 安装器图标复用仓库已有 `src-tauri/icons/icon.ico`，不引入新的图标生成过程。
 
 ### 主人构建与安装清单（本轮未执行）
@@ -115,7 +119,16 @@ pwsh -NoProfile -File .\nsh\scripts\package.ps1 -IsccPath 'D:\Tools\Inno Setup 6
 - NSH 首次启动只读导入旧设置/剪贴板等白名单字段；旧文件不修改、不删除。
 - 旧 Tauri 版建议在 NSH 版设置、剪贴板、消息、外观均确认后再卸载；卸载前保留旧数据目录作为回滚。
 - 若 NSH 更新失败，关闭 NSH 后重新运行上一版便携目录即可；不要用 Tauri 的安装器覆盖 NSH 目录。
-- 自动更新端点不要与 Tauri 的 latest.json 共用：两版格式不同，服务端需分开路径或按版本分流。
+- 老用户迁移走 Tauri 自带的更新器：`nsh/installer/tauri-update.nsi` 由 `tauri-bridge.ps1` 编译成
+  `fly-island_<bridge>_x64-setup.exe`，用 `~/.tauri/fly-island.key` 签名后写进 `latest.json`
+  的 `windows-x86_64.signature`。更新器只会以 `/passive /UPDATE` 或 `/S /UPDATE` 调它，
+  桥接包两种参数都按静默安装处理。
+- 桥接包会结束旧进程、删除 `%LOCALAPPDATA%\fly-island`、旧 Run 值和旧卸载项，再装 NSH 版并拉起岛；
+  旧数据目录 `%APPDATA%\com.focusd.island` 保留。
+- 桥接版本号必须高于旧 Tauri 版的当前版本（本轮 `3.6.0` → `3.6.1`），并让该 release 成为 Latest，
+  `releases/latest/download/latest.json` 才会返回新清单。
+- NSH 自身的更新清单（`app.json` + zip + SHA-256）与 Tauri 的 `latest.json` 是两套格式，不要互相顶替。
+- 已发布资产（`v3.6.0-nsh` 的 Inno 包、zip）保持不动；桥接包是独立文件，不覆盖旧资产。
 - 第一版 NSH 必须包含截图套件；不能以“截图继续留在 Tauri 旧版”作为发布口径。截图由独立专项任务实现，但其完成是首版发布前置条件。
 - 截图现状（2026-11-25）：S1–S3 完成，混合 DPI/HDR 通过；Chromium 长截图与旧版一致受限（旧版 600/855 仅首屏，NSH 600 可连续拼接、855 同旧版），按“与现版持平”记录，不算回归；NSH 设置页已补齐自定义色板、命名模板、工具键、工具栏显隐与界面缩放，对丢矩阵无未分类行，截图不再阻塞发布。详见 docs/architecture/nsh-screenshot.md。
 

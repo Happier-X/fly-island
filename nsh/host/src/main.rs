@@ -18,6 +18,8 @@ fn main() -> std::process::ExitCode {
 }
 
 #[cfg(windows)]
+mod autostart;
+#[cfg(windows)]
 mod island;
 #[cfg(windows)]
 mod tray;

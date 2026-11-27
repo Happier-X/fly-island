@@ -56,16 +56,22 @@ InfoBeforeLabel=该应用和安装器未进行数字签名。仅在确认来源�
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut / 创建桌面快捷方式"; Flags: unchecked
+Name: "autostart"; Description: "Start with Windows / 开机自动启动"; Flags: checkedonce
 
 [Files]
 ; 根目录仅一个应用 exe，保证现有 zip 更新器不会选中默认 runner 或安装器。
 Source: "{#PackageDir}\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PackageDir}\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\nsh\app.json"; DestDir: "{app}\nsh"; Flags: ignoreversion
 Source: "{#PackageDir}\nsh\assets\*"; DestDir: "{app}\nsh\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PackageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\AIRSNIP-THIRD-PARTY.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\UNSIGNED.txt"; DestDir: "{app}"; Flags: ignoreversion
+
+; 开机自启使用当前用户 Run 键，与宿主托盘菜单的“开机自启”开关共用同一项。
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "FocuSD Island (NSH)"; ValueData: """{app}\{#AppExe}"""; Tasks: autostart; Flags: uninsdeletevalue
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"

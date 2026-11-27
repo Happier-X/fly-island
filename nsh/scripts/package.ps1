@@ -38,8 +38,9 @@ foreach ($manifest in @('Cargo.toml', 'host\Cargo.toml')) {
     }
 }
 $name = "FocuSD-Island-NSH-$version-win-x64"
-$dist = Join-Path $nshDir 'dist'
-$release = Join-Path $dist $name
+# 暂存目录保持在 .package 下：Inno Setup 的 260 字符路径上限容不下带完整包名的深路径。
+$dist = $work
+$release = Join-Path $dist "dist-$version"
 $portable = Join-Path $release 'portable'
 $installer = Join-Path $nshDir 'installer\focusd-island.iss'
 
@@ -99,6 +100,8 @@ if (-not (Test-Path -LiteralPath $assets -PathType Container)) {
 $packageNsh = Join-Path $portable 'nsh'
 New-Item -ItemType Directory -Path $packageNsh -Force | Out-Null
 Copy-Item -LiteralPath $exe -Destination (Join-Path $portable 'focusd-island-host.exe')
+Copy-Item -LiteralPath (Join-Path $root 'src-tauri\icons\icon.ico') `
+    -Destination (Join-Path $portable 'app.ico')
 Copy-Item -LiteralPath (Join-Path $resources 'app.json') -Destination $packageNsh
 Copy-Item -LiteralPath $assets -Destination $packageNsh -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE'), (Join-Path $root 'NOTICE') -Destination $portable
